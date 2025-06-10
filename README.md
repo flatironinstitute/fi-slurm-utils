@@ -23,6 +23,27 @@ On the other hand, we could interface with libslurm directly, binding using `rus
 
 For the time being, we will pursue a libslurm implementation. We will default to `clap` for CLI production and `ratatui` for TUI production.
 
+### Porting to Linux node
+
+In order to move the build to a Linux node, we should follow these steps: 
+1. ssh into a rusty node
+
+2. have an admin run the following installations:
+
+```
+sudo dnf groupinstall "Development Tools"
+sudo dnf install llvm-devel clang
+sudo dnf install epel-release
+sudo dnf install slurm-devel json-c-devel hwloc-devel
+```
+
+3. `git pull` the most recent version of the repository
+
+4. Double check pathing in build.rs. The build.rs file for a module-controlled Linux node should not require manual pathing. 
+
+5. run `cargo build`. No additional flags should be necessary for a debug build.
+
+
 
 ## Tasks
 - [ ] Identify capabilities of the `carriero` featureInfo utility and map out its dependencies in libslurm (via PySlurm)
