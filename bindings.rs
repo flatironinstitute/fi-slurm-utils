@@ -1,1 +1,0 @@
-./target/debug/build/fi-node-587651efdc4d5c6b/out/bindings.rs
