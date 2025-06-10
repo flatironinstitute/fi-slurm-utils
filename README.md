@@ -25,25 +25,17 @@ For the time being, we will pursue a libslurm implementation. We will default to
 
 ### Porting to Linux node
 
-In order to move the build to a Linux node, we should follow these steps: 
+In order to rebuild rust bindgen in the Rusty node, follow these steps:
+
 1. ssh into a rusty node
 
-2. have an admin run the following installations:
+2. load the following modules:
+modules/2.4 hwloc/2.11.1 rust/1.85.0 python/3.12.9 gcc/13.3 llvm/19.1.7
+(Python almost certainly isn't necessary, but it was loaded when it worked for the first time so I'm recording it just in case)
 
-```
-sudo dnf groupinstall "Development Tools"
-sudo dnf install llvm-devel clang
-sudo dnf install epel-release
-sudo dnf install slurm-devel json-c-devel hwloc-devel
-```
+3. run `cargo build`. No additional flags should be necessary for a debug build.
 
-3. `git pull` the most recent version of the repository
-
-4. Double check pathing in build.rs. The build.rs file for a module-controlled Linux node should not require manual pathing. 
-
-5. run `cargo build`. No additional flags should be necessary for a debug build.
-
-
+In the event of errors, specifically errors highlighting basic C types like `size_t` not being available, double check the contents of `wrapper.h` and `build.rs`. Ensure that both slurm.h and stddef.h are included, and that build.rs is pointing to valid system directories to access the C standard library.
 
 ## Tasks
 - [ ] Identify capabilities of the `carriero` featureInfo utility and map out its dependencies in libslurm (via PySlurm)
