@@ -1,4 +1,5 @@
-
+#![allow(non_camel_case_types)]
+#![allow(non_upper_case_globals)]
 // This line includes the bindings file that build.rs generates.
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
