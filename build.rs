@@ -16,6 +16,7 @@ fn main() {
     // `module load` has also configured the C include paths.
     let bindings = bindgen::Builder::default()
         .header("wrapper.h")
+        .clang_arg("-I/usr/include/linux")
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         .generate()
         .expect("Unable to generate bindings");
@@ -26,3 +27,5 @@ fn main() {
         .write_to_file(out_path.join("bindings.rs"))
         .expect("Couldn't write bindings!");
 }
+
+
