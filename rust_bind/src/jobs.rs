@@ -4,6 +4,18 @@ use std::ffi::CStr;
 use crate::bindings::{job_info, job_info_msg_t, slurm_free_job_info_msg, slurm_load_jobs};
 use crate::gres::parse_gres_str; // We'll need our GRES parser again
 
+/// Fetches all job information from Slurm and returns it as a safe,
+/// owned Rust data structure.
+///
+/// This function is the primary entry point for accessing job data. It handles
+/// all unsafe FFI calls, data conversion, and memory management internally.
+pub fn get_jobs() -> Result<SlurmJobs, String> {
+    // This single line encapsulates the entire process:
+    // 1. Load the raw C data into our RAII wrapper.
+    // 2. Consume the wrapper to convert the data into our final, safe collection.
+    // The `?` operator will propagate any errors from either step.
+    RawSlurmJobInfo::load()?.into_slurm_jobs()
+}
 
 /// An RAII wrapper around the raw pointer returned by `slurm_load_jobs`.
 ///

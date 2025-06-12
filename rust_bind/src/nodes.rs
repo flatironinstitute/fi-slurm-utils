@@ -74,22 +74,23 @@ impl RawSlurmNodeInfo {
 
 }
 
-fn get_nodes() -> Result<(), String> {
-    let slurm_data_wrapper = RawSlurmNodeInfo::load()?;
-    // data is loaded successfully or exits with a propagated error
-    // when slurm_data goes out of scope at the end of get_nodes(), the relevant memory is automatically freed
-
-    let node_slice: &[node_info] = slurm_data_wrapper.as_slice();
-    // now that the nodes are all loaded in and we've accessed them as a slice, we can iterate over
-    // them quickly and safely
-
-    for (i, raw_node_info) in node_slice.iter().enumerate() {
-
-        let node_name = unsafe {
-            std::ffi::CStr::from_ptr(raw_node_info.name)
-        };
-    }
-    Ok(())
+fn get_nodes() -> Result<SlurmNodes, String> {
+    RawSlurmNodeInfo::load()?.into_slurm_nodes()
+    // let slurm_data_wrapper = RawSlurmNodeInfo::load()?;
+    // // data is loaded successfully or exits with a propagated error
+    // // when slurm_data goes out of scope at the end of get_nodes(), the relevant memory is automatically freed
+    //
+    // let node_slice: &[node_info] = slurm_data_wrapper.as_slice();
+    // // now that the nodes are all loaded in and we've accessed them as a slice, we can iterate over
+    // // them quickly and safely
+    //
+    // for (i, raw_node_info) in node_slice.iter().enumerate() {
+    //
+    //     let node_name = unsafe {
+    //         std::ffi::CStr::from_ptr(raw_node_info.name)
+    //     };
+    // }
+    // Ok(())
 }
 
 // pub const node_states_NODE_STATE_UNKNOWN: node_states = 0;
