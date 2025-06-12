@@ -74,7 +74,7 @@ impl RawSlurmNodeInfo {
 
 }
 
-fn get_nodes() -> Result<SlurmNodes, String> {
+pub fn get_nodes() -> Result<SlurmNodes, String> {
     // This single line encapsulates the entire process:
     // 1. Load the raw C data into our RAII wrapper.
     // 2. Consume the wrapper to convert the data into our final, safe collection.
@@ -262,17 +262,6 @@ impl Node {
             gres_used: c_str_to_string(raw_node.gres_used), // Keep the raw string for reference
             res_cores_per_gpu: raw_node.res_cores_per_gpu, // Assuming this is correct field
             gpu_spec: "TODO: Implement gpu_spec parsing".to_string(), // Placeholder
-            //
-            // // Generic Resources (GRES)
-            // // TODO: The GRES strings (e.g., "gpu:h100:4,license:matlab:1") require
-            // // dedicated parsing logic to populate the HashMaps correctly.
-            // configured_gres: HashMap::new(),
-            // allocated_gres: HashMap::new(),
-            // gres: c_str_to_string(raw_node.gres),
-            // gres_drain: c_str_to_string(raw_node.gres_drain),
-            // gres_used: c_str_to_string(raw_node.gres_used),
-            // res_cores_per_gpu: raw_node.resv_cores, // Assuming this is correct field
-            // gpu_spec: "TODO: Implement gpu_spec parsing".to_string(), // Placeholder
 
             // Time information
             boot_time: time_t_to_datetime(raw_node.boot_time),
