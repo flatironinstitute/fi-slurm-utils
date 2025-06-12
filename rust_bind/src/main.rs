@@ -7,6 +7,7 @@ pub mod energy;
 pub mod gres;
 pub mod nodes;
 pub mod jobs;
+pub mod parser;
 
 use std::{collections::HashMap, ffi::CStr};
 use chrono::{Date, DateTime, NaiveDateTime, TimeZone, Utc};

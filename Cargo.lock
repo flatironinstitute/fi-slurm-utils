@@ -401,6 +401,8 @@ dependencies = [
  "chrono",
  "clap",
  "libc",
+ "once_cell",
+ "regex",
 ]
 
 [[package]]
