@@ -158,8 +158,8 @@ pub struct Node {
     pub free_memory: u64,
     pub mem_spec_limit: u64,
 
-    // Energy information (unit unclear?)
-    _energy: AcctGatherEnergy, // convert
+    // Energy information
+    _energy: Option<AcctGatherEnergy>,
 
     // Slurm Features 
     pub features: Vec<String>,
@@ -291,7 +291,7 @@ impl Node {
             free_memory: raw_node.free_mem, // Assuming this is the correct field
             mem_spec_limit: raw_node.mem_spec_limit,
 
-            _energy: energy.expect("We expect energy to be collected"),
+            _energy: energy,
 
             // Slurm Features
             features: c_str_to_vec(raw_node.features),

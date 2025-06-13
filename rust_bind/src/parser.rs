@@ -32,12 +32,36 @@ pub fn parse_slurm_hostlist(hostlist_str: &str) -> Vec<String> {
     });
 
     let mut expanded_nodes = Vec::new();
+    let mut expressions = Vec::new();
+    let mut current_expression = String::new();
+    let mut bracket_level = 0;
 
-    // The hostlist can itself be a comma-separated list of expressions.
-    // e.g., "node-[01-02],login01"
-    for part in hostlist_str.split(',') {
+    // This loop correctly separates expressions like "node[01-02],login01"
+    // by respecting brackets.
+    for ch in hostlist_str.chars() {
+        match ch {
+            '[' => bracket_level += 1,
+            ']' => bracket_level -= 1,
+            ',' if bracket_level == 0 => {
+                // We found a top-level comma separator.
+                if !current_expression.is_empty() {
+                    expressions.push(current_expression.trim().to_string());
+                    current_expression.clear();
+                }
+                continue; // Skip adding the comma to the expression
+            }
+            _ => {}
+        }
+        current_expression.push(ch);
+    }
+    // Add the last expression to the list.
+    if !current_expression.is_empty() {
+        expressions.push(current_expression.trim().to_string());
+    }
+
+    for part in expressions {
         // For each part, check if it matches our ranged expression regex.
-        if let Some(captures) = RE.captures(part) {
+        if let Some(captures) = RE.captures(&part) {
             // It's a ranged expression like "prefix[ranges]suffix"
             let prefix = captures.get(1).map_or("", |m| m.as_str());
             let range_list = captures.get(2).map_or("", |m| m.as_str());
@@ -78,6 +102,7 @@ pub fn parse_slurm_hostlist(hostlist_str: &str) -> Vec<String> {
     }
 
     expanded_nodes
+
 }
 
 // You can add unit tests within the same file to verify correctness.
@@ -106,6 +131,27 @@ mod tests {
         assert_eq!(parse_slurm_hostlist("gpu[007-009]"), vec!["gpu007", "gpu008", "gpu009"]);
     }
 
+    #[test]
+    #[should_panic]
+    fn test_mixed_padded_range() {
+        assert_eq!(parse_slurm_hostlist("n[01-03]"), vec!["n01", "n02", "n03"]);
+        assert_eq!(parse_slurm_hostlist("gpu[07-009]"), vec!["gpu07", "gpu008", "gpu009"]);
+        // in with multiple levels of padded range, the padding level of the first argument is used as default
+    }
+
+    #[test]
+    fn test_mixed_padded_range_joined() {
+        assert_eq!(parse_slurm_hostlist("n[001-003],gpu[07-09]"), vec!["n001", "n002", "n003", "gpu07", "gpu08", "gpu09"]);
+        // in with multiple levels of padded range, the padding level of the first argument is used as default
+    }
+
+    #[test]
+    fn test_mixed_padded_range_spaced() {
+        assert_eq!(parse_slurm_hostlist("n[001-003], gpu[07-09]"), vec!["n001", "n002", "n003", "gpu07", "gpu08", "gpu09"]);
+        // considers whitespace between commas and the start of new entities as part of the entity
+        // after trimming, should not longer be the case
+    }
+    
     #[test]
     fn test_mixed_ranges() {
         assert_eq!(
