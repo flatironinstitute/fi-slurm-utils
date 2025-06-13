@@ -102,11 +102,16 @@ pub enum NodeState {
     Idle, 
     Mixed, 
     Unknown(String),
+    Compound {
+        base: Box<NodeState>,
+        flags: Vec<u32>,
+    },
     End,
 }
 
 // NOTE: This new `impl From<u32> for NodeState` block should be added to your nodes.rs file.
 // It maps the integer constants from C into our safe Rust enum.
+#[allow(dead_code)]
 impl From<u32> for NodeState {
     fn from(state_num: u32) -> Self {
         // These constants must match the values in your bindings.rs file.
@@ -118,20 +123,56 @@ impl From<u32> for NodeState {
         const NODE_STATE_ERROR: u32 = 4;
         const NODE_STATE_MIXED: u32 = 5;
         const NODE_STATE_FUTURE: u32 = 6;
-        // NOTE: The C enum might have other values for DRAIN, MAINT, etc.
-        // that are combined with these base states in newer versions.
-        // We will map what we can directly.
+        const NODE_STATE_END: u32 = 7;
 
-        match state_num {
-            NODE_STATE_UNKNOWN => NodeState::Unknown("UNKNOWN".to_string()),
+        // The bitmask for the base state (values 0-15, which is 0x0F or 0b1111)
+        const BASE_STATE_MASK: u32 = 0xF;
+        let base_state_num = state_num & BASE_STATE_MASK;
+
+
+        let base_state = match base_state_num {
             NODE_STATE_DOWN => NodeState::Down,
             NODE_STATE_IDLE => NodeState::Idle,
             NODE_STATE_ALLOCATED => NodeState::Allocated,
-            NODE_STATE_ERROR => NodeState::Unknown("ERROR".to_string()), // Or a dedicated Error variant
             NODE_STATE_MIXED => NodeState::Mixed,
-            NODE_STATE_FUTURE => NodeState::Unknown("FUTURE".to_string()), // Or a dedicated Future variant
-            _ => NodeState::Unknown(format!("Untracked State Code: {}", state_num)),
+            _ => NodeState::Unknown(format!("BASE({})", base_state_num)),
+        };
+
+        let flags_num = state_num & !BASE_STATE_MASK;
+
+        if flags_num == 0 {
+            // ie if no flags are set, we just return the base state
+            base_state
+        } else {
+            let mut detected_flags = Vec::new();
+            let mut temp_flags = flags_num;
+            let mut bit = BASE_STATE_MASK + 1;
+            
+            while temp_flags > 0 {
+                if (temp_flags & bit) != 0 {
+                    detected_flags.push(bit);
+                    temp_flags &= !bit;
+                }
+                if bit == 0 {break;}
+                bit <<= 1;
+            }
+
+            NodeState::Compound {
+                base: Box::new(base_state),
+                flags: detected_flags,
+            }
         }
+
+        //match state_num {
+        //    NODE_STATE_UNKNOWN => NodeState::Unknown("UNKNOWN".to_string()),
+        //    NODE_STATE_DOWN => NodeState::Down,
+        //    NODE_STATE_IDLE => NodeState::Idle,
+        //    NODE_STATE_ALLOCATED => NodeState::Allocated,
+        //    NODE_STATE_ERROR => NodeState::Unknown("ERROR".to_string()), // Or a dedicated Error variant
+        //    NODE_STATE_MIXED => NodeState::Mixed,
+        //    NODE_STATE_FUTURE => NodeState::Unknown("FUTURE".to_string()), // Or a dedicated Future variant
+        //    _ => NodeState::Unknown(format!("Untracked State Code: {}", state_num)),
+        //}
     }
 }
 
