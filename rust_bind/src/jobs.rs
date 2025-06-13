@@ -1,4 +1,4 @@
-use chrono::{DateTime, TimeZone, Utc};
+use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use std::ffi::CStr;
 use crate::bindings::{job_info, job_info_msg_t, slurm_free_job_info_msg, slurm_load_jobs};
@@ -90,7 +90,7 @@ impl RawSlurmJobInfo {
             .try_fold(HashMap::new(), |mut map, raw_job| {
                 let safe_job = Job::from_raw_binding(raw_job)?;
                 map.insert(safe_job.job_id, safe_job);
-                Ok(map)
+                Ok::<HashMap<u32, Job>, String>(map)
             })?;
             
         let (last_update, last_backfill) = unsafe {
@@ -246,7 +246,7 @@ impl Job {
              num_cpus: raw_job.num_cpus,
              num_tasks: raw_job.num_tasks,
              nodes: c_str_to_string(raw_job.nodes),
-             allocated_gres: parse_gres_str(raw_job.tres_alloc_str),
+             allocated_gres: unsafe {parse_gres_str(raw_job.tres_alloc_str)},
              work_dir: c_str_to_string(raw_job.work_dir),
              command: c_str_to_string(raw_job.command),
              exit_code: raw_job.exit_code,

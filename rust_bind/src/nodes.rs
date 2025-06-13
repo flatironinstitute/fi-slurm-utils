@@ -1,5 +1,5 @@
 use std::{collections::HashMap, ffi::CStr};
-use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
+use chrono::{DateTime, Utc};
 
 use crate::{bindings::{node_info_msg_t, node_info_t, slurm_free_node_info_msg, slurm_load_node}, energy::AcctGatherEnergy, gres::parse_gres_str};
 
@@ -35,7 +35,7 @@ impl RawSlurmNodeInfo {
         };
 
         if return_code != 0 || node_info_msg_ptr.is_null() {
-            return Err("Failed to load node information from Slurm".to_string());
+            Err("Failed to load node information from Slurm".to_string())
         } else {
             Ok(RawSlurmNodeInfo { ptr: node_info_msg_ptr})
         }
@@ -59,16 +59,16 @@ impl RawSlurmNodeInfo {
         let nodes_map = raw_nodes_slice.iter().try_fold(HashMap::new(), |mut map, raw_node| {
             let safe_node = Node::from_raw_binding(raw_node)?;
             map.insert(safe_node.name.clone(), safe_node);
-            Ok(map)
+            Ok::<HashMap<String, Node>, String>(map)
         })?;
 
         let last_update_timestamp = unsafe { (*self.ptr).last_update };
-        let last_update = chrono::DateTime::from_timestamp(last_update_timestamp, 0).unwrap_or_default();
+        let _last_update = chrono::DateTime::from_timestamp(last_update_timestamp, 0).unwrap_or_default();
         // Utc.from_utc_datetime(&NaiveDateTime::from_timestamp_opt(last_update_timestamp, 0).unwrap_or_default(),);
 
         Ok(SlurmNodes {
             nodes: nodes_map,
-            last_update,
+            _last_update,
         })
     }
 
@@ -105,6 +105,36 @@ pub enum NodeState {
     End,
 }
 
+// NOTE: This new `impl From<u32> for NodeState` block should be added to your nodes.rs file.
+// It maps the integer constants from C into our safe Rust enum.
+impl From<u32> for NodeState {
+    fn from(state_num: u32) -> Self {
+        // These constants must match the values in your bindings.rs file.
+        // e.g., bindings::node_states_NODE_STATE_IDLE
+        const NODE_STATE_UNKNOWN: u32 = 0;
+        const NODE_STATE_DOWN: u32 = 1;
+        const NODE_STATE_IDLE: u32 = 2;
+        const NODE_STATE_ALLOCATED: u32 = 3;
+        const NODE_STATE_ERROR: u32 = 4;
+        const NODE_STATE_MIXED: u32 = 5;
+        const NODE_STATE_FUTURE: u32 = 6;
+        // NOTE: The C enum might have other values for DRAIN, MAINT, etc.
+        // that are combined with these base states in newer versions.
+        // We will map what we can directly.
+
+        match state_num {
+            NODE_STATE_UNKNOWN => NodeState::Unknown("UNKNOWN".to_string()),
+            NODE_STATE_DOWN => NodeState::Down,
+            NODE_STATE_IDLE => NodeState::Idle,
+            NODE_STATE_ALLOCATED => NodeState::Allocated,
+            NODE_STATE_ERROR => NodeState::Unknown("ERROR".to_string()), // Or a dedicated Error variant
+            NODE_STATE_MIXED => NodeState::Mixed,
+            NODE_STATE_FUTURE => NodeState::Unknown("FUTURE".to_string()), // Or a dedicated Future variant
+            _ => NodeState::Unknown(format!("Untracked State Code: {}", state_num)),
+        }
+    }
+}
+
 // pub struct Node, a safe counterpart to node_info_t
 #[derive(Debug, Clone)]
 pub struct Node {
@@ -129,7 +159,7 @@ pub struct Node {
     pub mem_spec_limit: u64,
 
     // Energy information (unit unclear?)
-    energy: AcctGatherEnergy, // convert
+    _energy: AcctGatherEnergy, // convert
 
     // Slurm Features 
     pub features: Vec<String>,
@@ -226,11 +256,24 @@ impl Node {
             Some(AcctGatherEnergy::from_raw_binding(unsafe {&*raw_node.energy})?)
         };
 
+        // Per sysadmin, the END state (7) is used as the sentinel for "not set".
+        // revisit this along with the other enums to make them more robust
+        const NODE_STATE_END: u32 = 7;
+        let next_state_val = if raw_node.next_state == NODE_STATE_END {
+             // We can use a special variant or just map to Unknown.
+            NodeState::Unknown("N/A".to_string())
+        } else {
+            NodeState::from(raw_node.next_state)
+        };
+
+
         Ok(Node {
             // Basic identification
             name: c_str_to_string(raw_node.name),
-            state: NodeState::from("TODO: Get actual state string"), // Placeholder: This needs the full state string.
-            next_state: NodeState::from("TODO: Get next state string"), // Placeholder for next_state.
+            state: NodeState::from(raw_node.node_state), // Directly convert the u32 state
+            next_state: next_state_val,
+            //state: NodeState::from("TODO: Get actual state string"), // Placeholder: This needs the full state string.
+            //next_state: NodeState::from("TODO: Get next state string"), // Placeholder for next_state.
             node_addr: c_str_to_string(raw_node.node_addr),
             node_hostname: c_str_to_string(raw_node.node_hostname),
 
@@ -248,7 +291,7 @@ impl Node {
             free_memory: raw_node.free_mem, // Assuming this is the correct field
             mem_spec_limit: raw_node.mem_spec_limit,
 
-            energy,
+            _energy: energy.expect("We expect energy to be collected"),
 
             // Slurm Features
             features: c_str_to_vec(raw_node.features),
@@ -256,8 +299,8 @@ impl Node {
 
 
             // Generic Resources (GRES)
-            configured_gres: parse_gres_str(raw_node.gres),
-            allocated_gres: parse_gres_str(raw_node.gres_used),
+            configured_gres: unsafe {parse_gres_str(raw_node.gres)},
+            allocated_gres: unsafe {parse_gres_str(raw_node.gres_used)},
             gres: c_str_to_string(raw_node.gres), // Keep the raw string for reference
             gres_drain: c_str_to_string(raw_node.gres_drain),
             gres_used: c_str_to_string(raw_node.gres_used), // Keep the raw string for reference
@@ -310,5 +353,5 @@ impl Node {
 #[derive(Debug, Clone)]
 pub struct SlurmNodes {
     pub nodes: std::collections::HashMap<String, Node>,
-    last_update: DateTime<Utc>,
+    _last_update: DateTime<Utc>,
 }

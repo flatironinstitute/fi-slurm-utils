@@ -4,6 +4,7 @@ use chrono::{DateTime, Utc};
 use crate::bindings::acct_gather_energy_t;
 
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 pub struct AcctGatherEnergy {
     average_watts: u32, // average power consumption of node, in watts
     base_consumed_energy: u64,
@@ -41,8 +42,8 @@ impl AcctGatherEnergy {
             current_watts: raw_energy.current_watts,
             last_adjustment: raw_energy.last_adjustment, // Assuming direct mapping
             previous_consumed_energy: raw_energy.previous_consumed_energy, // Assuming direct mapping
-            poll_time: time_t_to_datetime(raw_energy.poll_time as i64),
-            slurmd_start_time: time_t_to_datetime(raw_energy.slurmd_start_time as i64),
+            poll_time: time_t_to_datetime(raw_energy.poll_time),
+            slurmd_start_time: time_t_to_datetime(raw_energy.slurmd_start_time),
         })
     }
 }

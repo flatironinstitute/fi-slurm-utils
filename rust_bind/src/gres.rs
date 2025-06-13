@@ -14,7 +14,7 @@ use std::ffi::CStr;
 ///
 /// A `HashMap<String, u64>` where the key is the GRES identifier (e.g., "gpu:h100")
 /// and the value is the associated count.
-pub fn parse_gres_str(gres_ptr: *const i8) -> HashMap<String, u64> {
+pub unsafe fn parse_gres_str(gres_ptr: *const i8) -> HashMap<String, u64> {
     // If the pointer is null, there's nothing to parse. Return an empty map.
     if gres_ptr.is_null() {
         return HashMap::new();
