@@ -86,16 +86,25 @@ pub fn build_report(
     for node in nodes.nodes.values() {
         // --- Calculate Allocated CPUs for this specific node ---
         // Sum the CPUs from all jobs running on this node.
-        let alloc_cpus_for_node = if let Some(job_ids) = node_to_job_map.get(&node.name) {
+        let alloc_cpus_for_node: u32 = if let Some(job_ids) = node_to_job_map.get(&node.name) {
             job_ids
                 .iter()
                 .filter_map(|job_id| jobs.jobs.get(job_id)) // Look up each job by its ID
-                .map(|job| job.num_cpus) // Get its CPU count
-                .sum() // Sum them all up
+                .map(|job| {
+                    // Correctly distribute the job's total CPUs across its nodes.
+                    if job.num_nodes > 0 {
+                        // This prevents division by zero and correctly handles single-node jobs.
+                        job.num_cpus / job.num_nodes
+                    } else {
+                        job.num_cpus
+                    }
+                })
+                .sum()
         } else {
             0 // No jobs on this node, so 0 allocated CPUs.
         };
 
+        // --- Derive the true node state ---
         // A node reporting as ALLOCATED might only be partially used. If so, we
         // categorize it as MIXED for a more accurate report.
         let derived_state = if alloc_cpus_for_node > 0 && alloc_cpus_for_node < node.cpus as u32 {
@@ -105,8 +114,7 @@ pub fn build_report(
             node.state.clone()
         };
 
-
-        // Get the report group for the node's current state.
+        // Get the report group for the node's derived state.
         let group = report_data.entry(derived_state).or_default();
 
         // --- Update the Main Summary Line for the Group ---
@@ -154,15 +162,106 @@ pub fn build_report(
         }
         // We handle allocated GRES separately to ensure we only add to subgroups
         // that have a configured count.
-        for gres_name in node.allocated_gres.keys() {
+        for (gres_name, allocated_count) in &node.allocated_gres {
             if let Some(subgroup_line) = group.subgroups.get_mut(gres_name) {
-                 subgroup_line.alloc_gpus += node.allocated_gres[gres_name];
+                 subgroup_line.alloc_gpus += *allocated_count;
             }
         }
     }
 
     report_data
 }
+
+
+
+//pub fn build_report(
+//    nodes: &SlurmNodes,
+//    jobs: &SlurmJobs,
+//    node_to_job_map: &HashMap<String, Vec<u32>>,
+//) -> ReportData {
+//    let mut report_data = ReportData::new();
+//
+//    // Iterate through every node we loaded from Slurm.
+//    for node in nodes.nodes.values() {
+//        // --- Calculate Allocated CPUs for this specific node ---
+//        // Sum the CPUs from all jobs running on this node.
+//        let alloc_cpus_for_node = if let Some(job_ids) = node_to_job_map.get(&node.name) {
+//            job_ids
+//                .iter()
+//                .filter_map(|job_id| jobs.jobs.get(job_id)) // Look up each job by its ID
+//                .map(|job| job.num_cpus) // Get its CPU count
+//                .sum() // Sum them all up
+//        } else {
+//            0 // No jobs on this node, so 0 allocated CPUs.
+//        };
+//
+//        // A node reporting as ALLOCATED might only be partially used. If so, we
+//        // categorize it as MIXED for a more accurate report.
+//        let derived_state = if alloc_cpus_for_node > 0 && alloc_cpus_for_node < node.cpus as u32 {
+//            NodeState::Mixed
+//        } else {
+//            // Otherwise, we trust the state reported by Slurm.
+//            node.state.clone()
+//        };
+//
+//
+//        // Get the report group for the node's current state.
+//        let group = report_data.entry(derived_state).or_default();
+//
+//        // --- Update the Main Summary Line for the Group ---
+//        group.summary.node_count += 1;
+//        group.summary.total_cpus += node.cpus as u32;
+//        group.summary.alloc_cpus += alloc_cpus_for_node;
+//        for (gres_name, &count) in &node.configured_gres {
+//            if gres_name.starts_with("gpu") {
+//                group.summary.total_gpus += count;
+//            }
+//        }
+//        for (gres_name, &count) in &node.allocated_gres {
+//            if gres_name.starts_with("gpu") {
+//                group.summary.alloc_gpus += count;
+//            }
+//        }
+//
+//        // --- Feature Subgroup Logic ---
+//        if let Some(feature) = node.features.first() {
+//            let subgroup_line = group.subgroups.entry(feature.clone()).or_default();
+//            subgroup_line.node_count += 1;
+//            subgroup_line.total_cpus += node.cpus as u32;
+//            subgroup_line.alloc_cpus += alloc_cpus_for_node;
+//            // The feature subgroup line shows stats for all GPUs on the node.
+//            for (gres_name, &count) in &node.configured_gres {
+//                if gres_name.starts_with("gpu") {
+//                    subgroup_line.total_gpus += count;
+//                }
+//            }
+//            for (gres_name, &count) in &node.allocated_gres {
+//                if gres_name.starts_with("gpu") {
+//                    subgroup_line.alloc_gpus += count;
+//                }
+//            }
+//        }
+//
+//        // --- GRES Subgroup Logic ---
+//        // Replicating the original script's behavior, where a node can contribute
+//        // to multiple GRES subgroups.
+//        for gres_name in node.configured_gres.keys() {
+//            let subgroup_line = group.subgroups.entry(gres_name.clone()).or_default();
+//            subgroup_line.node_count += 1;
+//            subgroup_line.total_cpus += node.cpus as u32;
+//            subgroup_line.alloc_cpus += alloc_cpus_for_node;
+//        }
+//        // We handle allocated GRES separately to ensure we only add to subgroups
+//        // that have a configured count.
+//        for gres_name in node.allocated_gres.keys() {
+//            if let Some(subgroup_line) = group.subgroups.get_mut(gres_name) {
+//                 subgroup_line.alloc_gpus += node.allocated_gres[gres_name];
+//            }
+//        }
+//    }
+//
+//    report_data
+//}
 
 /// Formats and prints the aggregated report data to the console.
 pub fn print_report(report_data: &ReportData) {
