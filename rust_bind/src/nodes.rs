@@ -1,7 +1,7 @@
 use std::{collections::HashMap, ffi::CStr};
 use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 
-use crate::{bindings::{node_info, node_info_msg_t, node_info_t, slurm_free_node_info_msg, slurm_load_node}, energy::AcctGatherEnergy, gres::parse_gres_str};
+use crate::{bindings::{node_info_msg_t, node_info_t, slurm_free_node_info_msg, slurm_load_node}, energy::AcctGatherEnergy, gres::parse_gres_str};
 
 pub struct RawSlurmNodeInfo {
     ptr: *mut node_info_msg_t,
@@ -35,8 +35,7 @@ impl RawSlurmNodeInfo {
         };
 
         if return_code != 0 || node_info_msg_ptr.is_null() {
-            Err("Failed to load node information from Slurm".to_string());
-            return;
+            return Err("Failed to load node information from Slurm".to_string());
         } else {
             Ok(RawSlurmNodeInfo { ptr: node_info_msg_ptr})
         }
@@ -64,7 +63,8 @@ impl RawSlurmNodeInfo {
         })?;
 
         let last_update_timestamp = unsafe { (*self.ptr).last_update };
-        let last_update = Utc.from_utc_datetime(&NaiveDateTime::from_timestamp_opt(last_update_timestamp, 0).unwrap_or_default(),);
+        let last_update = chrono::DateTime::from_timestamp(last_update_timestamp, 0).unwrap_or_default();
+        // Utc.from_utc_datetime(&NaiveDateTime::from_timestamp_opt(last_update_timestamp, 0).unwrap_or_default(),);
 
         Ok(SlurmNodes {
             nodes: nodes_map,
@@ -166,7 +166,6 @@ pub struct Node {
     pub partitions: String,
     pub port: u16,
     pub comment: String,
-    pub reason: String,
     pub reason_time: DateTime<Utc>,
     pub reason_uid: u32,
     pub resume_after: DateTime<Utc>,
@@ -214,9 +213,11 @@ impl Node {
         let time_t_to_datetime = |timestamp: i64| -> DateTime<Utc> {
             // Create a NaiveDateTime and then convert to UTC DateTime.
             // Using unwrap_or_default for robustness against out-of-range timestamps.
-            Utc.from_utc_datetime(
-                &chrono::NaiveDateTime::from_timestamp_opt(timestamp, 0).unwrap_or_default(),
-            )
+           chrono::DateTime::from_timestamp(timestamp, 0).unwrap_or_default()
+
+            //Utc.from_utc_datetime(
+            //    &chrono::NaiveDateTime::from_timestamp_opt(timestamp, 0).unwrap_or_default(),
+            //)
         };
 
         let energy = if raw_node.energy.is_null() {

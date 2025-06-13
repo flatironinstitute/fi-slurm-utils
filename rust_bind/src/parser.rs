@@ -5,7 +5,6 @@
 
 use once_cell::sync::Lazy;
 use regex::Regex;
-use std::collections::VecDeque;
 
 /// A robust parser for Slurm hostlist strings.
 ///

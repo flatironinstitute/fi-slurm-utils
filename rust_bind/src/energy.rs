@@ -1,9 +1,9 @@
-use std::{collections::HashMap, ffi::CStr};
-use chrono::{Date, DateTime, TimeZone, Utc};
+use chrono::{DateTime, Utc};
 
 
 use crate::bindings::acct_gather_energy_t;
 
+#[derive(Clone, Debug)]
 pub struct AcctGatherEnergy {
     average_watts: u32, // average power consumption of node, in watts
     base_consumed_energy: u64,
@@ -27,9 +27,11 @@ impl AcctGatherEnergy {
     ) -> Result<Self, String> {
         // This helper can be shared or defined locally.
         let time_t_to_datetime = |timestamp: i64| -> DateTime<Utc> {
-            Utc.from_utc_datetime(
-                &chrono::NaiveDateTime::from_timestamp_opt(timestamp, 0).unwrap_or_default(),
-            )
+
+           chrono::DateTime::from_timestamp(timestamp, 0).unwrap_or_default()
+            //Utc.from_utc_datetime(
+            //    &chrono::NaiveDateTime::from_timestamp_opt(timestamp, 0).unwrap_or_default(),
+            //)
         };
 
         Ok(AcctGatherEnergy {

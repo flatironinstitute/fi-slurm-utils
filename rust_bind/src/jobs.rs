@@ -96,7 +96,8 @@ impl RawSlurmJobInfo {
         let (last_update, last_backfill) = unsafe {
             let msg = &*self.ptr;
             let time_t_to_datetime = |timestamp: i64| -> DateTime<Utc> {
-                Utc.from_utc_datetime(&chrono::NaiveDateTime::from_timestamp_opt(timestamp, 0).unwrap_or_default())
+                chrono::DateTime::from_timestamp(timestamp, 0).unwrap_or_default()
+                //Utc.from_utc_datetime(&chrono::NaiveDateTime::from_timestamp_opt(timestamp, 0).unwrap_or_default())
             };
             (time_t_to_datetime(msg.last_update), time_t_to_datetime(msg.last_backfill))
         };
@@ -219,9 +220,10 @@ impl Job {
 
         // Helper to convert time_t into a DateTime<Utc>.
         let time_t_to_datetime = |timestamp: i64| -> DateTime<Utc> {
-            Utc.from_utc_datetime(
-                &chrono::NaiveDateTime::from_timestamp_opt(timestamp, 0).unwrap_or_default()
-            )
+            chrono::DateTime::from_timestamp(timestamp, 0).unwrap_or_default()
+            //Utc.from_utc_datetime(
+            //    &chrono::NaiveDateTime::from_timestamp_opt(timestamp, 0).unwrap_or_default()
+            //)
         };
 
         Ok(Job {

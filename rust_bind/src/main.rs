@@ -9,14 +9,10 @@ pub mod nodes;
 pub mod jobs;
 pub mod parser;
 
-use std::{collections::HashMap, ffi::CStr};
-use chrono::{Date, DateTime, NaiveDateTime, TimeZone, Utc};
+use std::collections::HashMap;
 
-use bindings::{acct_gather_energy_t, int_least8_t, node_info_msg_t, slurm_api_version, slurm_free_node_info_msg, slurm_load_node};
-use energy::AcctGatherEnergy;
-use gres::parse_gres_str;
 use crate::jobs::{get_jobs, SlurmJobs};
-use crate::nodes::{get_nodes, SlurmNodes};
+use crate::nodes::get_nodes;
 
 // This line includes the bindings file that build.rs generates.
 //include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
