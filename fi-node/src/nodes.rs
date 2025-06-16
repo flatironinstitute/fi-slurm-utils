@@ -298,14 +298,31 @@ impl fmt::Display for NodeState {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             NodeState::Compound { base, flags } => {
-                // Creates strings like "IDLE+DRAIN"
-                write!(f, "{}+{}", base, flags.join("+"))
+                let flags_str = flags
+                    .iter()
+                    .map(|flag| flag.to_uppercase())
+                    .collect::<Vec<String>>()
+                    .join("+");
+                write!(f, "{}+{}", base.to_string().to_uppercase(), flags_str)
             }
             NodeState::Unknown(s) => write!(f, "UNKNOWN({})", s),
             _ => write!(f, "{:?}", self),
         }
     }
 }
+
+//impl fmt::Display for NodeState {
+//    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//        match self {
+//            NodeState::Compound { base, flags } => {
+//                // Creates strings like "IDLE+DRAIN"
+//                write!(f, "{}+{}", base, flags.join("+"))
+//            }
+//            NodeState::Unknown(s) => write!(f, "UNKNOWN({})", s),
+//            _ => write!(f, "{:?}", self),
+//        }
+//    }
+//}
 
 // pub struct Node, a safe counterpart to node_info_t
 #[derive(Debug, Clone)]
