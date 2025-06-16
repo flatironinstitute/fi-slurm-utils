@@ -10,10 +10,9 @@ pub mod jobs;
 pub mod parser;
 pub mod report;
 
+use clap::Parser;
 use std::collections::HashMap;
-
-use crate::jobs::{get_jobs, SlurmJobs};
-use crate::nodes::get_nodes;
+use crate::jobs::SlurmJobs;
 
 // This line includes the bindings file that build.rs generates.
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
@@ -42,6 +41,8 @@ include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 /// 3. Aggregate all data into a structured report format.
 /// 4. Print the final, formatted report to the console.
 fn main() -> Result<(), String> {
+
+    let _args = Args::parse();
 
     // --- 0. Global Slurm Initialization ---
     // This MUST be the very first Slurm function called. It initializes
@@ -82,7 +83,7 @@ fn main() -> Result<(), String> {
     let report = report::build_report(&nodes_collection, &jobs_collection, &node_to_job_map);
     println!("Aggregated data into {} state groups.", report.len());
 
-    // --- 4. Print Final Report ---
+    // --- 5. Print Final Report ---
     println!("\n--- Slurm Node Feature Report ---");
     report::print_report(&report);
 
@@ -114,6 +115,18 @@ fn build_node_to_job_map(jobs: &SlurmJobs) -> HashMap<String, Vec<u32>> {
     }
 
     node_map
+}
+
+/// A command-line utility to report the state of a Slurm cluster,
+/// showing a summary of nodes grouped by state and feature.
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    // We don't have any arguments yet, but they would be defined here.
+    // For example:
+    // /// Filter nodes by a specific feature
+    // #[arg(short, long)]
+    // feature: Option<String>,
 }
 
 // This struct ensures that the Slurm configuration is automatically
@@ -157,56 +170,4 @@ impl Drop for SlurmConfig {
     }
 }
 
-//fn parse_slurm_hostlist(hostlist_str: &str) -> Vec<String> {
-//    // TODO: This is a placeholder. A real implementation would require a proper
-//    // parser, potentially using regex or a small state machine, to handle the
-//    // full Slurm hostlist syntax.
-//
-//    // For now, we'll just handle simple, comma-separated lists.
-//    if hostlist_str.contains('[') {
-//        eprintln!(
-//            "Warning: Hostlist range parsing is not yet implemented. Treating '{}' as a single node.",
-//            hostlist_str
-//        );
-//        return vec![hostlist_str.to_string()];
-//    }
-//
-//    hostlist_str.split(',').map(String::from).collect()
-//}
-
-
-
-///// The main entry point for the application.
-//fn main() -> Result<(), String> {
-//    println!("Loading data from Slurm...");
-//
-//    // 1. Load all node and job information.
-//    // The `?` operator will handle any errors during the FFI calls or data conversion.
-//    let nodes_collection = get_nodes()?;
-//    let jobs_collection = get_jobs()?;
-//
-//    println!(
-//        "Successfully loaded {} nodes and {} jobs.",
-//        nodes_collection.nodes.len(),
-//        jobs_collection.jobs.len()
-//    );
-//
-//    // 2. Build the cross-reference map from node names to the jobs running on them.
-//    let node_to_jobs_map = build_node_to_job_map(&jobs_collection);
-//
-//    println!(
-//        "Built a map cross-referencing {} nodes with active jobs.",
-//        node_to_jobs_map.len()
-//    );
-//
-//    // --- Future steps would go here ---
-//    // For example, iterate through nodes, get their state, look up jobs
-//    // from the map, and aggregate the report data.
-//
-//    // Example: Print jobs running on a specific node (if it exists)
-//    if let Some(jobs_on_node) = node_to_jobs_map.get("compute-01") {
-//        println!("Jobs running on compute-01: {:?}", jobs_on_node);
-//    }
-//
-//    Ok(())
 
