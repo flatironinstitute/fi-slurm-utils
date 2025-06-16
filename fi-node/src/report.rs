@@ -291,18 +291,42 @@ pub fn print_report(report_data: &ReportData) {
     let total_gpu_str = format!("{:>5}/{:<5}", total_line.alloc_gpus, total_line.total_gpus);
     println!("{:<width$} {:>5} {:>13} {:>13}", "TOTAL".bold(), total_line.node_count, total_cpu_str, total_gpu_str, width = max_state_width);
 
-    // --- Print Utilization Bar ---
+    // --- Print Utilization Bars ---
+    println!(); // Add a newline for spacing
+
+    // Calculate utilized nodes (any node not explicitly idle, down, or in maintenance)
+    let utilized_nodes = report_data.iter().fold(0, |acc, (state, group)| {
+        let is_utilized = match state {
+            NodeState::Allocated | NodeState::Mixed => true,
+            NodeState::Compound{ base, ..} => matches!(**base, NodeState::Allocated | NodeState::Mixed),
+            _ => false,
+        };
+        if is_utilized { acc + group.summary.node_count } else { acc }
+    });
+
+    if total_line.node_count > 0 {
+        let utilization_percent = (utilized_nodes as f64 / total_line.node_count as f64) * 100.0;
+        let bar_width = 50;
+        let filled_chars = (bar_width as f64 * (utilization_percent / 100.0)).round() as usize;
+
+        let filled_bar = "█".repeat(filled_chars).blue();
+        let empty_chars = if filled_chars >= bar_width { 0 } else { bar_width - filled_chars };
+        let empty_bar = "░".repeat(empty_chars).normal();
+        
+        println!("Overall Node Utilization:  [{}{}] {:.1}%", filled_bar, empty_bar, utilization_percent);
+    }
+
+
     if total_line.total_cpus > 0 {
         let utilization_percent = (total_line.alloc_cpus as f64 / total_line.total_cpus as f64) * 100.0;
         let bar_width = 50;
         let filled_chars = (bar_width as f64 * (utilization_percent / 100.0)).round() as usize;
         
         let filled_bar = "█".repeat(filled_chars).red();
-        // Replace saturating_sub with a stable equivalent
         let empty_chars = if filled_chars >= bar_width { 0 } else { bar_width - filled_chars };
         let empty_bar = "░".repeat(empty_chars).green();
 
-        println!("\nOverall CPU Utilization: [{}{}] {:.1}%", filled_bar, empty_bar, utilization_percent);
+        println!("Overall CPU Utilization:   [{}{}] {:.1}%", filled_bar, empty_bar, utilization_percent);
     }
 }
 
