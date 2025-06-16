@@ -1,6 +1,7 @@
 use crate::nodes::{NodeState, SlurmNodes};
 use crate::jobs::SlurmJobs;
 use std::collections::HashMap;
+use colored::*;
 
 /// Represents the aggregated statistics for a single line in the final report.
 ///
@@ -186,16 +187,17 @@ pub fn print_report(report_data: &ReportData) {
     // Add a little extra padding
     max_state_width += 2;
 
+    // --- Sort the states for consistent output ---
     let state_order: HashMap<NodeState, usize> = [
-            (NodeState::Idle, 0),
-            (NodeState::Mixed, 1),
-            (NodeState::Allocated, 2),
-            (NodeState::Error, 3),
-            (NodeState::Down, 4),
-        ]
-        .iter()
-        .cloned()
-        .collect();
+        (NodeState::Idle, 0),
+        (NodeState::Mixed, 1),
+        (NodeState::Allocated, 2),
+        (NodeState::Error, 3), // Using the revised order
+        (NodeState::Down, 4),
+    ]
+    .iter()
+    .cloned()
+    .collect();
 
     let mut sorted_states: Vec<&NodeState> = report_data.keys().collect();
     sorted_states.sort_by_key(|a| {
@@ -210,7 +212,7 @@ pub fn print_report(report_data: &ReportData) {
     // --- Print Headers ---
     println!(
         "{:<width$} {:>5} {:>13} {:>13}",
-        "STATE", "COUNT", "CPU (A/T)", "GPU (A/T)", width = max_state_width
+        "STATE".bold(), "COUNT".bold(), "CPU (A/T)".bold(), "GPU (A/T)".bold(), width = max_state_width
     );
     println!("{}", "-".repeat(max_state_width + 36));
 
@@ -225,8 +227,34 @@ pub fn print_report(report_data: &ReportData) {
             total_line.total_gpus += group.summary.total_gpus;
             total_line.alloc_gpus += group.summary.alloc_gpus;
 
-            // Format the stats for printing
-            let state_str = state.to_string().to_uppercase();
+            // --- Apply color selectively based on state ---
+            let state_display_str = match state {
+                NodeState::Compound { base, flags } => {
+                    let base_str = base.to_string().to_uppercase();
+                    let flags_str = format!("+{}", flags.join("+").to_uppercase());
+                    let colored_base = match **base {
+                        NodeState::Idle => base_str.green(),
+                        NodeState::Mixed => base_str.blue(),
+                        NodeState::Allocated => base_str.yellow(),
+                        NodeState::Down => base_str.red(),
+                        NodeState::Error => base_str.magenta(),
+                        _ => base_str.cyan(), // Default for other base states in a compound
+                    };
+                    format!("{}{}", colored_base, flags_str)
+                }
+                _ => {
+                    let state_str = state.to_string().to_uppercase();
+                    match state {
+                        NodeState::Idle => state_str.green().to_string(),
+                        NodeState::Mixed => state_str.blue().to_string(),
+                        NodeState::Allocated => state_str.yellow().to_string(),
+                        NodeState::Down => state_str.red().bold().to_string(),
+                        NodeState::Error => state_str.magenta().to_string(),
+                        _ => state_str, // For Unknown, Reserved etc.
+                    }
+                }
+            };
+            
             let cpu_str = format!("{:>5}/{:<5}", group.summary.alloc_cpus, group.summary.total_cpus);
             let gpu_str = if group.summary.total_gpus > 0 {
                 format!("{:>5}/{:<5}", group.summary.alloc_gpus, group.summary.total_gpus)
@@ -234,7 +262,7 @@ pub fn print_report(report_data: &ReportData) {
                 "-".to_string()
             };
             
-            println!("{:<width$} {:>5} {:>13} {:>13}", state_str, group.summary.node_count, cpu_str, gpu_str, width = max_state_width);
+            println!("{:<width$} {:>5} {:>13} {:>13}", state_display_str, group.summary.node_count, cpu_str, gpu_str, width = max_state_width);
 
             // Print the subgroups
             let mut sorted_subgroups: Vec<&String> = group.subgroups.keys().collect();
@@ -260,8 +288,112 @@ pub fn print_report(report_data: &ReportData) {
     println!("{}", "-".repeat(max_state_width + 36));
     let total_cpu_str = format!("{:>5}/{:<5}", total_line.alloc_cpus, total_line.total_cpus);
     let total_gpu_str = format!("{:>5}/{:<5}", total_line.alloc_gpus, total_line.total_gpus);
-    println!("{:<width$} {:>5} {:>13} {:>13}", "TOTAL", total_line.node_count, total_cpu_str, total_gpu_str, width = max_state_width);
+    println!("{:<width$} {:>5} {:>13} {:>13}", "TOTAL".bold(), total_line.node_count, total_cpu_str, total_gpu_str, width = max_state_width);
+
+    // --- Print Utilization Bar ---
+    if total_line.total_cpus > 0 {
+        let utilization_percent = (total_line.alloc_cpus as f64 / total_line.total_cpus as f64) * 100.0;
+        let bar_width = 50;
+        let filled_chars = (bar_width as f64 * (utilization_percent / 100.0)).round() as usize;
+        
+        let filled_bar = "█".repeat(filled_chars).red();
+        // Replace saturating_sub with a stable equivalent
+        let empty_chars = if filled_chars >= bar_width { 0 } else { bar_width - filled_chars };
+        let empty_bar = "░".repeat(empty_chars).green();
+
+        println!("\nOverall CPU Utilization: [{}{}] {:.1}%", filled_bar, empty_bar, utilization_percent);
+    }
 }
+
+// pub fn print_report(report_data: &ReportData) {
+//     // --- Pass 1: Pre-calculate the maximum width for the first column ---
+//     let mut max_state_width = "STATE".len();
+//     for (state, group) in report_data.iter() {
+//         max_state_width = max_state_width.max(state.to_string().len());
+//         for subgroup_name in group.subgroups.keys() {
+//             // Add 2 for the indentation "  "
+//             max_state_width = max_state_width.max(subgroup_name.len() + 2);
+//         }
+//     }
+//     // Add a little extra padding
+//     max_state_width += 2;
+//
+//     let state_order: HashMap<NodeState, usize> = [
+//             (NodeState::Idle, 0),
+//             (NodeState::Mixed, 1),
+//             (NodeState::Allocated, 2),
+//             (NodeState::Error, 3),
+//             (NodeState::Down, 4),
+//         ]
+//         .iter()
+//         .cloned()
+//         .collect();
+//
+//     let mut sorted_states: Vec<&NodeState> = report_data.keys().collect();
+//     sorted_states.sort_by_key(|a| {
+//         // Handle compound states by sorting based on their base state.
+//         if let NodeState::Compound { base, .. } = a {
+//             state_order.get(base).unwrap_or(&99)
+//         } else {
+//             state_order.get(a).unwrap_or(&99)
+//         }
+//     });
+//
+//     // --- Print Headers ---
+//     println!(
+//         "{:<width$} {:>5} {:>13} {:>13}",
+//         "STATE", "COUNT", "CPU (A/T)", "GPU (A/T)", width = max_state_width
+//     );
+//     println!("{}", "-".repeat(max_state_width + 36));
+//
+//     // --- Print Main Report ---
+//     let mut total_line = ReportLine::default();
+//     for state in sorted_states {
+//         if let Some(group) = report_data.get(state) {
+//             // Add to grand totals
+//             total_line.node_count += group.summary.node_count;
+//             total_line.total_cpus += group.summary.total_cpus;
+//             total_line.alloc_cpus += group.summary.alloc_cpus;
+//             total_line.total_gpus += group.summary.total_gpus;
+//             total_line.alloc_gpus += group.summary.alloc_gpus;
+//
+//             // Format the stats for printing
+//             let state_str = state.to_string().to_uppercase();
+//             let cpu_str = format!("{:>5}/{:<5}", group.summary.alloc_cpus, group.summary.total_cpus);
+//             let gpu_str = if group.summary.total_gpus > 0 {
+//                 format!("{:>5}/{:<5}", group.summary.alloc_gpus, group.summary.total_gpus)
+//             } else {
+//                 "-".to_string()
+//             };
+//
+//             println!("{:<width$} {:>5} {:>13} {:>13}", state_str, group.summary.node_count, cpu_str, gpu_str, width = max_state_width);
+//
+//             // Print the subgroups
+//             let mut sorted_subgroups: Vec<&String> = group.subgroups.keys().collect();
+//             sorted_subgroups.sort();
+//
+//             for subgroup_name in sorted_subgroups {
+//                 if let Some(subgroup_line) = group.subgroups.get(subgroup_name) {
+//                     let sub_cpu_str = format!("{:>5}/{:<5}", subgroup_line.alloc_cpus, subgroup_line.total_cpus);
+//                     let sub_gpu_str = if subgroup_line.total_gpus > 0 {
+//                         format!("{:>5}/{:<5}", subgroup_line.alloc_gpus, subgroup_line.total_gpus)
+//                     } else {
+//                         "-".to_string()
+//                     };
+//
+//                     let indented_name = format!("  {}", subgroup_name);
+//                     println!("{:<width$} {:>5} {:>13} {:>13}", indented_name, subgroup_line.node_count, sub_cpu_str, sub_gpu_str, width = max_state_width);
+//                 }
+//             }
+//         }
+//     }
+//
+//     // --- Print Grand Totals ---
+//     println!("{}", "-".repeat(max_state_width + 36));
+//     let total_cpu_str = format!("{:>5}/{:<5}", total_line.alloc_cpus, total_line.total_cpus);
+//     let total_gpu_str = format!("{:>5}/{:<5}", total_line.alloc_gpus, total_line.total_gpus);
+//     println!("{:<width$} {:>5} {:>13} {:>13}", "TOTAL", total_line.node_count, total_cpu_str, total_gpu_str, width = max_state_width);
+// }
 
 
 // pub fn print_report(report_data: &ReportData) {
