@@ -19,10 +19,13 @@ fn main() {
         .generate()
         .expect("Unable to generate bindings");
 
-    // Write the bindings to the $OUT_DIR/bindings.rs directory
-    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+    // Get the path to the project's root directory.
+    let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+    // Get the path to the `src/bindings.rs`
+    let out_path = PathBuf::from(manifest_dir).join("src/bindings.rs");
+
     bindings
-        .write_to_file(out_path.join("bindings.rs"))
+        .write_to_file(out_path)
         .expect("Couldn't write bindings!");
 }
 
