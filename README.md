@@ -15,7 +15,7 @@ As possible, we can expand on this framework with other utilities, such as the t
 - `fisq`, an `squeue` replacement, perhaps similar to `turm` but with integration with the other tools in our suite and better user ergonomics
 
 
-## Technical considerations
+# Technical considerations
 
 We broadly have two approaches for constructing these tools: on the one hand, we can rely on the existing Slurm CLI tooling, such as `sinfo`, which reduces some of our power and flexibility and introduces more overhead for frequent system calls, but should be more resilient to breaking or undocumented changes in the underlying software. 
 
@@ -23,10 +23,9 @@ On the other hand, we could interface with libslurm directly, binding using `rus
 
 For the time being, we will pursue a libslurm implementation. We will default to `clap` for CLI production and `ratatui` for TUI production.
 
-
-## Tasks
-- [ ] Identify capabilities of the `carriero` featureInfo utility and map out its dependencies in libslurm (via PySlurm)
-- [ ] Produce a `rust-bindgen` binding of necessary Slurm types
+# Tasks
+- [x] Identify capabilities of the `carriero` featureInfo utility and map out its dependencies in libslurm (via PySlurm)
+- [x] Produce a `rust-bindgen` binding of necessary Slurm types
 - [ ] Test the integrity of the `fi-node` bindings in a sequestered node
 - [ ] Construct the 'business logic' in duplication of `carriero`
 - [ ] Obtain user feedback on the benefits and pain points of the new utilities and determine how best to integrate them into existing workflows
