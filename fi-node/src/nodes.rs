@@ -1,4 +1,4 @@
-use std::{collections::HashMap, ffi::CStr};
+use std::{collections::HashMap, ffi::CStr, fmt};
 use chrono::{DateTime, Utc};
 
 use crate::{bindings::{node_info_msg_t, node_info_t, slurm_free_node_info_msg, slurm_load_node}, energy::AcctGatherEnergy, gres::parse_gres_str};
@@ -104,7 +104,7 @@ pub enum NodeState {
     Unknown(String),
     Compound {
         base: Box<NodeState>,
-        flags: Vec<u32>,
+        flags: Vec<String>,
     },
     End,
 }
@@ -291,6 +291,19 @@ impl From<u32> for NodeState {
         //    NODE_STATE_FUTURE => NodeState::Unknown("FUTURE".to_string()), // Or a dedicated Future variant
         //    _ => NodeState::Unknown(format!("Untracked State Code: {}", state_num)),
         //}
+    }
+}
+
+impl fmt::Display for NodeState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            NodeState::Compound { base, flags } => {
+                // Creates strings like "IDLE+DRAIN"
+                write!(f, "{}+{}", base, flags.join("+"))
+            }
+            NodeState::Unknown(s) => write!(f, "UNKNOWN({})", s),
+            _ => write!(f, "{:?}", self),
+        }
     }
 }
 
