@@ -173,6 +173,86 @@ pub fn build_report(
 }
 
 
+/// Formats and prints the aggregated report data to the console.
+pub fn print_report(report_data: &ReportData) {
+    // Define a custom sort order for the top-level states.
+    // This ensures the most important information appears first.
+    let state_order: HashMap<NodeState, usize> = [
+        (NodeState::Idle, 0),
+        (NodeState::Mixed, 1),
+        (NodeState::Allocated, 2),
+        (NodeState::Error, 3),
+        (NodeState::Down, 4),
+    ]
+    .iter()
+    .cloned()
+    .collect();
+
+    let mut sorted_states: Vec<&NodeState> = report_data.keys().collect();
+    sorted_states.sort_by_key(|a| {
+        // Handle compound states by sorting based on their base state.
+        if let NodeState::Compound { base, .. } = a {
+            state_order.get(base).unwrap_or(&99)
+        } else {
+            state_order.get(a).unwrap_or(&99)
+        }
+    });
+
+    // --- Print Headers ---
+    println!(
+        "{:<28} {:>5} {:>13} {:>13}",
+        "STATE", "COUNT", "CPU (A/T)", "GPU (A/T)"
+    );
+    println!("{}", "-".repeat(64));
+
+    // --- Print Main Report ---
+    let mut total_line = ReportLine::default();
+    for state in sorted_states {
+        if let Some(group) = report_data.get(state) {
+            // Add to grand totals
+            total_line.node_count += group.summary.node_count;
+            total_line.total_cpus += group.summary.total_cpus;
+            total_line.alloc_cpus += group.summary.alloc_cpus;
+            total_line.total_gpus += group.summary.total_gpus;
+            total_line.alloc_gpus += group.summary.alloc_gpus;
+
+            // Format the stats for printing
+            let state_str = state.to_string().to_uppercase();
+            let cpu_str = format!("{:>5}/{:<5}", group.summary.alloc_cpus, group.summary.total_cpus);
+            let gpu_str = if group.summary.total_gpus > 0 {
+                format!("{:>5}/{:<5}", group.summary.alloc_gpus, group.summary.total_gpus)
+            } else {
+                "-".to_string()
+            };
+            
+            println!("{:<28} {:>5} {:>13} {:>13}", state_str, group.summary.node_count, cpu_str, gpu_str);
+
+            // Print the subgroups
+            let mut sorted_subgroups: Vec<&String> = group.subgroups.keys().collect();
+            sorted_subgroups.sort();
+
+            for subgroup_name in sorted_subgroups {
+                if let Some(subgroup_line) = group.subgroups.get(subgroup_name) {
+                    let sub_cpu_str = format!("{:>5}/{:<5}", subgroup_line.alloc_cpus, subgroup_line.total_cpus);
+                    let sub_gpu_str = if subgroup_line.total_gpus > 0 {
+                        format!("{:>5}/{:<5}", subgroup_line.alloc_gpus, subgroup_line.total_gpus)
+                    } else {
+                        "-".to_string()
+                    };
+
+                    println!("  {:<26} {:>5} {:>13} {:>13}", subgroup_name, subgroup_line.node_count, sub_cpu_str, sub_gpu_str);
+                }
+            }
+        }
+    }
+    
+    // --- Print Grand Totals ---
+    println!("{}", "-".repeat(64));
+    let total_cpu_str = format!("{:>5}/{:<5}", total_line.alloc_cpus, total_line.total_cpus);
+    let total_gpu_str = format!("{:>5}/{:<5}", total_line.alloc_gpus, total_line.total_gpus);
+    println!("{:<28} {:>5} {:>13} {:>13}", "TOTAL", total_line.node_count, total_cpu_str, total_gpu_str);
+}
+
 
 //pub fn build_report(
 //    nodes: &SlurmNodes,
@@ -264,80 +344,80 @@ pub fn build_report(
 //}
 
 /// Formats and prints the aggregated report data to the console.
-pub fn print_report(report_data: &ReportData) {
-    // Helper function to format the CPU and GPU stats for a single line.
-    fn format_stats_line(line: &ReportLine) -> String {
-        let cpu_stats = format!("({:>5}/{:>5})", line.total_cpus, line.alloc_cpus);
-        let gpu_stats = if line.total_gpus > 0 || line.alloc_gpus > 0 {
-            format!(" ({:>4}/{:>4})", line.total_gpus, line.alloc_gpus)
-        } else {
-            String::new()
-        };
-        format!("{}{}", cpu_stats, gpu_stats)
-    }
-
-    // Define a custom sort order for the top-level states.
-    let state_order: HashMap<NodeState, usize> = [
-        (NodeState::Idle, 0),
-        (NodeState::Mixed, 1),
-        (NodeState::Allocated, 2),
-        (NodeState::Down, 3),
-        (NodeState::Future, 4),
-        (NodeState::Error, 5),
-        (NodeState::Unknown("Unknown Node".to_string()), 6),
-    ]
-    .iter()
-    .cloned()
-    .collect();
-
-    let mut sorted_states: Vec<&NodeState> = report_data.keys().collect();
-    sorted_states.sort_by_key(|a| state_order.get(a).unwrap_or(&99));
-
-    // --- Print Main Report ---
-    for state in sorted_states {
-        if let Some(group) = report_data.get(state) {
-            // Print the main summary line for the state.
-            println!(
-                "{:<17}\t{:>4} {}",
-                format!("{:?}", state).to_uppercase(),
-                group.summary.node_count,
-                format_stats_line(&group.summary)
-            );
-
-            // Print the subgroups.
-            let mut sorted_subgroups: Vec<&String> = group.subgroups.keys().collect();
-            sorted_subgroups.sort();
-
-            for subgroup_name in sorted_subgroups {
-                if let Some(subgroup_line) = group.subgroups.get(subgroup_name) {
-                    println!(
-                        "  {:<15}\t{:>4} {}",
-                        subgroup_name,
-                        subgroup_line.node_count,
-                        format_stats_line(subgroup_line)
-                    );
-                }
-            }
-        }
-    }
-    
-    // --- Print Grand Totals ---
-    let mut total_line = ReportLine::default();
-    for group in report_data.values() {
-        total_line.node_count += group.summary.node_count;
-        total_line.total_cpus += group.summary.total_cpus;
-        total_line.alloc_cpus += group.summary.alloc_cpus;
-        total_line.total_gpus += group.summary.total_gpus;
-        total_line.alloc_gpus += group.summary.alloc_gpus;
-    }
-    
-    println!("-----------------------------------------------------");
-    println!(
-        "Total {:<10}\t{:>4} {}",
-        total_line.node_count,
-        "", // Empty space for alignment
-        format_stats_line(&total_line)
-    );
-}
-
+// pub fn print_report(report_data: &ReportData) {
+//     // Helper function to format the CPU and GPU stats for a single line.
+//     fn format_stats_line(line: &ReportLine) -> String {
+//         let cpu_stats = format!("({:>5}/{:>5})", line.total_cpus, line.alloc_cpus);
+//         let gpu_stats = if line.total_gpus > 0 || line.alloc_gpus > 0 {
+//             format!(" ({:>4}/{:>4})", line.total_gpus, line.alloc_gpus)
+//         } else {
+//             String::new()
+//         };
+//         format!("{}{}", cpu_stats, gpu_stats)
+//     }
+//
+//     // Define a custom sort order for the top-level states.
+//     let state_order: HashMap<NodeState, usize> = [
+//         (NodeState::Idle, 0),
+//         (NodeState::Mixed, 1),
+//         (NodeState::Allocated, 2),
+//         (NodeState::Down, 3),
+//         (NodeState::Future, 4),
+//         (NodeState::Error, 5),
+//         (NodeState::Unknown("Unknown Node".to_string()), 6),
+//     ]
+//     .iter()
+//     .cloned()
+//     .collect();
+//
+//     let mut sorted_states: Vec<&NodeState> = report_data.keys().collect();
+//     sorted_states.sort_by_key(|a| state_order.get(a).unwrap_or(&99));
+//
+//     // --- Print Main Report ---
+//     for state in sorted_states {
+//         if let Some(group) = report_data.get(state) {
+//             // Print the main summary line for the state.
+//             println!(
+//                 "{:<17}\t{:>4} {}",
+//                 format!("{:?}", state).to_uppercase(),
+//                 group.summary.node_count,
+//                 format_stats_line(&group.summary)
+//             );
+//
+//             // Print the subgroups.
+//             let mut sorted_subgroups: Vec<&String> = group.subgroups.keys().collect();
+//             sorted_subgroups.sort();
+//
+//             for subgroup_name in sorted_subgroups {
+//                 if let Some(subgroup_line) = group.subgroups.get(subgroup_name) {
+//                     println!(
+//                         "  {:<15}\t{:>4} {}",
+//                         subgroup_name,
+//                         subgroup_line.node_count,
+//                         format_stats_line(subgroup_line)
+//                     );
+//                 }
+//             }
+//         }
+//     }
+//
+//     // --- Print Grand Totals ---
+//     let mut total_line = ReportLine::default();
+//     for group in report_data.values() {
+//         total_line.node_count += group.summary.node_count;
+//         total_line.total_cpus += group.summary.total_cpus;
+//         total_line.alloc_cpus += group.summary.alloc_cpus;
+//         total_line.total_gpus += group.summary.total_gpus;
+//         total_line.alloc_gpus += group.summary.alloc_gpus;
+//     }
+//
+//     println!("-----------------------------------------------------");
+//     println!(
+//         "Total {:<10}\t{:>4} {}",
+//         total_line.node_count,
+//         "", // Empty space for alignment
+//         format_stats_line(&total_line)
+//     );
+// }
+//
 
