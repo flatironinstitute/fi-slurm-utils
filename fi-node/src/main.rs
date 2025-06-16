@@ -5,7 +5,7 @@ pub mod jobs;
 pub mod parser;
 pub mod report;
 
-use rust_bind::bindings;
+use fi_slurm::bindings;
 use clap::Parser;
 use std::collections::HashMap;
 use crate::jobs::SlurmJobs;
