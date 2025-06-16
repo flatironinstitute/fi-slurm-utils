@@ -1,5 +1,5 @@
 [package]
-name = "fi-node"
+name = "fi_node"
 version = "0.1.0"
 edition = "2024"
 
@@ -8,4 +8,4 @@ chrono = "0.4.41"
 clap = { version = "4.5.40", features = ["derive"] }
 once_cell = "1.21.3"
 regex = "1.11.1"
-rust_bind = {path = "../rust_bind"}
+fi_slurm = {path = "../fi_slurm"}

@@ -222,13 +222,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
 
 [[package]]
-name = "fi-node"
+name = "fi_node"
 version = "0.1.0"
 dependencies = [
  "chrono",
  "clap",
+ "fi_slurm",
  "once_cell",
  "regex",
+]
+
+[[package]]
+name = "fi_slurm"
+version = "0.1.0"
+dependencies = [
  "rust_bind",
 ]
 
