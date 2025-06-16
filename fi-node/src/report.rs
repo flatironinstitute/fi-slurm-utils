@@ -174,6 +174,7 @@ pub fn build_report(
 }
 
 /// Formats and prints the aggregated report data to the console.
+#[allow(clippy::implicit_saturating_sub)]
 pub fn print_report(report_data: &ReportData) {
     // --- Pass 1: Pre-calculate the maximum width for the first column ---
     let mut max_state_width = "STATE".len();
