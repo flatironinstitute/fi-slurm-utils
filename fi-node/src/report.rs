@@ -264,7 +264,6 @@ pub fn print_report(report_data: &ReportData) {
 }
 
 
-/// Formats and prints the aggregated report data to the console.
 // pub fn print_report(report_data: &ReportData) {
 //     // Define a custom sort order for the top-level states.
 //     // This ensures the most important information appears first.
