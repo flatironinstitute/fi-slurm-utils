@@ -1,15 +1,10 @@
-// In Cargo.toml, you would need to add these dependencies:
-// [dependencies]
-// regex = "1"
-// once_cell = "1"
-
 use once_cell::sync::Lazy;
 use regex::Regex;
 
-/// A robust parser for Slurm hostlist strings.
+/// A robust parser for Slurm hostlist strings
 ///
 /// This function can handle simple comma-separated lists as well as complex
-/// ranged expressions with zero-padding.
+/// ranged expressions with zero-padding
 ///
 /// # Examples
 ///
@@ -19,14 +14,14 @@ use regex::Regex;
 ///
 /// # Arguments
 ///
-/// * `hostlist_str` - A string slice representing the Slurm hostlist.
+/// * `hostlist_str` - A string slice representing the Slurm hostlist
 ///
 /// # Returns
 ///
-/// A `Vec<String>` containing all the individual, expanded hostnames.
+/// A `Vec<String>` containing all the individual, expanded hostnames
 pub fn parse_slurm_hostlist(hostlist_str: &str) -> Vec<String> {
     // We use `once_cell::sync::Lazy` to compile the regex only once, the first
-    // time it's needed. This is much more performant than compiling it on every call.
+    // time it's needed. This is much more performant than compiling it on every call
     static RE: Lazy<Regex> = Lazy::new(|| {
         Regex::new(r"^(.*)\[([^\]]+)\](.*)$").expect("Failed to compile hostlist regex")
     });
@@ -37,7 +32,7 @@ pub fn parse_slurm_hostlist(hostlist_str: &str) -> Vec<String> {
     let mut bracket_level = 0;
 
     // This loop correctly separates expressions like "node[01-02],login01"
-    // by respecting brackets.
+    // by respecting brackets
     for ch in hostlist_str.chars() {
         match ch {
             '[' => bracket_level += 1,
@@ -54,13 +49,13 @@ pub fn parse_slurm_hostlist(hostlist_str: &str) -> Vec<String> {
         }
         current_expression.push(ch);
     }
-    // Add the last expression to the list.
+    // Add the last expression to the list
     if !current_expression.is_empty() {
         expressions.push(current_expression.trim().to_string());
     }
 
     for part in expressions {
-        // For each part, check if it matches our ranged expression regex.
+        // For each part, check if it matches our ranged expression regex
         if let Some(captures) = RE.captures(&part) {
             // It's a ranged expression like "prefix[ranges]suffix"
             let prefix = captures.get(1).map_or("", |m| m.as_str());
@@ -100,9 +95,7 @@ pub fn parse_slurm_hostlist(hostlist_str: &str) -> Vec<String> {
             }
         }
     }
-
     expanded_nodes
-
 }
 
 // You can add unit tests within the same file to verify correctness.
@@ -148,8 +141,6 @@ mod tests {
     #[test]
     fn test_mixed_padded_range_spaced() {
         assert_eq!(parse_slurm_hostlist("n[001-003], gpu[07-09]"), vec!["n001", "n002", "n003", "gpu07", "gpu08", "gpu09"]);
-        // considers whitespace between commas and the start of new entities as part of the entity
-        // after trimming, should not longer be the case
     }
     
     #[test]
