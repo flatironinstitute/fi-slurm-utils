@@ -18,21 +18,17 @@ pub struct AcctGatherEnergy {
 
 impl AcctGatherEnergy {
     /// Creates a safe, owned Rust `AcctGatherEnergy` struct from a raw
-    /// C-style `acct_gather_energy_t` struct.
+    /// C-style `acct_gather_energy_t` struct
     ///
     /// # Safety
     ///
-    /// The caller must ensure that `raw_energy` is a valid, non-null pointer.
+    /// The caller must ensure that `raw_energy` is a valid, non-null pointer
     pub fn from_raw_binding(
         raw_energy: &acct_gather_energy_t,
     ) -> Result<Self, String> {
         // This helper can be shared or defined locally.
         let time_t_to_datetime = |timestamp: i64| -> DateTime<Utc> {
-
            chrono::DateTime::from_timestamp(timestamp, 0).unwrap_or_default()
-            //Utc.from_utc_datetime(
-            //    &chrono::NaiveDateTime::from_timestamp_opt(timestamp, 0).unwrap_or_default(),
-            //)
         };
 
         Ok(AcctGatherEnergy {
