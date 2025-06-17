@@ -61,14 +61,21 @@ fn main() -> Result<(), String> {
             node_to_job_map.len()
         ); 
     }
+    
+    // Aggregate data into summary report
+    let summary_report = summary_report::build_summary_report(&nodes_collection);
+    if args.debug { println!("Aggregated data into {} feature types.", report.len()); }
 
-    //  Aggregate Data into Report
-    let report = report::build_report(&nodes_collection, &jobs_collection, &node_to_job_map);
-    if args.debug { println!("Aggregated data into {} state groups.", report.len()); }
+    if args.debug { println!("\n--- Slurm Summary Report ---"); }
+    summary_report::print_summary_report(&summary_report);
 
-    // Print Report 
-    if args.debug { println!("\n--- Slurm Node Feature Report ---"); }
-    report::print_report(&report);
+    // //  Aggregate Data into Report
+    // let report = report::build_report(&nodes_collection, &jobs_collection, &node_to_job_map);
+    // if args.debug { println!("Aggregated data into {} state groups.", report.len()); }
+    //
+    // // Print Report 
+    // if args.debug { println!("\n--- Slurm Node Feature Report ---"); }
+    // report::print_report(&report);
 
     Ok(())
 }
