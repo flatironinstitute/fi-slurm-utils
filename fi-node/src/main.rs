@@ -10,35 +10,34 @@ use clap::Parser;
 use std::collections::HashMap;
 use crate::jobs::SlurmJobs;
 
-/// The main entry point for the `feature-report-rust` application.
+/// The main entry point for the `fi-node`
 ///
 /// The function orchestrates the main pipeline:
-/// 1. Load all node and job data from Slurm.
-/// 2. Create a cross-reference map to link nodes to the jobs running on them.
-/// 3. Aggregate all data into a structured report format.
-/// 4. Print the final, formatted report to the console.
+/// 1. Load all node and job data from Slurm
+/// 2. Create a cross-reference map to link nodes to the jobs running on them
+/// 3. Aggregate all data into a structured report format
+/// 4. Print the final, formatted report to the console
 fn main() -> Result<(), String> {
 
     let args = Args::parse();
 
-    // --- 0. Global Slurm Initialization ---
-    // This MUST be the very first Slurm function called. It initializes
-    // the library, setting up logging and loading essential plugins like crypto.
-    // We pass a null pointer to let Slurm find its config file automatically.
+    // This MUST be the very first Slurm function called 
+    // We pass a null pointer to let Slurm find its config file automatically
     if args.debug { println!("Initializing Slurm library..."); } 
     unsafe {
         bindings::slurm_init(std::ptr::null());
     }
 
-    // --- 1. Load Configuration into RAII Guard ---
     // After initializing, we load the conf to get a handle that we can
-    // manage for proper cleanup.
-
+    // manage for proper cleanup
     if args.debug { println!("Loading Slurm configuration..."); }
+
+    // We don't need to actually use this variable, but we store it anyway in order to
+    // automatically invoke its Drop implementation when it goes out of scope at the end of main()
     let _slurm_config = SlurmConfig::load()?;
     if args.debug { println!("Slurm configuration loaded successfully."); }
 
-    // --- 2. Load Data ---
+    // Load Data 
     if args.debug { println!("Loading data from Slurm..."); }
     let nodes_collection = nodes::get_nodes()?;
     if args.debug { println!("Loaded node data"); }
@@ -52,7 +51,7 @@ fn main() -> Result<(), String> {
         );
     }
 
-    // --- 3. Build Cross-Reference Map ---
+    // Build Cross-Reference Map 
     let node_to_job_map = build_node_to_job_map(&jobs_collection);
     if args.debug { 
         println!(
@@ -61,11 +60,11 @@ fn main() -> Result<(), String> {
         ); 
     }
 
-    // --- 4. Aggregate Data into Report Format ---
+    //  Aggregate Data into Report
     let report = report::build_report(&nodes_collection, &jobs_collection, &node_to_job_map);
     if args.debug { println!("Aggregated data into {} state groups.", report.len()); }
 
-    // --- 5. Print Final Report ---
+    // Print Report 
     if args.debug { println!("\n--- Slurm Node Feature Report ---"); }
     report::print_report(&report);
 
@@ -73,53 +72,52 @@ fn main() -> Result<(), String> {
 }
 
 /// Builds a map where keys are node hostnames and values are a list of job IDs
-/// running on that node.
+/// running on that node
 fn build_node_to_job_map(jobs: &SlurmJobs) -> HashMap<String, Vec<u32>> {
     let mut node_map: HashMap<String, Vec<u32>> = HashMap::new();
 
-    // Iterate through every job in the collection.
+    // Iterate through every job in the collection
     for job in jobs.jobs.values() {
-        // We only care about jobs that are actually running and have nodes assigned.
+        // We only care about jobs that are actually running and have nodes assigned
         if job.job_state != crate::jobs::JobState::Running || job.nodes.is_empty() {
             continue;
         }
 
-        // Use our robust parser to expand the Slurm hostlist string.
+        // Expand the Slurm hostlist string
+        // TODO: consider using Slurm's built-in parser instead
         let expanded_nodes = parser::parse_slurm_hostlist(&job.nodes);
 
-        // For each individual node name, add the current job's ID to the map.
+        // For each individual node name, add the current job's ID to the map
         for node_name in expanded_nodes {
             node_map
                 .entry(node_name)
-                .or_default() // If the node isn't in the map yet, insert an empty Vec.
-                .push(job.job_id); // Push the job ID onto the Vec for that node.
+                .or_default() // If the node isn't in the map yet, insert an empty Vec
+                .push(job.job_id); // Push the job ID onto the Vec for that node
         }
     }
 
     node_map
 }
 /// A command-line utility to report the state of a Slurm cluster,
-/// showing a summary of nodes grouped by state and feature.
+/// showing a summary of nodes grouped by state and feature
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    /// Enable debug-level logging to show the pipeline steps.
+    /// Enable debug-level logging to print the pipeline steps to terminal
     #[arg(short, long)]
     debug: bool,
 }
 
 
 // This struct ensures that the Slurm configuration is automatically
-// loaded on creation and freed when it goes out of scope.
+// loaded on creation and freed when it goes out of scope
 struct SlurmConfig {
-    // We don't need to access the pointer, but we need to hold it
-    // so we can free it in the Drop implementation.
     _ptr: *mut bindings::slurm_conf_t,
 }
 
 impl SlurmConfig {
-    /// Loads the Slurm configuration and returns a guard object.
-    /// The configuration will be freed when the guard is dropped.
+    /// Loads the Slurm configuration and returns a guard object
+    /// The configuration will be freed when the guard is dropped
     pub fn load() -> Result<Self, String> {
         let mut conf_ptr: *mut bindings::slurm_conf_t = std::ptr::null_mut();
         unsafe {
@@ -132,7 +130,7 @@ impl SlurmConfig {
         }
         if conf_ptr.is_null() {
             // This is a defensive check; slurm_load_ctl_conf should not return 0
-            // and a null pointer, but we check just in case.
+            // and a null pointer, but we check just in case
             return Err("slurm_load_ctl_conf succeeded but returned a null pointer.".to_string());
         }
         Ok(SlurmConfig { _ptr: conf_ptr })
@@ -142,7 +140,7 @@ impl SlurmConfig {
 impl Drop for SlurmConfig {
     fn drop(&mut self) {
         // This is guaranteed to be called when the SlurmConfig instance
-        // goes out of scope, preventing memory leaks.
+        // goes out of scope, preventing memory leaks
         unsafe {
             bindings::slurm_free_ctl_conf(self._ptr);
         }
