@@ -72,7 +72,6 @@ impl RawSlurmNodeInfo {
             _last_update,
         })
     }
-
 }
 
 pub fn get_nodes() -> Result<SlurmNodes, String> {
@@ -369,11 +368,11 @@ impl Node {
 
         Ok(Node {
             // Basic identification
-            name: c_str_to_string(raw_node.name),
+            name: unsafe {c_str_to_string(raw_node.name)},
             state: NodeState::from(raw_node.node_state), // Directly convert the u32 state
             next_state: next_state_val,
-            node_addr: c_str_to_string(raw_node.node_addr),
-            node_hostname: c_str_to_string(raw_node.node_hostname),
+            node_addr: unsafe {c_str_to_string(raw_node.node_addr)},
+            node_hostname: unsafe {c_str_to_string(raw_node.node_hostname)},
 
             // CPU Information
             cpus: raw_node.cpus,
@@ -399,9 +398,9 @@ impl Node {
             // Generic Resources (GRES)
             configured_gres: unsafe {parse_gres_str(raw_node.gres)},
             allocated_gres: unsafe {parse_gres_str(raw_node.gres_used)},
-            gres: c_str_to_string(raw_node.gres), // Keep the raw string for reference
-            gres_drain: c_str_to_string(raw_node.gres_drain),
-            gres_used: c_str_to_string(raw_node.gres_used), // Keep the raw string for reference
+            gres: unsafe {c_str_to_string(raw_node.gres)}, // Keep the raw string for reference
+            gres_drain: unsafe {c_str_to_string(raw_node.gres_drain)},
+            gres_used: unsafe {c_str_to_string(raw_node.gres_used)}, // Keep the raw string for reference
             res_cores_per_gpu: raw_node.res_cores_per_gpu,
             gpu_spec: "TODO: Implement gpu_spec parsing".to_string(), // Placeholder
 
@@ -413,23 +412,23 @@ impl Node {
             resume_after: time_t_to_datetime(raw_node.resume_after),
 
             // Other
-            architecture: c_str_to_string(raw_node.arch),
-            operating_system: c_str_to_string(raw_node.os),
-            reason: c_str_to_string(raw_node.reason),
-            broadcast_address: c_str_to_string(raw_node.bcast_address),
+            architecture: unsafe {c_str_to_string(raw_node.arch)},
+            operating_system: unsafe {c_str_to_string(raw_node.os)},
+            reason: unsafe {c_str_to_string(raw_node.reason)},
+            broadcast_address: unsafe {c_str_to_string(raw_node.bcast_address)},
             boards: raw_node.boards,
-            cluster_name: c_str_to_string(raw_node.cluster_name),
-            extra: c_str_to_string(raw_node.extra),
-            comment: c_str_to_string(raw_node.comment),
+            cluster_name: unsafe {c_str_to_string(raw_node.cluster_name)},
+            extra: unsafe {c_str_to_string(raw_node.extra)},
+            comment: unsafe {c_str_to_string(raw_node.comment)},
             instance_id: "TODO".to_string(),  // These fields may not have direct mappings
             instance_type: "TODO".to_string(),
-            mcs_label: c_str_to_string(raw_node.mcs_label),
-            os: c_str_to_string(raw_node.os), // Duplicate of operating_system? Included for completeness.
+            mcs_label: unsafe {c_str_to_string(raw_node.mcs_label)},
+            os: unsafe {c_str_to_string(raw_node.os)}, // Duplicate of operating_system? Included for completeness.
             owner: raw_node.owner,
-            partitions: c_str_to_string(raw_node.partitions),
+            partitions: unsafe {c_str_to_string(raw_node.partitions)},
             port: raw_node.port,
             reason_uid: raw_node.reason_uid,
-            resv_name: c_str_to_string(raw_node.resv_name),
+            resv_name: unsafe {c_str_to_string(raw_node.resv_name)},
 
             // TODO: `select_nodeinfo` is a void pointer to plugin-specific data
             // Handling this requires knowing which select plugin is active and how
@@ -442,7 +441,7 @@ impl Node {
             tmp_disk: raw_node.tmp_disk,
             weight: raw_node.weight,
             tres_fmt_str: "TODO: Parse TRES format string".to_string(), // Placeholder
-            version: c_str_to_string(raw_node.version),
+            version: unsafe {c_str_to_string(raw_node.version)},
         })
     }
 }
