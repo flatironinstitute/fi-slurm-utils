@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::ffi::CStr;
 use crate::bindings::{job_info, job_info_msg_t, slurm_free_job_info_msg, slurm_load_jobs};
 use crate::gres::parse_gres_str; 
+use crate::utils::{c_str_to_string, time_t_to_datetime};
 
 /// Fetches all job information from Slurm and returns it as a safe,
 /// owned Rust data structure
@@ -91,9 +92,6 @@ impl RawSlurmJobInfo {
             
         let (last_update, last_backfill) = unsafe {
             let msg = &*self.ptr;
-            let time_t_to_datetime = |timestamp: i64| -> DateTime<Utc> {
-                chrono::DateTime::from_timestamp(timestamp, 0).unwrap_or_default()
-            };
             (time_t_to_datetime(msg.last_update), time_t_to_datetime(msg.last_backfill))
         };
         
@@ -202,16 +200,6 @@ pub struct Job {
 impl Job {
     /// Creates a safe, owned Rust `Job` from a raw C `job_info` struct
     pub fn from_raw_binding(raw_job: &job_info) -> Result<Self, String> {
-        
-        let c_str_to_string = |ptr: *const i8| -> String {
-            if ptr.is_null() { String::new() } 
-            else { unsafe { CStr::from_ptr(ptr) }.to_string_lossy().into_owned() }
-        };
-
-        // Helper to convert time_t into a DateTime<Utc>
-        let time_t_to_datetime = |timestamp: i64| -> DateTime<Utc> {
-            chrono::DateTime::from_timestamp(timestamp, 0).unwrap_or_default()
-        };
 
         Ok(Job {
              job_id: raw_job.job_id,

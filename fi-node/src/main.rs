@@ -4,6 +4,7 @@ pub mod nodes;
 pub mod jobs;
 pub mod parser;
 pub mod report;
+pub mod utils;
 
 use fi_slurm::bindings;
 use clap::Parser;
