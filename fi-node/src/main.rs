@@ -64,7 +64,7 @@ fn main() -> Result<(), String> {
     
     // Aggregate data into summary report
     let summary_report = summary_report::build_summary_report(&nodes_collection);
-    if args.debug { println!("Aggregated data into {} feature types.", report.len()); }
+    if args.debug { println!("Aggregated data into {} feature types.", summary_report.len()); }
 
     if args.debug { println!("\n--- Slurm Summary Report ---"); }
     summary_report::print_summary_report(&summary_report);
