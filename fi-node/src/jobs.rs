@@ -1,6 +1,5 @@
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
-use std::ffi::CStr;
 use crate::bindings::{job_info, job_info_msg_t, slurm_free_job_info_msg, slurm_load_jobs};
 use crate::gres::parse_gres_str; 
 use crate::utils::{c_str_to_string, time_t_to_datetime};
@@ -205,14 +204,14 @@ impl Job {
              job_id: raw_job.job_id,
              array_job_id: raw_job.array_job_id,
              array_task_id: raw_job.array_task_id,
-             name: c_str_to_string(raw_job.name),
+             name: unsafe {c_str_to_string(raw_job.name)},
              user_id: raw_job.user_id,
-             user_name: c_str_to_string(raw_job.user_name),
+             user_name: unsafe {c_str_to_string(raw_job.user_name)},
              group_id: raw_job.group_id,
-             partition: c_str_to_string(raw_job.partition),
-             account: c_str_to_string(raw_job.account),
+             partition: unsafe {c_str_to_string(raw_job.partition)},
+             account: unsafe {c_str_to_string(raw_job.account)},
              job_state: JobState::from(raw_job.job_state),
-             state_description: c_str_to_string(raw_job.state_desc),
+             state_description: unsafe {c_str_to_string(raw_job.state_desc)},
              submit_time: time_t_to_datetime(raw_job.submit_time),
              start_time: time_t_to_datetime(raw_job.start_time),
              end_time: time_t_to_datetime(raw_job.end_time),
@@ -220,10 +219,10 @@ impl Job {
              num_nodes: raw_job.num_nodes,
              num_cpus: raw_job.num_cpus,
              num_tasks: raw_job.num_tasks,
-             nodes: c_str_to_string(raw_job.nodes),
+             nodes: unsafe {c_str_to_string(raw_job.nodes)},
              allocated_gres: unsafe {parse_gres_str(raw_job.tres_alloc_str)},
-             work_dir: c_str_to_string(raw_job.work_dir),
-             command: c_str_to_string(raw_job.command),
+             work_dir: unsafe {c_str_to_string(raw_job.work_dir)},
+             command: unsafe {c_str_to_string(raw_job.command)},
              exit_code: raw_job.exit_code,
         })
     }
