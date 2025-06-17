@@ -2,37 +2,32 @@ use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use std::ffi::CStr;
 use crate::bindings::{job_info, job_info_msg_t, slurm_free_job_info_msg, slurm_load_jobs};
-use crate::gres::parse_gres_str; // We'll need our GRES parser again
+use crate::gres::parse_gres_str; 
 
 /// Fetches all job information from Slurm and returns it as a safe,
-/// owned Rust data structure.
+/// owned Rust data structure
 ///
 /// This function is the primary entry point for accessing job data. It handles
-/// all unsafe FFI calls, data conversion, and memory management internally.
+/// all unsafe FFI calls, data conversion, and memory management internally
 pub fn get_jobs() -> Result<SlurmJobs, String> {
-    // This single line encapsulates the entire process:
-    // 1. Load the raw C data into our RAII wrapper.
-    // 2. Consume the wrapper to convert the data into our final, safe collection.
-    // The `?` operator will propagate any errors from either step.
+    // We load the raw C data into memory,
+    // convert into safe, Rust-native structs, 
+    // and then consume the wrapper to drop the original C memory
     RawSlurmJobInfo::load()?.into_slurm_jobs()
 }
 
-/// An RAII wrapper around the raw pointer returned by `slurm_load_jobs`.
-///
-/// This struct safely manages the lifecycle of the C-allocated memory.
-/// When it goes out of scope, its `Drop` implementation automatically calls
-/// `slurm_free_job_info_msg` to prevent memory leaks.
+/// We use this struct to manage the C-allocatd memory,
+/// automatically dropping it when it goes out of memory
 pub struct RawSlurmJobInfo {
-    // The pointer is kept private to enforce safe access via methods.
     ptr: *mut job_info_msg_t,
 }
 
 impl Drop for RawSlurmJobInfo {
     fn drop(&mut self) {
         if !self.ptr.is_null() {
-            // This unsafe block is necessary to call the FFI free function.
+            // This unsafe block is necessary to call the FFI free function
             // We are confident it's safe because we're calling the paired `free`
-            // function on a non-null pointer that we own.
+            // function on a non-null pointer that we own
             unsafe {
                 slurm_free_job_info_msg(self.ptr);
             }
@@ -44,12 +39,13 @@ impl RawSlurmJobInfo {
     /// Loads all job information from the Slurm controller.
     ///
     /// This is the only function that directly calls the unsafe `slurm_load_jobs`
-    /// FFI function. On success, it returns an instance of the safe RAII wrapper.
+    /// FFI function. On success, it returns an instance of the safe RAII wrapper, 
+    /// to be consumed by the .into_slurm_info() method
     pub fn load() -> Result<Self, String> {
         let mut job_info_msg_ptr: *mut job_info_msg_t = std::ptr::null_mut();
 
         // TODO: The `show_flags` should be set with the appropriate constants
-        // from the bindings file, e.g., `bindings::SHOW_ALL as u16`.
+        // from the bindings file, e.g., `bindings::SHOW_ALL as u16`
         let show_flags = 0; // Placeholder for now
 
         let return_code = unsafe {
@@ -60,28 +56,28 @@ impl RawSlurmJobInfo {
             // Success: wrap the raw pointer in our safe struct and return it.
             Ok(RawSlurmJobInfo { ptr: job_info_msg_ptr })
         } else {
-            // Failure: return an error. No struct is created, no memory is leaked.
+            // Failure: return an error. No struct is created, no memory is leaked
             Err("Failed to load job information from Slurm".to_string())
         }
     }
 
-    /// Provides safe, read-only access to the job data as a Rust slice.
+    /// Provides safe, read-only access to the job data as a Rust slice
     ///
     /// This method is the bridge between the unsafe C array and safe, idiomatic
-    /// Rust iterators. The returned slice is bounds-checked.
+    /// Rust iterators. The returned slice is bounds-checked
     pub fn as_slice(&self) -> &[job_info] {
         if self.ptr.is_null() {
             return &[];
         }
         // This is `unsafe` because we are promising the compiler that the pointer
-        // and record_count from the C library are valid.
+        // and record_count from the C library are valid
         unsafe {
             let msg = &*self.ptr;
             std::slice::from_raw_parts(msg.job_array, msg.record_count as usize)
         }
     }
     
-    /// Consumes the wrapper to transform the raw C data into a safe, owned `SlurmJobs` collection.
+    /// Consumes the wrapper to transform the raw C data into a safe, owned `SlurmJobs` collection
     pub fn into_slurm_jobs(self) -> Result<SlurmJobs, String> {
         let raw_jobs_slice = self.as_slice();
 
@@ -97,7 +93,6 @@ impl RawSlurmJobInfo {
             let msg = &*self.ptr;
             let time_t_to_datetime = |timestamp: i64| -> DateTime<Utc> {
                 chrono::DateTime::from_timestamp(timestamp, 0).unwrap_or_default()
-                //Utc.from_utc_datetime(&chrono::NaiveDateTime::from_timestamp_opt(timestamp, 0).unwrap_or_default())
             };
             (time_t_to_datetime(msg.last_update), time_t_to_datetime(msg.last_backfill))
         };
@@ -110,7 +105,7 @@ impl RawSlurmJobInfo {
     }
 }
 
-/// Represents the state of a Slurm job in a type-safe way.
+/// Represents the state of a Slurm job in a type-safe way
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum JobState {
     Pending,
@@ -130,12 +125,8 @@ pub enum JobState {
     Unknown(String),
 }
 
-// And a way to convert the u32 state from C into our safe enum.
-
 impl From<u32> for JobState {
     fn from(state_num: u32) -> Self {
-        // NOTE: You will need to find these integer constants in your bindings.rs
-        // file. They will likely be prefixed with `JOB_` or `SLURM_`.
         const JOB_PENDING: u32 = 0;
         const JOB_RUNNING: u32 = 1;
         const JOB_SUSPENDED: u32 = 2;
@@ -169,13 +160,14 @@ impl From<u32> for JobState {
     }
 }
 
-/// A safe, owned, and idiomatic Rust representation of a Slurm job.
+/// A safe, owned, and idiomatic Rust representation of a Slurm job
 ///
 /// This struct holds a curated subset of the most important fields from the
-/// raw C `job_info` struct, converted into clean Rust types.
+/// raw C `job_info` struct, converted into clean Rust types
+/// We may expand these fields as we go in order to enable more features
 #[derive(Debug, Clone)]
 pub struct Job {
-    // === Core Identification ===
+    // Core Identification 
     pub job_id: u32,
     pub array_job_id: u32,
     pub array_task_id: u32,
@@ -186,7 +178,7 @@ pub struct Job {
     pub partition: String,
     pub account: String,
 
-    // === State and Time ===
+    // State and Time 
     pub job_state: JobState,
     pub state_description: String,
     pub submit_time: DateTime<Utc>,
@@ -194,23 +186,21 @@ pub struct Job {
     pub end_time: DateTime<Utc>,
     pub time_limit_minutes: u32,
 
-    // === Resource Allocation ===
+    // Resource Allocation 
     pub num_nodes: u32,
     pub num_cpus: u32,
     pub num_tasks: u32,
-    /// The list of nodes allocated to the job, in Slurm's hostlist format.
     pub nodes: String,
-    /// Allocated Generic Resources (GRES), parsed into a HashMap.
     pub allocated_gres: HashMap<String, u64>,
 
-    // === Other Information ===
+    // Other Information 
     pub work_dir: String,
     pub command: String,
     pub exit_code: u32,
 }
 
 impl Job {
-    /// Creates a safe, owned Rust `Job` from a raw C-style `job_info` struct.
+    /// Creates a safe, owned Rust `Job` from a raw C `job_info` struct
     pub fn from_raw_binding(raw_job: &job_info) -> Result<Self, String> {
         
         let c_str_to_string = |ptr: *const i8| -> String {
@@ -218,12 +208,9 @@ impl Job {
             else { unsafe { CStr::from_ptr(ptr) }.to_string_lossy().into_owned() }
         };
 
-        // Helper to convert time_t into a DateTime<Utc>.
+        // Helper to convert time_t into a DateTime<Utc>
         let time_t_to_datetime = |timestamp: i64| -> DateTime<Utc> {
             chrono::DateTime::from_timestamp(timestamp, 0).unwrap_or_default()
-            //Utc.from_utc_datetime(
-            //    &chrono::NaiveDateTime::from_timestamp_opt(timestamp, 0).unwrap_or_default()
-            //)
         };
 
         Ok(Job {
@@ -254,12 +241,12 @@ impl Job {
     }
 }
 
-/// A safe, owned collection of Slurm jobs, mapping job ID to the Job object.
+/// A safe, owned collection of Slurm jobs, mapping job ID to the Job object
 #[derive(Debug, Clone)]
 pub struct SlurmJobs {
     pub jobs: HashMap<u32, Job>,
-    /// The timestamp of the last update from the Slurm controller.
+    /// The timestamp of the last update from the Slurm controller
     pub last_update: DateTime<Utc>,
-    /// Timestamp of the last backfill cycle, if available.
+    /// Timestamp of the last backfill cycle, if available
     pub last_backfill: DateTime<Utc>,
 }
