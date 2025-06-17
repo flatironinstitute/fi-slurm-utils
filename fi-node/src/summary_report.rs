@@ -1,4 +1,5 @@
 use crate::nodes::{NodeState, SlurmNodes};
+use colored::Colorize;
 use std::collections::HashMap;
 
 /// Holds the aggregated statistics for a single feature across the entire cluster.
