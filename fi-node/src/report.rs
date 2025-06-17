@@ -270,10 +270,10 @@ pub fn print_report(report_data: &ReportData) {
     });
 
     println!(
-        "{:<width$} {:>5} {:>13} {:>13}",
-        "STATE".bold(), "COUNT".bold(), "CPU (A/T)".bold(), "GPU (A/T)".bold(), width = max_state_width
+        "{:<width$} {:>5} {:>13}",
+        "STATE".bold(), "COUNT".bold(), "CPU (A/T)".bold(),  width = max_state_width
     );
-    println!("{}", "-".repeat(max_state_width + 36));
+    println!("{}", "-".repeat(max_state_width + 23));
 
     let mut total_line = ReportLine::default();
     for state in sorted_states {
@@ -315,13 +315,14 @@ pub fn print_report(report_data: &ReportData) {
             };
             
             let cpu_str = format!("{:>5}/{:<5}", group.summary.alloc_cpus, group.summary.total_cpus);
-            let gpu_str = if group.summary.total_gpus > 0 {
-                format!("{:>5}/{:<5}", group.summary.alloc_gpus, group.summary.total_gpus)
-            } else {
-                "-".to_string()
-            };
+            //let gpu_str = if group.summary.total_gpus > 0 {
+            //    format!("{:>5}/{:<5}", group.summary.alloc_gpus, group.summary.total_gpus)
+            //} else {
+            //    "-".to_string()
+            //};
             
-            println!("{}{}{:>5} {:>13} {:>13}", colored_str, padding, group.summary.node_count, cpu_str, gpu_str);
+            //println!("{}{}{:>5} {:>13} {:>13}", colored_str, padding, group.summary.node_count, cpu_str, gpu_str);
+            println!("{}{}{:>5} {:>13}", colored_str, padding, group.summary.node_count, cpu_str);
 
             let mut sorted_subgroups: Vec<&String> = group.subgroups.keys().collect();
             sorted_subgroups.sort();
@@ -329,27 +330,28 @@ pub fn print_report(report_data: &ReportData) {
             for subgroup_name in sorted_subgroups {
                 if let Some(subgroup_line) = group.subgroups.get(subgroup_name) {
                     let sub_cpu_str = format!("{:>5}/{:<5}", subgroup_line.alloc_cpus, subgroup_line.total_cpus);
-                    let sub_gpu_str = if subgroup_line.total_gpus > 0 {
-                        format!("{:>5}/{:<5}", subgroup_line.alloc_gpus, subgroup_line.total_gpus)
-                    } else {
-                        "-".to_string()
-                    };
+                    //let sub_gpu_str = if subgroup_line.total_gpus > 0 {
+                    //    format!("{:>5}/{:<5}", subgroup_line.alloc_gpus, subgroup_line.total_gpus)
+                    //} else {
+                    //    "-".to_string()
+                    //};
                     
                     let indented_name = format!("  {}", subgroup_name);
                     let sub_padding_len = max_state_width.saturating_sub(indented_name.len());
                     let sub_padding = " ".repeat(sub_padding_len);
 
-                    println!("{}{}{:>5} {:>13} {:>13}", indented_name, sub_padding, subgroup_line.node_count, sub_cpu_str, sub_gpu_str);
+                    println!("{}{}{:>5} {:>13}", indented_name, sub_padding, subgroup_line.node_count, sub_cpu_str);
+                    //println!("{}{}{:>5} {:>13} {:>13}", indented_name, sub_padding, subgroup_line.node_count, sub_cpu_str, sub_gpu_str);
                 }
             }
         }
     }
     
-    println!("{}", "-".repeat(max_state_width + 36));
+    println!("{}", "-".repeat(max_state_width + 23));
     let total_cpu_str = format!("{:>5}/{:<5}", total_line.alloc_cpus, total_line.total_cpus);
-    let total_gpu_str = format!("{:>5}/{:<5}", total_line.alloc_gpus, total_line.total_gpus);
+    //let total_gpu_str = format!("{:>5}/{:<5}", total_line.alloc_gpus, total_line.total_gpus);
     let total_padding = " ".repeat(max_state_width - "TOTAL".len());
-    println!("{}{}{:>5} {:>13} {:>13}", "TOTAL".bold(), total_padding, total_line.node_count, total_cpu_str, total_gpu_str);
+    println!("{}{}{:>5} {:>13}", "TOTAL".bold(), total_padding, total_line.node_count, total_cpu_str);
 
     println!();
 
@@ -371,7 +373,7 @@ pub fn print_report(report_data: &ReportData) {
         let empty_chars = if filled_chars >= bar_width { 0 } else { bar_width - filled_chars };
         let empty_bar = "░".repeat(empty_chars).normal();
         
-        println!("Overall Node Utilization:  [{}{}] {:.1}%", filled_bar, empty_bar, utilization_percent);
+        println!("Overall Node Utilization: \n [{}{}] {:.1}%", filled_bar, empty_bar, utilization_percent);
     }
 
     if total_line.total_cpus > 0 {
@@ -383,7 +385,7 @@ pub fn print_report(report_data: &ReportData) {
         let empty_chars = if filled_chars >= bar_width { 0 } else { bar_width - filled_chars };
         let empty_bar = "░".repeat(empty_chars).green();
 
-        println!("Overall CPU Utilization:   [{}{}] {:.1}%", filled_bar, empty_bar, utilization_percent);
+        println!("Overall CPU Utilization: \n [{}{}] {:.1}%", filled_bar, empty_bar, utilization_percent);
     }
 }
 
