@@ -1,5 +1,6 @@
 use std::{collections::HashMap, ffi::CStr, fmt};
 use chrono::{DateTime, Utc};
+use crate::utils::{time_t_to_datetime, c_str_to_string};
 
 use crate::{bindings::{
     node_info_msg_t, node_info_t, 
@@ -340,15 +341,6 @@ impl Node {
     /// The caller must ensure that the `raw_node` contains valid pointers
     /// for all string fields, as provided by a trusted Slurm API call
     pub fn from_raw_binding(raw_node: &node_info_t) -> Result<Self, String> {
-        // Helper function to safely convert a C string pointer to an owned Rust String
-        // Returns an empty string if the pointer is null
-        let c_str_to_string = |ptr: *const i8| -> String {
-            if ptr.is_null() {
-                String::new()
-            } else {
-                unsafe { CStr::from_ptr(ptr) }.to_string_lossy().into_owned()
-            }
-        };
 
         // Helper to convert comma-separated C string to a Vec<String>
         let c_str_to_vec = |ptr: *const i8| -> Vec<String> {
@@ -358,12 +350,6 @@ impl Node {
                 let r_str = unsafe { CStr::from_ptr(ptr) }.to_string_lossy();
                 r_str.split(',').map(String::from).collect()
             }
-        };
-
-        // Helper to convert time_t (i64) to DateTime<Utc>
-        let time_t_to_datetime = |timestamp: i64| -> DateTime<Utc> {
-            // Using unwrap_or_default for robustness against out-of-range timestamps
-           chrono::DateTime::from_timestamp(timestamp, 0).unwrap_or_default()
         };
 
         let energy = if raw_node.energy.is_null() {

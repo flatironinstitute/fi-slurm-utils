@@ -1,7 +1,6 @@
 use chrono::{DateTime, Utc};
-
-
 use crate::bindings::acct_gather_energy_t;
+use crate::utils::{time_t_to_datetime, c_str_to_string};
 
 #[derive(Clone, Debug)]
 #[allow(dead_code)]
@@ -26,10 +25,6 @@ impl AcctGatherEnergy {
     pub fn from_raw_binding(
         raw_energy: &acct_gather_energy_t,
     ) -> Result<Self, String> {
-        // This helper can be shared or defined locally.
-        let time_t_to_datetime = |timestamp: i64| -> DateTime<Utc> {
-           chrono::DateTime::from_timestamp(timestamp, 0).unwrap_or_default()
-        };
 
         Ok(AcctGatherEnergy {
             average_watts: raw_energy.ave_watts,
