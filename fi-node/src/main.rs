@@ -61,21 +61,22 @@ fn main() -> Result<(), String> {
             node_to_job_map.len()
         ); 
     }
-    
-    // Aggregate data into summary report
-    let summary_report = summary_report::build_summary_report(&nodes_collection);
-    if args.debug { println!("Aggregated data into {} feature types.", summary_report.len()); }
+    if args.detailed {
+        //  Aggregate Data into Report
+        let report = report::build_report(&nodes_collection, &jobs_collection, &node_to_job_map);
+        if args.debug { println!("Aggregated data into {} state groups.", report.len()); }
 
-    if args.debug { println!("\n--- Slurm Summary Report ---"); }
-    summary_report::print_summary_report(&summary_report);
+        // Print Report 
+        if args.debug { println!("\n--- Slurm Node Feature Report ---"); }
+        report::print_report(&report);
+    } else {
+        // Aggregate data into summary report
+        let summary_report = summary_report::build_summary_report(&nodes_collection);
+        if args.debug { println!("Aggregated data into {} feature types.", summary_report.len()); }
 
-    // //  Aggregate Data into Report
-    // let report = report::build_report(&nodes_collection, &jobs_collection, &node_to_job_map);
-    // if args.debug { println!("Aggregated data into {} state groups.", report.len()); }
-    //
-    // // Print Report 
-    // if args.debug { println!("\n--- Slurm Node Feature Report ---"); }
-    // report::print_report(&report);
+        if args.debug { println!("\n--- Slurm Summary Report ---"); }
+        summary_report::print_summary_report(&summary_report);
+    }
 
     Ok(())
 }
@@ -113,8 +114,10 @@ fn build_node_to_job_map(jobs: &SlurmJobs) -> HashMap<String, Vec<u32>> {
 #[command(version, about, long_about = None)]
 struct Args {
     /// Enable debug-level logging to print the pipeline steps to terminal
-    #[arg(short, long)]
+    #[arg(long)]
     debug: bool,
+    #[arg(short, long)]
+    detailed: bool,
 }
 
 
