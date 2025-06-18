@@ -152,17 +152,7 @@ pub fn print_summary_report(summary_data: &SummaryReportData) {
     let mut sorted_features: Vec<&String> = summary_data.keys().collect();
     sorted_features.sort();
 
-    // Print Headers
-    println!(
-        "{:<width$} {:^gauge_w$} {:^gauge_w$}",
-        "FEATURE".bold(),
-        "IDLE NODES".bold(),
-        "IDLE CPUS".bold(),
-        width = max_feature_width,
-        gauge_w = gauge_width
-    );
     let total_width = max_feature_width + gauge_width * 2 + 2;
-    println!("{}", "-".repeat(total_width));
 
     // Calculate Grand Totals
     let mut total_nodes = 0;
@@ -175,6 +165,21 @@ pub fn print_summary_report(summary_data: &SummaryReportData) {
         total_cpus += summary.total_cpus;
         idle_cpus += summary.idle_cpus;
     }
+
+    // Print Headers
+    println!(
+        "{:<width$} {:^gauge_w$} {:^gauge_w$}",
+        "FEATURE".bold(),
+        "IDLE NODES".bold(),
+        "IDLE CPUS".bold(),
+        width = max_feature_width,
+        gauge_w = gauge_width
+    );
+    println!("{}", "-".repeat(total_width));
+
+    // Use GaugeText::Percentage for the final TOTAL row
+    let node_gauge = create_gauge(idle_nodes, total_nodes, gauge_width, Color::Green, GaugeText::Percentage);
+    let cpu_gauge = create_gauge(idle_cpus, total_cpus, gauge_width, Color::Cyan, GaugeText::Percentage);
 
     // Print Report Data
     for feature_name in sorted_features {
@@ -195,9 +200,7 @@ pub fn print_summary_report(summary_data: &SummaryReportData) {
 
     // Print Total Line with Bars
     println!("{}", "-".repeat(total_width));
-    // Use GaugeText::Percentage for the final TOTAL row
-    let node_gauge = create_gauge(idle_nodes, total_nodes, gauge_width, Color::Green, GaugeText::Percentage);
-    let cpu_gauge = create_gauge(idle_cpus, total_cpus, gauge_width, Color::Cyan, GaugeText::Percentage);
+
     println!(
         "{:<width$} {} {}",
         "TOTAL".bold(),
