@@ -3,7 +3,7 @@ pub mod summary_report;
 
 use clap::Parser;
 use std::collections::HashMap;
-use fi_slurm::jobs::{SlurmJobs, get_jobs};
+use fi_slurm::jobs::SlurmJobs;
 use fi_slurm::{jobs, nodes, parser::parse_slurm_hostlist, utils::{SlurmConfig, initialize_slurm}};
 
 /// The main entry point for the `fi-node`
