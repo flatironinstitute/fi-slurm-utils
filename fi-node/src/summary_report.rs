@@ -166,6 +166,10 @@ pub fn print_summary_report(summary_data: &SummaryReportData) {
         idle_cpus += summary.idle_cpus;
     }
 
+    // Use GaugeText::Percentage for the final TOTAL row
+    let node_gauge = create_gauge(idle_nodes, total_nodes, gauge_width, Color::Green, GaugeText::Percentage);
+    let cpu_gauge = create_gauge(idle_cpus, total_cpus, gauge_width, Color::Cyan, GaugeText::Percentage);
+
     // Print Headers
     println!(
         "{:<width$} {:^gauge_w$} {:^gauge_w$}",
@@ -177,10 +181,7 @@ pub fn print_summary_report(summary_data: &SummaryReportData) {
     );
     println!("{}", "-".repeat(total_width));
 
-    // Use GaugeText::Percentage for the final TOTAL row
-    let node_gauge = create_gauge(idle_nodes, total_nodes, gauge_width, Color::Green, GaugeText::Percentage);
-    let cpu_gauge = create_gauge(idle_cpus, total_cpus, gauge_width, Color::Cyan, GaugeText::Percentage);
-
+    // TODO: wrap this into an iterator so the process of printing looks smoother on the screen
     // Print Report Data
     for feature_name in sorted_features {
         if let Some(summary) = summary_data.get(feature_name) {
