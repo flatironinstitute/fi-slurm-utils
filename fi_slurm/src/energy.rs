@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use crate::bindings::acct_gather_energy_t;
+use rust_bind::bindings::acct_gather_energy_t;
 use crate::utils::time_t_to_datetime;
 
 #[derive(Clone, Debug)]

@@ -1,10 +1,11 @@
 use std::{collections::HashMap, ffi::CStr, fmt};
 use chrono::{DateTime, Utc};
 use crate::utils::{time_t_to_datetime, c_str_to_string};
-
-use crate::{bindings::{
+use crate::energy::AcctGatherEnergy; 
+use crate::gres::parse_gres_str;
+use rust_bind::bindings::{
     node_info_msg_t, node_info_t, 
-    slurm_free_node_info_msg, slurm_load_node}, energy::AcctGatherEnergy, gres::parse_gres_str};
+    slurm_free_node_info_msg, slurm_load_node};
 
 pub struct RawSlurmNodeInfo {
     ptr: *mut node_info_msg_t,
