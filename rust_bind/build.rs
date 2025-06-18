@@ -22,7 +22,7 @@ fn main() {
     // Get the path to the project's root directory.
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     // Get the path to the `src/bindings.rs`
-    let out_path = PathBuf::from(manifest_dir).join("../fi_slurm/src/bindings.rs");
+    let out_path = PathBuf::from(manifest_dir).join("src/bindings.rs");
     //let out_path = PathBuf::from(manifest_dir).join("src/bindings.rs");
 
     bindings
