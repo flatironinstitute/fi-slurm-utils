@@ -17,6 +17,11 @@ fn main() -> Result<(), String> {
 
     let args = Args::parse();
 
+    if args.help {
+        print_help();
+        return Ok(())
+    }
+
     // This MUST be the very first Slurm function called 
     // We pass a null pointer to let Slurm find its config file automatically
     if args.debug { println!("Initializing Slurm library..."); } 
@@ -102,6 +107,21 @@ fn build_node_to_job_map(jobs: &SlurmJobs) -> HashMap<String, Vec<u32>> {
 
     node_map
 }
+
+/// A clap argument to print the current documentation and arguments
+fn print_help() {
+    println!("\n
+        Welcome to fi-node! This is a command-line utility for examining the available nodes in the cluster through the Slurm Job Scheduler. \n
+        Usage: fi-node [OPTIONS] \n\n
+        Options: \n
+        -d, --detailed          Prints the detailed, state-by-state report of node availability \n
+            --debug             Prints the step-by-step process of querying Slurm \n
+        -h  --help              Prints the options and documentation for the fi-node command-line tool. You are here!
+        "
+    )
+}
+
+
 /// A command-line utility to report the state of a Slurm cluster,
 /// showing a summary of nodes grouped by state and feature
 #[derive(Parser, Debug)]
@@ -112,6 +132,8 @@ struct Args {
     debug: bool,
     #[arg(short, long)]
     detailed: bool,
+    #[arg(short, long)]
+    help: bool,
 }
 
 
