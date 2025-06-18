@@ -2,4 +2,9 @@
 #![allow(non_upper_case_globals)]
 #![allow(non_snake_case)]
 
-pub mod bindings;
+pub mod energy;
+pub mod gres;
+pub mod nodes;
+pub mod jobs;
+pub mod parser;
+pub mod utils;

@@ -1,16 +1,10 @@
-pub mod energy;
-pub mod gres;
-pub mod nodes;
-pub mod jobs;
-pub mod parser;
 pub mod report;
-pub mod utils;
 pub mod summary_report;
 
-use fi_slurm::bindings;
 use clap::Parser;
 use std::collections::HashMap;
-use crate::jobs::SlurmJobs;
+use fi_slurm::jobs::{SlurmJobs, get_jobs};
+use fi_slurm::{jobs, nodes, parser::parse_slurm_hostlist, utils::{SlurmConfig, initialize_slurm}};
 
 /// The main entry point for the `fi-node`
 ///
@@ -26,9 +20,9 @@ fn main() -> Result<(), String> {
     // This MUST be the very first Slurm function called 
     // We pass a null pointer to let Slurm find its config file automatically
     if args.debug { println!("Initializing Slurm library..."); } 
-    unsafe {
-        bindings::slurm_init(std::ptr::null());
-    }
+    // has no output, only passes a null pointer to Slurm directly in order to initialize
+    // non-trivial functions of the Slurm API
+    initialize_slurm();
 
     // After initializing, we load the conf to get a handle that we can
     // manage for proper cleanup
@@ -95,7 +89,7 @@ fn build_node_to_job_map(jobs: &SlurmJobs) -> HashMap<String, Vec<u32>> {
 
         // Expand the Slurm hostlist string
         // TODO: consider using Slurm's built-in parser instead
-        let expanded_nodes = parser::parse_slurm_hostlist(&job.nodes);
+        let expanded_nodes = parse_slurm_hostlist(&job.nodes);
 
         // For each individual node name, add the current job's ID to the map
         for node_name in expanded_nodes {
@@ -121,41 +115,3 @@ struct Args {
 }
 
 
-// This struct ensures that the Slurm configuration is automatically
-// loaded on creation and freed when it goes out of scope
-struct SlurmConfig {
-    _ptr: *mut bindings::slurm_conf_t,
-}
-
-impl SlurmConfig {
-    /// Loads the Slurm configuration and returns a guard object
-    /// The configuration will be freed when the guard is dropped
-    pub fn load() -> Result<Self, String> {
-        let mut conf_ptr: *mut bindings::slurm_conf_t = std::ptr::null_mut();
-        unsafe {
-            if bindings::slurm_load_ctl_conf(0, &mut conf_ptr) != 0 {
-                return Err(
-                    "Failed to load slurm.conf. Check logs or SLURM_CONF env variable."
-                        .to_string(),
-                );
-            }
-        }
-        if conf_ptr.is_null() {
-            // This is a defensive check; slurm_load_ctl_conf should not return 0
-            // and a null pointer, but we check just in case
-            return Err("slurm_load_ctl_conf succeeded but returned a null pointer.".to_string());
-        }
-        Ok(SlurmConfig { _ptr: conf_ptr })
-    }
-}
-
-impl Drop for SlurmConfig {
-    fn drop(&mut self) {
-        // This is guaranteed to be called when the SlurmConfig instance
-        // goes out of scope, preventing memory leaks
-        unsafe {
-            bindings::slurm_free_ctl_conf(self._ptr);
-        }
-        //println!("\nCleaned up Slurm configuration.");
-    }
-}

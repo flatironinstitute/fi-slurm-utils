@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
-use crate::bindings::{job_info, job_info_msg_t, slurm_free_job_info_msg, slurm_load_jobs};
+use rust_bind::bindings::{job_info, job_info_msg_t, slurm_free_job_info_msg, slurm_load_jobs};
 use crate::gres::parse_gres_str; 
 use crate::utils::{c_str_to_string, time_t_to_datetime};
 
