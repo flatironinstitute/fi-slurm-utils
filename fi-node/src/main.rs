@@ -70,7 +70,7 @@ fn main() -> Result<(), String> {
         report::print_report(&report);
     } else {
         // Aggregate data into summary report
-        let summary_report = summary_report::build_summary_report(&nodes_collection);
+        let summary_report = summary_report::build_summary_report(&nodes_collection, &jobs_collection, &node_to_job_map);
         if args.debug { println!("Aggregated data into {} feature types.", summary_report.len()); }
 
         if args.debug { println!("\n--- Slurm Summary Report ---"); }
