@@ -166,7 +166,7 @@ pub fn print_summary_report(summary_data: &SummaryReportData) {
     }
     // Add some padding
     max_feature_width += 2;
-
+    
     let gauge_width = 15; // Define a fixed width for our gauges
 
     // --- Sort features for consistent output ---
@@ -180,25 +180,94 @@ pub fn print_summary_report(summary_data: &SummaryReportData) {
         "IDLE NODES".bold(),
         "IDLE CPUS".bold(),
         width = max_feature_width,
-        gauge_w = gauge_width,
+        gauge_w = gauge_width
     );
     let total_width = max_feature_width + gauge_width * 2 + 2; // +2 for spaces between columns
     println!("{}", "-".repeat(total_width));
+
+    // --- Calculate Grand Totals for Bars ---
+    let mut total_nodes = 0;
+    let mut idle_nodes = 0;
+    let mut total_cpus = 0;
+    let mut idle_cpus = 0;
+    for summary in summary_data.values() {
+        total_nodes += summary.total_nodes;
+        idle_nodes += summary.idle_nodes;
+        total_cpus += summary.total_cpus;
+        idle_cpus += summary.idle_cpus;
+    }
 
 
     // --- Print Report Data ---
     for feature_name in sorted_features {
         if let Some(summary) = summary_data.get(feature_name) {
-            let node_gauge = create_gauge(summary.idle_nodes, summary.total_nodes, gauge_width, Color::Green);
-            let cpu_gauge = create_gauge(summary.idle_cpus, summary.total_cpus, gauge_width, Color::Cyan);
+            let node_text = format!("{}/{}", summary.idle_nodes, summary.total_nodes);
+            let cpu_text = format!("{}/{}", summary.idle_cpus, summary.total_cpus);
 
             println!(
-                "{:<width$} {} {}",
+                "{:<width$} {:^gauge_w$} {:^gauge_w$}",
                 feature_name,
-                node_gauge,
-                cpu_gauge,
-                width = max_feature_width
+                node_text,
+                cpu_text,
+                width = max_feature_width,
+                gauge_w = gauge_width
             );
         }
     }
+
+    // --- Print Total Line with Bars ---
+    println!("{}", "-".repeat(total_width));
+    let node_gauge = create_gauge(idle_nodes, total_nodes, gauge_width, Color::Green);
+    let cpu_gauge = create_gauge(idle_cpus, total_cpus, gauge_width, Color::Cyan);
+    println!(
+        "{:<width$} {} {}",
+        "TOTAL".bold(),
+        node_gauge,
+        cpu_gauge,
+        width = max_feature_width
+    );
 }
+// pub fn print_summary_report(summary_data: &SummaryReportData) {
+//     // --- Pass 1: Pre-calculate column widths ---
+//     let mut max_feature_width = "FEATURE".len();
+//     for feature_name in summary_data.keys() {
+//         max_feature_width = max_feature_width.max(feature_name.len());
+//     }
+//     // Add some padding
+//     max_feature_width += 2;
+//
+//     let gauge_width = 15; // Define a fixed width for our gauges
+//
+//     // --- Sort features for consistent output ---
+//     let mut sorted_features: Vec<&String> = summary_data.keys().collect();
+//     sorted_features.sort();
+//
+//     // --- Print Headers ---
+//     println!(
+//         "{:<width$} {:^gauge_w$} {:^gauge_w$}",
+//         "FEATURE".bold(),
+//         "IDLE NODES".bold(),
+//         "IDLE CPUS".bold(),
+//         width = max_feature_width,
+//         gauge_w = gauge_width,
+//     );
+//     let total_width = max_feature_width + gauge_width * 2 + 2; // +2 for spaces between columns
+//     println!("{}", "-".repeat(total_width));
+//
+//
+//     // --- Print Report Data ---
+//     for feature_name in sorted_features {
+//         if let Some(summary) = summary_data.get(feature_name) {
+//             let node_gauge = create_gauge(summary.idle_nodes, summary.total_nodes, gauge_width, Color::Green);
+//             let cpu_gauge = create_gauge(summary.idle_cpus, summary.total_cpus, gauge_width, Color::Cyan);
+//
+//             println!(
+//                 "{:<width$} {} {}",
+//                 feature_name,
+//                 node_gauge,
+//                 cpu_gauge,
+//                 width = max_feature_width
+//             );
+//         }
+//     }
+// }
