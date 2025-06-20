@@ -125,7 +125,7 @@ fn print_help() {
 /// A command-line utility to report the state of a Slurm cluster,
 /// showing a summary of nodes grouped by state and feature
 #[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
+#[command(version, about, long_about = None, disable_help_flag = true)]
 struct Args {
     /// Enable debug-level logging to print the pipeline steps to terminal
     #[arg(long)]
