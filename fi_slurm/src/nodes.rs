@@ -207,10 +207,10 @@ pub struct Node {
 
     // Generic Resources (GRES), like GPUs
     pub configured_gres: HashMap<String, u64>,
-    pub allocated_gres: HashMap<String, u64>,
+    //pub allocated_gres: HashMap<String, u64>,
     pub gres: String,
     pub gres_drain: String,
-    pub gres_used: String,
+    //pub gres_used: String,
     pub res_cores_per_gpu: u16,
     pub gpu_spec: String,
 
@@ -269,6 +269,15 @@ impl Node {
             }
         };
 
+        // --- TEMPORARY DEBUGGING CODE ---
+        let gres_used_str = unsafe { c_str_to_string(raw_node.gres) };
+        println!(
+            "DEBUG: Node '{}' has gres_used: '{}'",
+            unsafe { c_str_to_string(raw_node.name) },
+            gres_used_str
+        );
+        // --- END TEMPORARY DEBUGGING CODE ---
+
         let energy = if raw_node.energy.is_null() {
             None
         } else {
@@ -315,10 +324,10 @@ impl Node {
 
             // Generic Resources (GRES)
             configured_gres: unsafe {parse_gres_str(raw_node.gres)},
-            allocated_gres: unsafe {parse_gres_str(raw_node.gres_used)},
+            //allocated_gres: unsafe {parse_gres_str(raw_node.gres_used)},
             gres: unsafe {c_str_to_string(raw_node.gres)}, // Keep the raw string for reference
             gres_drain: unsafe {c_str_to_string(raw_node.gres_drain)},
-            gres_used: unsafe {c_str_to_string(raw_node.gres_used)}, // Keep the raw string for reference
+            //gres_used: unsafe {c_str_to_string(raw_node.gres_used)}, // Keep the raw string for reference
             res_cores_per_gpu: raw_node.res_cores_per_gpu,
             gpu_spec: "TODO: Implement gpu_spec parsing".to_string(), // Placeholder
 
