@@ -1845,7 +1845,7 @@ const _: () = {
 pub struct __pthread_cond_s {
     pub __bindgen_anon_1: __pthread_cond_s__bindgen_ty_1,
     pub __bindgen_anon_2: __pthread_cond_s__bindgen_ty_2,
-    pub __g_refs: [::std::os::raw::c_uint; 2usize],
+    pub __glibc_unused___g_refs: [::std::os::raw::c_uint; 2usize],
     pub __g_size: [::std::os::raw::c_uint; 2usize],
     pub __g1_orig_size: ::std::os::raw::c_uint,
     pub __wrefs: ::std::os::raw::c_uint,
@@ -1923,8 +1923,8 @@ const _: () = {
 const _: () = {
     ["Size of __pthread_cond_s"][::std::mem::size_of::<__pthread_cond_s>() - 48usize];
     ["Alignment of __pthread_cond_s"][::std::mem::align_of::<__pthread_cond_s>() - 8usize];
-    ["Offset of field: __pthread_cond_s::__g_refs"]
-        [::std::mem::offset_of!(__pthread_cond_s, __g_refs) - 16usize];
+    ["Offset of field: __pthread_cond_s::__glibc_unused___g_refs"]
+        [::std::mem::offset_of!(__pthread_cond_s, __glibc_unused___g_refs) - 16usize];
     ["Offset of field: __pthread_cond_s::__g_size"]
         [::std::mem::offset_of!(__pthread_cond_s, __g_size) - 24usize];
     ["Offset of field: __pthread_cond_s::__g1_orig_size"]
@@ -10369,6 +10369,31 @@ unsafe extern "C" {
 unsafe extern "C" {
     pub fn slurm_remove_crontab(uid: uid_t, gid: gid_t) -> ::std::os::raw::c_int;
 }
+pub const bind_node_state_flags_EXTERNAL: bind_node_state_flags = 16;
+pub const bind_node_state_flags_RES: bind_node_state_flags = 32;
+pub const bind_node_state_flags_UNDRAIN: bind_node_state_flags = 64;
+pub const bind_node_state_flags_CLOUD: bind_node_state_flags = 128;
+pub const bind_node_state_flags_RESUME: bind_node_state_flags = 256;
+pub const bind_node_state_flags_DRAIN: bind_node_state_flags = 512;
+pub const bind_node_state_flags_COMPLETING: bind_node_state_flags = 1024;
+pub const bind_node_state_flags_NO_RESPOND: bind_node_state_flags = 2048;
+pub const bind_node_state_flags_POWERED_DOWN: bind_node_state_flags = 4096;
+pub const bind_node_state_flags_FAIL: bind_node_state_flags = 8192;
+pub const bind_node_state_flags_POWERING_UP: bind_node_state_flags = 16384;
+pub const bind_node_state_flags_MAINT: bind_node_state_flags = 32768;
+pub const bind_node_state_flags_REBOOT_REQUESTED: bind_node_state_flags = 65536;
+pub const bind_node_state_flags_REBOOT_CANCEL: bind_node_state_flags = 131072;
+pub const bind_node_state_flags_POWERING_DOWN: bind_node_state_flags = 262144;
+pub const bind_node_state_flags_DYNAMIC_FUTURE: bind_node_state_flags = 524288;
+pub const bind_node_state_flags_REBOOT_ISSUED: bind_node_state_flags = 1048576;
+pub const bind_node_state_flags_PLANNED: bind_node_state_flags = 2097152;
+pub const bind_node_state_flags_INVALID_REG: bind_node_state_flags = 4194304;
+pub const bind_node_state_flags_POWER_DOWN: bind_node_state_flags = 8388608;
+pub const bind_node_state_flags_POWER_UP: bind_node_state_flags = 16777216;
+pub const bind_node_state_flags_POWER_DRAIN: bind_node_state_flags = 33554432;
+pub const bind_node_state_flags_DYNAMIC_NORM: bind_node_state_flags = 67108864;
+pub const bind_node_state_flags_BLOCKED: bind_node_state_flags = 134217728;
+pub type bind_node_state_flags = ::std::os::raw::c_uint;
 pub type __builtin_va_list = [__va_list_tag; 1usize];
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]

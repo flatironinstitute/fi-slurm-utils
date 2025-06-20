@@ -3,6 +3,7 @@ use chrono::{DateTime, Utc};
 use crate::utils::{time_t_to_datetime, c_str_to_string};
 use crate::energy::AcctGatherEnergy; 
 use crate::gres::parse_gres_str;
+use crate::states::NodeStateFlags;
 use rust_bind::bindings::{
     node_info_msg_t, node_info_t, 
     slurm_free_node_info_msg, slurm_load_node};
@@ -101,7 +102,7 @@ pub enum NodeState {
 #[allow(dead_code)]
 impl From<u32> for NodeState {
     fn from(state_num: u32) -> Self {
-        // TODO: replace with proper native Rust enums
+
         const NODE_STATE_UNKNOWN: u32 = 0;
         const NODE_STATE_DOWN: u32 = 1;
         const NODE_STATE_IDLE: u32 = 2;
@@ -110,36 +111,9 @@ impl From<u32> for NodeState {
         const NODE_STATE_MIXED: u32 = 5;
         const NODE_STATE_FUTURE: u32 = 6;
         const NODE_STATE_END: u32 = 7;
-
-        const NODE_STATE_EXTERNAL: u32 = 1 << 4;
-        const NODE_STATE_RES: u32 = 1 << 5;
-        const NODE_STATE_UNDRAIN: u32 = 1 << 6;
-        const NODE_STATE_CLOUD: u32 = 1 << 7;
-        const NODE_STATE_RESUME: u32 = 1 << 8;
-        const NODE_STATE_DRAIN: u32 = 1 << 9;
-        const NODE_STATE_COMPLETING: u32 = 1 << 10;
-        const NODE_STATE_NO_RESPOND: u32 = 1 << 11;
-        const NODE_STATE_POWERED_DOWN: u32 = 1 << 12;
-        const NODE_STATE_FAIL: u32 = 1 << 13;
-        const NODE_STATE_POWERING_UP: u32 = 1 << 14;
-        const NODE_STATE_MAINT: u32 = 1 << 15;
-        const NODE_STATE_REBOOT_REQUESTED: u32 = 1 << 16;
-        const NODE_STATE_REBOOT_CANCEL: u32 = 1 << 17;
-        const NODE_STATE_POWERING_DOWN: u32 = 1 << 18;
-        const NODE_STATE_DYNAMIC_FUTURE: u32 = 1 << 19;
-        const NODE_STATE_REBOOT_ISSUED: u32 = 1 << 20;
-        const NODE_STATE_PLANNED: u32 = 1 << 21;
-        const NODE_STATE_INVALID_REG: u32 = 1 << 22;
-        const NODE_STATE_POWER_DOWN: u32 = 1 << 23;
-        const NODE_STATE_POWER_UP: u32 = 1 << 24;
-        const NODE_STATE_POWER_DRAIN: u32 = 1 << 25;
-        const NODE_STATE_DYNAMIC_NORM: u32 = 1 << 26;
-        const NODE_STATE_BLOCKED: u32 = 1 << 27;
-
-        // The bitmask for the base state 
         const BASE_STATE_MASK: u32 = 0xF;
-        let base_state_num = state_num & BASE_STATE_MASK;
 
+        let base_state_num = state_num & BASE_STATE_MASK;
         let base_state = match base_state_num {
             NODE_STATE_DOWN => NodeState::Down,
             NODE_STATE_IDLE => NodeState::Idle,
@@ -151,82 +125,23 @@ impl From<u32> for NodeState {
             _ => NodeState::Unknown(format!("BASE({})", base_state_num)),
         };
 
-        let mut flags: Vec<String> = Vec::new();
+        let flags_struct = NodeStateFlags::from_bits_truncate(state_num);
 
-        // Check for each flag 
-        // TODO: make this more elegant
-        if (state_num & NODE_STATE_EXTERNAL) != 0 {
-            flags.push("EXTERNAL".to_string());
-        }
-        if (state_num & NODE_STATE_RES) != 0 {
-            flags.push("RES".to_string());
-        }
-        if (state_num & NODE_STATE_UNDRAIN) != 0 {
-            flags.push("UNDRAIN".to_string());
-        }
-        if (state_num & NODE_STATE_CLOUD) != 0 {
-            flags.push("CLOUD".to_string());
-        }
-        if (state_num & NODE_STATE_RESUME) != 0 {
-            flags.push("RESUME".to_string());
-        }
-        if (state_num & NODE_STATE_DRAIN) != 0 {
-            flags.push("DRAIN".to_string());
-        }
-        if (state_num & NODE_STATE_COMPLETING) != 0 {
-            flags.push("COMPLETING".to_string());
-        }
-        if (state_num & NODE_STATE_NO_RESPOND) != 0 {
-            flags.push("NO_RESPOND".to_string());
-        }
-        if (state_num & NODE_STATE_POWERED_DOWN) != 0 {
-            flags.push("POWERED_DOWN".to_string());
-        }
-        if (state_num & NODE_STATE_FAIL) != 0 {
-            flags.push("FAIL".to_string());
-        }
-        if (state_num & NODE_STATE_POWERING_UP) != 0 {
-            flags.push("POWERING_UP".to_string());
-        }
-        if (state_num & NODE_STATE_MAINT) != 0 {
-            flags.push("MAINT".to_string());
-        }
-        if (state_num & NODE_STATE_REBOOT_REQUESTED) != 0 {
-            flags.push("REBOOT_REQUESTED".to_string());
-        }
-        if (state_num & NODE_STATE_REBOOT_CANCEL) != 0 {
-            flags.push("REBOOT_CANCEL".to_string());
-        }
-        if (state_num & NODE_STATE_POWERING_DOWN) != 0 {
-            flags.push("POWERING_DOWN".to_string());
-        }
-        if (state_num & NODE_STATE_DYNAMIC_FUTURE) != 0 {
-            flags.push("DYNAMIC_FUTURE".to_string());
-        }
-        if (state_num & NODE_STATE_REBOOT_ISSUED) != 0 {
-            flags.push("REBOOT_ISSUED".to_string());
-        }
-        if (state_num & NODE_STATE_PLANNED) != 0 {
-            flags.push("REBOOT_PLANNED".to_string());
-        }
-        if (state_num & NODE_STATE_INVALID_REG) != 0 {
-            flags.push("INVALID_REG".to_string());
-        }
-        if (state_num & NODE_STATE_POWER_DOWN) != 0 {
-            flags.push("POWER_DOWN".to_string());
-        }
-        if (state_num & NODE_STATE_POWER_UP) != 0 {
-            flags.push("POWER_UP".to_string());
-        }
-        if (state_num & NODE_STATE_POWER_DRAIN) != 0 {
-            flags.push("POWER_DRAIN".to_string());
-        }
-        if (state_num & NODE_STATE_DYNAMIC_NORM) != 0 {
-            flags.push("DYNAMIC_NORM".to_string());
-        }
-        if (state_num & NODE_STATE_BLOCKED) != 0 {
-            flags.push("BLOCKED".to_string());
-        }
+        let flags: Vec<String> = flags_struct
+            .iter()
+            .map(|flag| {
+                // Get the verbose debug string, e.g., "NodeStateFlags(DRAIN | MAINT)"
+                let debug_str = format!("{:?}", flag);
+                // Extract just the name, e.g., "DRAIN"
+                if let Some(start) = debug_str.find('(') {
+                    if let Some(end) = debug_str.rfind(')') {
+                        return debug_str[start + 1..end].to_string();
+                    }
+                }
+                // Fallback for simple flags that might not have parentheses
+                debug_str
+            })
+            .collect();
         
         if flags.is_empty() {
             // If no recognized flags are set, just return the base state
