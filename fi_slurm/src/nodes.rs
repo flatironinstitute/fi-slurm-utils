@@ -269,15 +269,6 @@ impl Node {
             }
         };
 
-        // --- TEMPORARY DEBUGGING CODE ---
-        let gres_used_str = unsafe { c_str_to_string(raw_node.gres) };
-        println!(
-            "DEBUG: Node '{}' has gres_used: '{}'",
-            unsafe { c_str_to_string(raw_node.name) },
-            gres_used_str
-        );
-        // --- END TEMPORARY DEBUGGING CODE ---
-
         let energy = if raw_node.energy.is_null() {
             None
         } else {
