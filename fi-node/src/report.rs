@@ -34,11 +34,12 @@ impl ReportLine {
                 self.total_gpus += count;
             }
         }
-        for (gres_name, &count) in &node.allocated_gres {
-            if gres_name.starts_with("gpu") {
-                self.alloc_gpus += count;
-            }
-        }
+        // commented out, since it turns out that gres_used is empty most or all the time
+        //for (gres_name, &count) in &node.allocated_gres {
+        //    if gres_name.starts_with("gpu") {
+        //        self.alloc_gpus += count;
+        //    }
+        //}
     }
 }
 
@@ -127,11 +128,12 @@ pub fn build_report(
                 group.summary.total_gpus += count;
             }
         }
-        for (gres_name, &count) in &node.allocated_gres {
-            if gres_name.starts_with("gpu") {
-                group.summary.alloc_gpus += count;
-            }
-        }
+        // commented out, since it turns out that gres_used is empty most or all the time
+        //for (gres_name, &count) in &node.allocated_gres {
+        //    if gres_name.starts_with("gpu") {
+        //        group.summary.alloc_gpus += count;
+        //    }
+        //}
         
         // --- Feature Subgroup Logic ---
         if let Some(feature) = node.features.first() {
@@ -165,14 +167,15 @@ pub fn build_report(
                 subgroup_line.total_gpus += configured_count;
             }
         }
-        // FIX: This second loop remains necessary to add the allocated counts.
-        for (gres_name, &allocated_count) in &node.allocated_gres {
-            if let Some(subgroup_line) = group.subgroups.get_mut(gres_name) {
-                 if gres_name.starts_with("gpu") {
-                    subgroup_line.alloc_gpus += allocated_count;
-                 }
-            }
-        }
+        // commented out, since it turns out that gres_used is empty most or all the time
+        //// FIX: This second loop remains necessary to add the allocated counts.
+        //for (gres_name, &allocated_count) in &node.allocated_gres {
+        //    if let Some(subgroup_line) = group.subgroups.get_mut(gres_name) {
+        //         if gres_name.starts_with("gpu") {
+        //            subgroup_line.alloc_gpus += allocated_count;
+        //         }
+        //    }
+        //}
     }
     report_data
 }
