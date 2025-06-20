@@ -1,29 +1,33 @@
 
+use bitflags::bitflags;
+use rust_bind::bindings;
 
-
-
-pub const bind_node_state_flags_BIND_NODE_STATE_EXTERNAL: bind_node_state_flags = 16;
-pub const bind_node_state_flags_BIND_NODE_STATE_RES: bind_node_state_flags = 32;
-pub const bind_node_state_flags_BIND_NODE_STATE_UNDRAIN: bind_node_state_flags = 64;
-pub const bind_node_state_flags_BIND_NODE_STATE_CLOUD: bind_node_state_flags = 128;
-pub const bind_node_state_flags_BIND_NODE_STATE_RESUME: bind_node_state_flags = 256;
-pub const bind_node_state_flags_BIND_NODE_STATE_DRAIN: bind_node_state_flags = 512;
-pub const bind_node_state_flags_BIND_NODE_STATE_COMPLETING: bind_node_state_flags = 1024;
-pub const bind_node_state_flags_BIND_NODE_STATE_NO_RESPOND: bind_node_state_flags = 2048;
-pub const bind_node_state_flags_BIND_NODE_STATE_POWERED_DOWN: bind_node_state_flags = 4096;
-pub const bind_node_state_flags_BIND_NODE_STATE_FAIL: bind_node_state_flags = 8192;
-pub const bind_node_state_flags_BIND_NODE_STATE_POWERING_UP: bind_node_state_flags = 16384;
-pub const bind_node_state_flags_BIND_NODE_STATE_MAINT: bind_node_state_flags = 32768;
-pub const bind_node_state_flags_BIND_NODE_STATE_REBOOT_REQUESTED: bind_node_state_flags = 65536;
-pub const bind_node_state_flags_BIND_NODE_STATE_REBOOT_CANCEL: bind_node_state_flags = 131072;
-pub const bind_node_state_flags_BIND_NODE_STATE_POWERING_DOWN: bind_node_state_flags = 262144;
-pub const bind_node_state_flags_BIND_NODE_STATE_DYNAMIC_FUTURE: bind_node_state_flags = 524288;
-pub const bind_node_state_flags_BIND_NODE_STATE_REBOOT_ISSUED: bind_node_state_flags = 1048576;
-pub const bind_node_state_flags_BIND_NODE_STATE_PLANNED: bind_node_state_flags = 2097152;
-pub const bind_node_state_flags_BIND_NODE_STATE_INVALID_REG: bind_node_state_flags = 4194304;
-pub const bind_node_state_flags_BIND_NODE_STATE_POWER_DOWN: bind_node_state_flags = 8388608;
-pub const bind_node_state_flags_BIND_NODE_STATE_POWER_UP: bind_node_state_flags = 16777216;
-pub const bind_node_state_flags_BIND_NODE_STATE_POWER_DRAIN: bind_node_state_flags = 33554432;
-pub const bind_node_state_flags_BIND_NODE_STATE_DYNAMIC_NORM: bind_node_state_flags = 67108864;
-pub const bind_node_state_flags_BIND_NODE_STATE_BLOCKED: bind_node_state_flags = 134217728;
-pub type bind_node_state_flags = ::std::os::raw::c_uint;
+bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    pub struct NodeStateFlags: u32 {
+        const EXTERNAL = bindings::bind_node_state_flags_EXTERNAL;
+        const RES = bindings::bind_node_state_flags_RES;
+        const UNDRAIN = bindings::bind_node_state_flags_UNDRAIN;
+        const CLOUD = bindings::bind_node_state_flags_CLOUD;
+        const RESUME = bindings::bind_node_state_flags_RESUME;
+        const DRAIN = bindings::bind_node_state_flags_DRAIN;
+        const COMPLETING = bindings::bind_node_state_flags_COMPLETING;
+        const NO_RESPOND = bindings::bind_node_state_flags_NO_RESPOND;
+        const POWERED_DOWN = bindings::bind_node_state_flags_POWERED_DOWN;
+        const FAIL = bindings::bind_node_state_flags_FAIL;
+        const POWERING_UP = bindings::bind_node_state_flags_POWERING_UP;
+        const MAINT = bindings::bind_node_state_flags_MAINT;
+        const REBOOT_REQUESTED = bindings::bind_node_state_flags_REBOOT_REQUESTED;
+        const REBOOT_CANCEL = bindings::bind_node_state_flags_REBOOT_CANCEL;
+        const POWERING_DOWN = bindings::bind_node_state_flags_POWERING_DOWN;
+        const DYNAMIC_FUTURE = bindings::bind_node_state_flags_DYNAMIC_FUTURE;
+        const REBOOT_ISSUED = bindings::bind_node_state_flags_REBOOT_ISSUED;
+        const PLANNED = bindings::bind_node_state_flags_PLANNED;
+        const INVALID_REG = bindings::bind_node_state_flags_INVALID_REG;
+        const POWER_DOWN = bindings::bind_node_state_flags_POWER_DOWN;
+        const POWER_UP = bindings::bind_node_state_flags_POWER_UP;
+        const POWER_DRAIN = bindings::bind_node_state_flags_POWER_DRAIN;
+        const DYNAMIC_NORM = bindings::bind_node_state_flags_DYNAMIC_NORM;
+        const BLOCKED = bindings::bind_node_state_flags_PLANNED;
+    }
+}
