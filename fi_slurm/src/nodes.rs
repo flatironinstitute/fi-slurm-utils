@@ -173,10 +173,12 @@ impl fmt::Display for NodeState {
     }
 }
 
+type NodeName = String;
+
 // pub struct Node, a safe counterpart to node_info_t
 #[derive(Debug, Clone)]
 pub struct Node {
-    pub name: String,
+    pub name: NodeName,
     pub state: NodeState,
     pub next_state: NodeState,
     pub node_addr: String,

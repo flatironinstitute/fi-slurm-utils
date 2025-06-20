@@ -157,6 +157,8 @@ impl From<u32> for JobState {
     }
 }
 
+type JobId = u32;
+
 /// A safe, owned, and idiomatic Rust representation of a Slurm job
 ///
 /// This struct holds a curated subset of the most important fields from the
@@ -165,7 +167,7 @@ impl From<u32> for JobState {
 #[derive(Debug, Clone)]
 pub struct Job {
     // Core Identification 
-    pub job_id: u32,
+    pub job_id: JobId,
     pub array_job_id: u32,
     pub array_task_id: u32,
     pub name: String,
