@@ -151,7 +151,7 @@ struct Args {
     detailed: bool,
     #[arg(short, long)]
     help: bool,
-    #[arg(short, long)]
+    #[arg(short, long, num_args = 1..)]
     feature: Vec<String>,
     #[arg(short, long)]
     exact: bool,
