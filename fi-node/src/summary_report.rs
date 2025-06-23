@@ -96,7 +96,7 @@ fn is_node_available(state: &NodeState) -> bool {
         NodeState::Compound { base, flags } => {
             if **base == NodeState::Idle {
                 let is_disqualified = flags.iter().any(|flag| {
-                    flag == "MAINT" || flag == "RES"
+                    flag == "MAINT" || flag == "DOWN" || flag == "DRAIN" || flag == "INVALID_REG"
                 });
                 !is_disqualified
             } else {
