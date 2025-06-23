@@ -102,7 +102,6 @@ pub enum NodeState {
 impl From<u32> for NodeState {
     fn from(state_num: u32) -> Self {
 
-        const NODE_STATE_UNKNOWN: u32 = 0;
         const NODE_STATE_DOWN: u32 = 1;
         const NODE_STATE_IDLE: u32 = 2;
         const NODE_STATE_ALLOCATED: u32 = 3;
