@@ -90,13 +90,20 @@ fn main() -> Result<(), String> {
         if args.debug { println!("\n--- Slurm Node Feature Report ---"); }
         report::print_report(&report);
     } else {
-        // Aggregate data into summary report
-        let summary_report = summary_report::build_summary_report(&filtered_nodes, &jobs_collection, &node_to_job_map);
-        if args.debug { println!("Aggregated data into {} feature types.", summary_report.len()); }
+        // Aggregate data into the tree report 
+        let tree_report = tree_report::build_tree_report(&filtered_nodes, &jobs_collection, &node_to_job_map);
+        tree_report::print_tree_report(&tree_report);
 
-        if args.debug { println!("\n--- Slurm Summary Report ---"); }
-        summary_report::print_summary_report(&summary_report);
+
+        // // Aggregate data into summary report
+        // let summary_report = summary_report::build_summary_report(&filtered_nodes, &jobs_collection, &node_to_job_map);
+        // if args.debug { println!("Aggregated data into {} feature types.", summary_report.len()); }
+        //
+        // if args.debug { println!("\n--- Slurm Summary Report ---"); }
+        // summary_report::print_summary_report(&summary_report);
     }
+
+    
 
     Ok(())
 }
