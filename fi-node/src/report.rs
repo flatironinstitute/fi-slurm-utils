@@ -312,7 +312,7 @@ pub fn print_report(report_data: &ReportData, no_color: bool) {
         let bar_width: usize = 50;
         let filled_chars = (bar_width as f64 * (utilization_percent / 100.0)).round() as usize;
 
-        let filled_bar = "█".repeat(filled_chars).blue();
+        let filled_bar = if no_color {"█".repeat(filled_chars).white()} else {"█".repeat(filled_chars).blue()};
         let empty_chars = bar_width.saturating_sub(filled_chars);         
         let empty_bar = "░".repeat(empty_chars).normal();
         
@@ -324,9 +324,9 @@ pub fn print_report(report_data: &ReportData, no_color: bool) {
         let bar_width: usize = 50;
         let filled_chars = (bar_width as f64 * (utilization_percent / 100.0)).round() as usize;
         
-        let filled_bar = "█".repeat(filled_chars).red();
+        let filled_bar = if no_color {"█".repeat(filled_chars).white()} else {"█".repeat(filled_chars).red()};
         let empty_chars = bar_width.saturating_sub(filled_chars);        
-        let empty_bar = "░".repeat(empty_chars).green();
+        let empty_bar = if no_color {"░".repeat(empty_chars).white()} else {"░".repeat(empty_chars).green()};
 
         println!("Overall CPU Utilization: \n [{}{}] {:.1}%", filled_bar, empty_bar, utilization_percent);
     }
