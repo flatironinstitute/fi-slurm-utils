@@ -58,7 +58,7 @@ fn main() -> Result<(), String> {
             eprint!("\n Consider removing the `--exact` argument");
         }
 
-       let all_features = gather_all_features(&nodes_collection);
+       let _all_features = gather_all_features(&nodes_collection);
         // TODO: more detailed error suggestions, maybe strsim, maybe just print a list of node
         // names?
     }
