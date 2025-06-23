@@ -182,7 +182,7 @@ pub fn build_report(
 }
 
 /// Formats and prints the aggregated report data to the console.
-pub fn print_report(report_data: &ReportData) {
+pub fn print_report(report_data: &ReportData, no_color: bool) {
     let mut max_state_width = "STATE".len();
     for (state, group) in report_data.iter() {
         max_state_width = max_state_width.max(state.to_string().len());
@@ -236,22 +236,22 @@ pub fn print_report(report_data: &ReportData) {
                     let base_str = base.to_string();
                     let flags_str = format!("+{}", flags.join("+").to_uppercase());
                     let colored_base = match **base {
-                        NodeState::Idle => base_str.green(),
-                        NodeState::Mixed => base_str.blue(),
-                        NodeState::Allocated => base_str.yellow(),
-                        NodeState::Down => base_str.red(),
-                        NodeState::Error => base_str.magenta(),
+                        NodeState::Idle => if no_color { base_str.white()} else {base_str.green()},
+                        NodeState::Mixed => if no_color { base_str.white()} else {base_str.blue()},
+                        NodeState::Allocated => if no_color { base_str.white()} else {base_str.yellow()},
+                        NodeState::Down => if no_color { base_str.white()} else {base_str.red()},
+                        NodeState::Error => if no_color { base_str.white()} else {base_str.magenta()},
                         _ => base_str.cyan(),
                     };
                     format!("{}{}", colored_base, flags_str)
                 }
                 _ => {
                     match state {
-                        NodeState::Idle => uncolored_str.green().to_string(),
-                        NodeState::Mixed => uncolored_str.blue().to_string(),
-                        NodeState::Allocated => uncolored_str.yellow().to_string(),
-                        NodeState::Down => uncolored_str.red().bold().to_string(),
-                        NodeState::Error => uncolored_str.magenta().to_string(),
+                        NodeState::Idle => if no_color { uncolored_str.white()} else {uncolored_str.green()},
+                        NodeState::Mixed => if no_color { uncolored_str.white()} else {uncolored_str.blue()},
+                        NodeState::Allocated => if no_color { uncolored_str.white()} else {uncolored_str.yellow()},
+                        NodeState::Down => if no_color { uncolored_str.white()} else {uncolored_str.red()},
+                        NodeState::Error => if no_color { uncolored_str.white()} else {uncolored_str.magenta()},
                         _ => uncolored_str,
                     }
                 }
