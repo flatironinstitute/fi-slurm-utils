@@ -1,4 +1,4 @@
-use crate::nodes::{NodeState, SlurmNodes};
+use crate::nodes::{NodeState, Node};
 use crate::jobs::SlurmJobs;
 use colored::{Color, Colorize};
 use std::collections::HashMap;
@@ -39,14 +39,15 @@ pub type SummaryReportData = HashMap<String, FeatureSummary>;
 ///
 /// A `SummaryReportData` HashMap containing the aggregated information for display
 pub fn build_summary_report(
-    nodes: &SlurmNodes,
+    nodes: &[&Node],
     jobs: &SlurmJobs,
     node_to_job_map: &HashMap<String, Vec<u32>>,
 ) -> SummaryReportData {
     let mut report = SummaryReportData::new();
 
     // Iterate through every node in the cluster
-    for node in nodes.nodes.values() {
+    // for node in nodes.nodes.values() {
+    for &node in nodes {
         // First, calculate the true number of allocated and idle CPUs for this node
         let alloc_cpus_for_node: u32 = if let Some(job_ids) = node_to_job_map.get(&node.name) {
             job_ids
@@ -70,22 +71,40 @@ pub fn build_summary_report(
         for feature in &node.features {
             let summary = report.entry(feature.clone()).or_default();
 
-            // Update total stats regardless of state.
+            // Update total stats regardless of state
             summary.total_nodes += 1;
             summary.total_cpus += node.cpus as u32;
 
-            // Add this node's actually idle CPUs to the summary
-            // This now correctly includes idle CPUs from MIXED nodes
-            summary.idle_cpus += idle_cpus_for_node;
-            
-            // Only increment the 'idle_nodes' count if the node is purely idle
-            if node.state == NodeState::Idle {
+            // update idle nodes and cpus only if the node is not MAINT, RES, or another 
+            // disqualifying state
+            let is_available = is_node_available(&node.state);
+            if is_available {
                 summary.idle_nodes += 1;
+                summary.idle_cpus += idle_cpus_for_node;
             }
         }
     }
-
     report
+}
+
+fn is_node_available(state: &NodeState) -> bool {
+    match state {
+        // add if the state is solely idle
+        NodeState::Idle => true,
+        // if the state includes compound flags, check to see if any of the flags
+        // would disqualify the node from being considered idle
+        NodeState::Compound { base, flags } => {
+            if **base == NodeState::Idle {
+                let is_disqualified = flags.iter().any(|flag| {
+                    flag == "MAINT" || flag == "DOWN" || flag == "DRAIN" || flag == "INVALID_REG"
+                });
+                !is_disqualified
+            } else {
+                false
+            }
+        }
+        _ => false
+    }
 }
 
 /// Defines the type of text to display inside a gauge

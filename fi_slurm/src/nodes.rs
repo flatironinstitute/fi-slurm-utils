@@ -67,11 +67,11 @@ impl RawSlurmNodeInfo {
         })?;
 
         let last_update_timestamp = unsafe { (*self.ptr).last_update };
-        let _last_update = chrono::DateTime::from_timestamp(last_update_timestamp, 0).unwrap_or_default();
+        let last_update = chrono::DateTime::from_timestamp(last_update_timestamp, 0).unwrap_or_default();
 
         Ok(SlurmNodes {
             nodes: nodes_map,
-            _last_update,
+            last_update,
         })
     }
 }
@@ -99,11 +99,9 @@ pub enum NodeState {
     End,
 }
 
-#[allow(dead_code)]
 impl From<u32> for NodeState {
     fn from(state_num: u32) -> Self {
 
-        const NODE_STATE_UNKNOWN: u32 = 0;
         const NODE_STATE_DOWN: u32 = 1;
         const NODE_STATE_IDLE: u32 = 2;
         const NODE_STATE_ALLOCATED: u32 = 3;
@@ -368,5 +366,5 @@ impl Node {
 #[derive(Debug, Clone)]
 pub struct SlurmNodes {
     pub nodes: std::collections::HashMap<String, Node>,
-    _last_update: DateTime<Utc>,
+    pub last_update: DateTime<Utc>,
 }
