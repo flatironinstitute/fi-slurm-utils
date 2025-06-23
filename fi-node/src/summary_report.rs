@@ -133,7 +133,7 @@ fn create_gauge(current: u32, total: u32, width: usize, bar_color: Color, text_f
     let mut gauge_chars: Vec<String> = Vec::with_capacity(width);
     for _ in 0..filled_len {
         gauge_chars.push(" ".on_color(
-            if no_color {Color::Black} else {bar_color}).to_string());
+            if no_color {Color::White} else {bar_color}).to_string());
 
     }
     for _ in filled_len..width {
@@ -147,7 +147,7 @@ fn create_gauge(current: u32, total: u32, width: usize, bar_color: Color, text_f
             if pos < width {
                 if pos < filled_len {
                     gauge_chars[pos] = char.to_string().white().on_color(
-                         if no_color {Color::Black} else {bar_color}).to_string();
+                         if no_color {Color::White} else {bar_color}).to_string();
                 } else {
                     gauge_chars[pos] = char.to_string().white().on_truecolor(empty_color.0, empty_color.1, empty_color.2).to_string();
                 }
