@@ -1,5 +1,6 @@
 pub mod report;
 pub mod summary_report;
+pub mod tree_report;
 
 use clap::Parser;
 use std::collections::HashMap;
