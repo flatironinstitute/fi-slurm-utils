@@ -67,7 +67,7 @@ impl RawSlurmNodeInfo {
         })?;
 
         let last_update_timestamp = unsafe { (*self.ptr).last_update };
-        let _last_update = chrono::DateTime::from_timestamp(last_update_timestamp, 0).unwrap_or_default();
+        let last_update = chrono::DateTime::from_timestamp(last_update_timestamp, 0).unwrap_or_default();
 
         Ok(SlurmNodes {
             nodes: nodes_map,
