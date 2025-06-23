@@ -1,4 +1,4 @@
-use crate::nodes::{Node, NodeState, SlurmNodes};
+use crate::nodes::Node;
 use crate::jobs::SlurmJobs; // Needed for CPU allocation calculation
 use colored::*;
 use std::collections::HashMap;
@@ -131,29 +131,43 @@ pub fn print_tree_report(root: &TreeReportData) {
 }
 
 /// Recursively prints a node and its children to form the tree structure
+/// collapsing single-branch chains into a single line.
 fn print_node_recursive(tree_node: &TreeNode, prefix: &str, is_last: bool) {
-    // Determine the correct prefix for the current node
-    let connector = if is_last { "└──" } else { "├──" };
-    println!("{}{}{}", prefix, connector, tree_node.name.bold());
+    let mut path_parts = vec![tree_node.name.as_str()];
+    let mut current_node = tree_node;
 
-    // Create the prefix for the stats and children's lines 
+    // --- The "Collapse Walk" ---
+    // Keep walking down the tree as long as there is exactly one child.
+    while current_node.children.len() == 1 {
+        // Since there's only one child, we can get it directly.
+        let single_child = current_node.children.values().next().unwrap();
+        path_parts.push(single_child.name.as_str());
+        current_node = single_child;
+    }
+
+    // --- Print the Collapsed Line ---
+    let collapsed_name = path_parts.join("/");
+    let connector = if is_last { "└──" } else { "├──" };
+    println!("{}{}{}", prefix, connector, collapsed_name.bold());
+
+    // --- Print the Stats for the Collapsed Line ---
+    // The stats are taken from the *last* node in the chain.
     let child_prefix = if is_last { "    " } else { "│   " };
-    
-    // Print the statistics for this node
-    let cpu_bar = create_bar(tree_node.stats.alloc_cpus, tree_node.stats.total_cpus, 30);
+    let cpu_bar = create_bar(current_node.stats.alloc_cpus, current_node.stats.total_cpus, 30);
     println!(
         "{}{}Stats: {} Nodes, {}/{} CPUs {}",
         prefix,
         child_prefix,
-        tree_node.stats.node_count,
-        tree_node.stats.alloc_cpus,
-        tree_node.stats.total_cpus,
+        current_node.stats.node_count,
+        current_node.stats.alloc_cpus,
+        current_node.stats.total_cpus,
         cpu_bar
     );
 
-    // Sort and print children recursively 
+    // --- Recurse on the Remaining Branches ---
+    // The children of the *last* node in our chain are the first real branches.
     let full_child_prefix = format!("{}{}", prefix, child_prefix);
-    let mut sorted_children: Vec<_> = tree_node.children.values().collect();
+    let mut sorted_children: Vec<_> = current_node.children.values().collect();
     sorted_children.sort_by(|a, b| a.name.cmp(&b.name));
     
     for (i, child) in sorted_children.iter().enumerate() {
@@ -161,3 +175,33 @@ fn print_node_recursive(tree_node: &TreeNode, prefix: &str, is_last: bool) {
         print_node_recursive(child, &full_child_prefix, is_child_last);
     }
 }
+//fn print_node_recursive(tree_node: &TreeNode, prefix: &str, is_last: bool) {
+//    // Determine the correct prefix for the current node
+//    let connector = if is_last { "└──" } else { "├──" };
+//    println!("{}{}{}", prefix, connector, tree_node.name.bold());
+//
+//    // Create the prefix for the stats and children's lines 
+//    let child_prefix = if is_last { "    " } else { "│   " };
+//
+//    // Print the statistics for this node
+//    let cpu_bar = create_bar(tree_node.stats.alloc_cpus, tree_node.stats.total_cpus, 30);
+//    println!(
+//        "{}{}Stats: {} Nodes, {}/{} CPUs {}",
+//        prefix,
+//        child_prefix,
+//        tree_node.stats.node_count,
+//        tree_node.stats.alloc_cpus,
+//        tree_node.stats.total_cpus,
+//        cpu_bar
+//    );
+//
+//    // Sort and print children recursively 
+//    let full_child_prefix = format!("{}{}", prefix, child_prefix);
+//    let mut sorted_children: Vec<_> = tree_node.children.values().collect();
+//    sorted_children.sort_by(|a, b| a.name.cmp(&b.name));
+//
+//    for (i, child) in sorted_children.iter().enumerate() {
+//        let is_child_last = i == sorted_children.len() - 1;
+//        print_node_recursive(child, &full_child_prefix, is_child_last);
+//    }
+//}
