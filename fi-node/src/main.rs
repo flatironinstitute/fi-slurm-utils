@@ -91,7 +91,7 @@ fn main() -> Result<(), String> {
 
         // Print Report 
         if args.debug { println!("\n--- Slurm Node Feature Report ---"); }
-        report::print_report(&report);
+        report::print_report(&report, args.no_color);
 
         return Ok(())
     } else if args.summary {
