@@ -70,24 +70,17 @@ pub fn build_summary_report(
         for feature in &node.features {
             let summary = report.entry(feature.clone()).or_default();
 
-            // Update total stats regardless of state.
+            // Update total stats regardless of state
             summary.total_nodes += 1;
             summary.total_cpus += node.cpus as u32;
 
+            // update idle nodes and cpus only if the node is not MAINT, RES, or another 
+            // disqualifying state
             let is_available = is_node_available(&node.state);
             if is_available {
                 summary.idle_nodes += 1;
                 summary.idle_cpus += idle_cpus_for_node;
             }
-
-            // Add this node's actually idle CPUs to the summary
-            // This now correctly includes idle CPUs from MIXED nodes
-            // summary.idle_cpus += idle_cpus_for_node;
-            
-            // // Only increment the 'idle_nodes' count if the node is purely idle
-            // if node.state == NodeState::Idle {
-            //     summary.idle_nodes += 1;
-            // }
         }
     }
     report
@@ -95,13 +88,15 @@ pub fn build_summary_report(
 
 fn is_node_available(state: &NodeState) -> bool {
     match state {
+        // add if the state is solely idle
         NodeState::Idle => true,
+        // if the state includes compound flags, check to see if any of the flags
+        // would disqualify the node from being considered idle
         NodeState::Compound { base, flags } => {
             if **base == NodeState::Idle {
                 let is_disqualified = flags.iter().any(|flag| {
                     flag == "MAINT" || flag == "RES"
                 });
-
                 !is_disqualified
             } else {
                 false
