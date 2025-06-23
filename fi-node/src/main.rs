@@ -91,7 +91,7 @@ fn main() -> Result<(), String> {
         report::print_report(&report);
     } else {
         // Aggregate data into the tree report 
-        let tree_report = tree_report::build_tree_report(&filtered_nodes, &jobs_collection, &node_to_job_map);
+        let tree_report = tree_report::build_tree_report(&filtered_nodes, &jobs_collection, &node_to_job_map, &args.feature);
         tree_report::print_tree_report(&tree_report);
 
 
