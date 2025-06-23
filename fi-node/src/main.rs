@@ -94,7 +94,7 @@ fn main() -> Result<(), String> {
         report::print_report(&report);
 
         return Ok(())
-    } if args.summary {
+    } else if args.summary {
         // Aggregate data into summary report
         let summary_report = summary_report::build_summary_report(&filtered_nodes, &jobs_collection, &node_to_job_map);
         if args.debug { println!("Aggregated data into {} feature types.", summary_report.len()); }
@@ -149,7 +149,8 @@ fn print_help() {
         -d, --detailed          Prints the detailed, state-by-state report of node availability \n
             --debug             Prints the step-by-step process of querying Slurm \n
         -s  --summary           Prints the top-level summary report for each feature type
-        -f  --feature           Select individual features to filter by. `--feature icelake` would only show information for icelake nodes. For multiple features, separate them with spaces, such as `--feature genoa gpu skylake`
+        -f  --feature           Select individual features to filter by. `--feature icelake` would only show information for icelake nodes.
+                                For multiple features, separate them with spaces, such as `--feature genoa gpu skylake`
         -e  --exact             In combination with --feature, filter only by exact match rather than substrings
         -h  --help              Prints the options and documentation for the fi-node command-line tool. You are here!
         "
