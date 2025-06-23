@@ -100,13 +100,13 @@ fn main() -> Result<(), String> {
         if args.debug { println!("Aggregated data into {} feature types.", summary_report.len()); }
 
         if args.debug { println!("\n--- Slurm Summary Report ---"); }
-        summary_report::print_summary_report(&summary_report);
+        summary_report::print_summary_report(&summary_report, args.no_color);
         
         return Ok(())
     } else {
         // Aggregate data into the tree report 
         let tree_report = tree_report::build_tree_report(&filtered_nodes, &jobs_collection, &node_to_job_map, &args.feature);
-        tree_report::print_tree_report(&tree_report);
+        tree_report::print_tree_report(&tree_report, args.no_color);
     }
 
     Ok(())
@@ -173,6 +173,8 @@ struct Args {
     feature: Vec<String>,
     #[arg(short, long)]
     exact: bool,
+    #[arg(long)]
+    no_color: bool,
     #[arg(short, long)]
     help: bool,
 }
