@@ -71,7 +71,7 @@ impl RawSlurmNodeInfo {
 
         Ok(SlurmNodes {
             nodes: nodes_map,
-            _last_update,
+            last_update,
         })
     }
 }
@@ -368,5 +368,5 @@ impl Node {
 #[derive(Debug, Clone)]
 pub struct SlurmNodes {
     pub nodes: std::collections::HashMap<String, Node>,
-    _last_update: DateTime<Utc>,
+    pub last_update: DateTime<Utc>,
 }
