@@ -152,6 +152,7 @@ fn print_help() {
         -f  --feature           Select individual features to filter by. `--feature icelake` would only show information for icelake nodes.
                                 For multiple features, separate them with spaces, such as `--feature genoa gpu skylake`
         -e  --exact             In combination with --feature, filter only by exact match rather than substrings
+            --no-color          Disable colors in output
         -h  --help              Prints the options and documentation for the fi-node command-line tool. You are here!
         "
     )
