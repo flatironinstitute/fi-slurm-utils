@@ -1,4 +1,4 @@
-use crate::nodes::{NodeState, SlurmNodes, Node};
+use crate::nodes::{NodeState, Node};
 use crate::jobs::SlurmJobs;
 use colored::{Color, Colorize};
 use std::collections::HashMap;

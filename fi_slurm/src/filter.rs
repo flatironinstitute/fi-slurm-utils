@@ -1,5 +1,5 @@
 use crate::nodes::{Node, SlurmNodes};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 /// A struct to hold the results of the filtering operation.
 ///
