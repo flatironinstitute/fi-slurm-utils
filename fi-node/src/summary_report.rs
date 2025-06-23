@@ -74,18 +74,41 @@ pub fn build_summary_report(
             summary.total_nodes += 1;
             summary.total_cpus += node.cpus as u32;
 
+            let is_available = is_node_available(&node.state);
+            if is_available {
+                summary.idle_nodes += 1;
+                summary.idle_cpus += idle_cpus_for_node;
+            }
+
             // Add this node's actually idle CPUs to the summary
             // This now correctly includes idle CPUs from MIXED nodes
-            summary.idle_cpus += idle_cpus_for_node;
+            // summary.idle_cpus += idle_cpus_for_node;
             
-            // Only increment the 'idle_nodes' count if the node is purely idle
-            if node.state == NodeState::Idle {
-                summary.idle_nodes += 1;
-            }
+            // // Only increment the 'idle_nodes' count if the node is purely idle
+            // if node.state == NodeState::Idle {
+            //     summary.idle_nodes += 1;
+            // }
         }
     }
-
     report
+}
+
+fn is_node_available(state: &NodeState) -> bool {
+    match state {
+        NodeState::Idle => true,
+        NodeState::Compound { base, flags } => {
+            if **base == NodeState::Idle {
+                let is_disqualified = flags.iter().any(|flag| {
+                    flag == "MAINT" || flag == "RES"
+                });
+
+                !is_disqualified
+            } else {
+                false
+            }
+        }
+        _ => false
+    }
 }
 
 /// Defines the type of text to display inside a gauge
