@@ -1,4 +1,4 @@
-use crate::nodes::{NodeState, SlurmNodes};
+use crate::nodes::{NodeState, SlurmNodes, Node};
 use crate::jobs::SlurmJobs;
 use colored::{Color, Colorize};
 use std::collections::HashMap;
@@ -39,14 +39,15 @@ pub type SummaryReportData = HashMap<String, FeatureSummary>;
 ///
 /// A `SummaryReportData` HashMap containing the aggregated information for display
 pub fn build_summary_report(
-    nodes: &SlurmNodes,
+    nodes: &[&Node],
     jobs: &SlurmJobs,
     node_to_job_map: &HashMap<String, Vec<u32>>,
 ) -> SummaryReportData {
     let mut report = SummaryReportData::new();
 
     // Iterate through every node in the cluster
-    for node in nodes.nodes.values() {
+    // for node in nodes.nodes.values() {
+    for &node in nodes {
         // First, calculate the true number of allocated and idle CPUs for this node
         let alloc_cpus_for_node: u32 = if let Some(job_ids) = node_to_job_map.get(&node.name) {
             job_ids
