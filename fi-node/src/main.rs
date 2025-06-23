@@ -24,6 +24,10 @@ fn main() -> Result<(), String> {
         return Ok(())
     }
 
+    if args.exact && args.feature.is_empty() {
+        eprintln!("-e/--exact has no effect without the -f/--feature argument. Did you intend to filter by a feature?")
+    }
+
     // This MUST be the very first Slurm function called 
     // We pass a null pointer to let Slurm find its config file automatically
     if args.debug { println!("Initializing Slurm library..."); } 
@@ -145,11 +149,13 @@ fn print_help() {
         Options: \n
         -d, --detailed          Prints the detailed, state-by-state report of node availability \n
             --debug             Prints the step-by-step process of querying Slurm \n
+        -s  --summary           Prints the top-level summary report for each feature type
+        -f  --feature           Select individual features to filter by. `--feature icelake` would only show information for icelake nodes. For multiple features, separate them with spaces, such as `--feature genoa gpu skylake`
+        -e  --exact             In combination with --feature, filter only by exact match rather than substrings
         -h  --help              Prints the options and documentation for the fi-node command-line tool. You are here!
         "
     )
 }
-
 
 /// A command-line utility to report the state of a Slurm cluster,
 /// showing a summary of nodes grouped by state and feature
@@ -163,13 +169,12 @@ struct Args {
     detailed: bool,
     #[arg(short, long)]
     summary: bool,
-    #[arg(short, long)]
-    help: bool,
     #[arg(short, long, num_args = 1..)]
     feature: Vec<String>,
     #[arg(short, long)]
     exact: bool,
-    
+    #[arg(short, long)]
+    help: bool,
 }
 
 
