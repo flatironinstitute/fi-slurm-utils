@@ -144,10 +144,10 @@ fn build_node_to_job_map(jobs: &SlurmJobs) -> HashMap<String, Vec<u32>> {
 fn print_help() {
     println!("\n
         Welcome to fi-node! This is a command-line utility for examining the available nodes in the cluster through the Slurm Job Scheduler. \n
-        Usage: fi-node [OPTIONS] \n\n
-        Options: \n
-        -d, --detailed          Prints the detailed, state-by-state report of node availability \n
-            --debug             Prints the step-by-step process of querying Slurm \n
+        Usage: fi-node [OPTIONS] \n
+        Options: 
+        -d, --detailed          Prints the detailed, state-by-state report of node availability 
+            --debug             Prints the step-by-step process of querying Slurm 
         -s  --summary           Prints the top-level summary report for each feature type
         -f  --feature           Select individual features to filter by. `--feature icelake` would only show information for icelake nodes.
                                 For multiple features, separate them with spaces, such as `--feature genoa gpu skylake`
