@@ -1,4 +1,4 @@
-use crate::nodes::{NodeState, SlurmNodes};
+use crate::nodes::{NodeState, Node};
 use crate::jobs::SlurmJobs;
 use std::collections::HashMap;
 use colored::*;
@@ -78,14 +78,15 @@ pub type ReportData = HashMap<NodeState, ReportGroup>;
 ///
 /// A `ReportData` HashMap containing all the aggregated information for display.
 pub fn build_report(
-    nodes: &SlurmNodes,
+    nodes: &[&Node],
     jobs: &SlurmJobs,
     node_to_job_map: &HashMap<String, Vec<u32>>,
 ) -> ReportData {
     let mut report_data = ReportData::new();
 
     // Iterate through every node we loaded from Slurm.
-    for node in nodes.nodes.values() {
+    // for node in nodes.nodes.values() {
+    for &node in nodes {
         // --- Calculate Allocated CPUs for this specific node ---
         // Sum the CPUs from all jobs running on this node.
         let alloc_cpus_for_node: u32 = if let Some(job_ids) = node_to_job_map.get(&node.name) {
@@ -181,7 +182,6 @@ pub fn build_report(
 }
 
 /// Formats and prints the aggregated report data to the console.
-//#[allow(clippy::implicit_saturating_sub)]
 pub fn print_report(report_data: &ReportData) {
     let mut max_state_width = "STATE".len();
     for (state, group) in report_data.iter() {

@@ -5,6 +5,7 @@ use clap::Parser;
 use std::collections::HashMap;
 use fi_slurm::jobs::SlurmJobs;
 use fi_slurm::{jobs, nodes, parser::parse_slurm_hostlist, utils::{SlurmConfig, initialize_slurm}};
+use fi_slurm::filter::{self, gather_all_features};
 
 /// The main entry point for the `fi-node`
 ///
@@ -44,6 +45,25 @@ fn main() -> Result<(), String> {
     if args.debug { println!("Loaded node data"); }
     let jobs_collection = jobs::get_jobs()?;
     if args.debug { println!("Loaded job data"); }
+
+    let filtered_nodes = filter::filter_nodes_by_feature(&nodes_collection, &args.feature, args.exact);
+    // let filtered_result = filter::filter_nodes_by_feature(&nodes_collection, &args.feature, args.exact);
+    // if args.debug && !args.feature.is_empty() { println!("Filtered nodes by feature")}
+
+    // validating input
+    if !args.feature.is_empty() && filtered_nodes.is_empty() {
+        eprintln!("Warning, no nodes found matching the specifiad features");
+
+        if args.exact {
+            eprint!("\n Consider removing the `--exact` argument");
+        }
+
+       let _all_features = gather_all_features(&nodes_collection);
+        // TODO: more detailed error suggestions, maybe strsim, maybe just print a list of node
+        // names?
+    }
+
+
     if args.debug {
         println!(
             "Successfully loaded {} nodes and {} jobs.",
@@ -62,7 +82,7 @@ fn main() -> Result<(), String> {
     }
     if args.detailed {
         //  Aggregate Data into Report
-        let report = report::build_report(&nodes_collection, &jobs_collection, &node_to_job_map);
+        let report = report::build_report(&filtered_nodes, &jobs_collection, &node_to_job_map);
         if args.debug { println!("Aggregated data into {} state groups.", report.len()); }
 
         // Print Report 
@@ -70,7 +90,7 @@ fn main() -> Result<(), String> {
         report::print_report(&report);
     } else {
         // Aggregate data into summary report
-        let summary_report = summary_report::build_summary_report(&nodes_collection, &jobs_collection, &node_to_job_map);
+        let summary_report = summary_report::build_summary_report(&filtered_nodes, &jobs_collection, &node_to_job_map);
         if args.debug { println!("Aggregated data into {} feature types.", summary_report.len()); }
 
         if args.debug { println!("\n--- Slurm Summary Report ---"); }
@@ -134,6 +154,11 @@ struct Args {
     detailed: bool,
     #[arg(short, long)]
     help: bool,
+    #[arg(short, long, num_args = 1..)]
+    feature: Vec<String>,
+    #[arg(short, long)]
+    exact: bool,
+    
 }
 
 
