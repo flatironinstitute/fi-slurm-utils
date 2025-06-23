@@ -91,10 +91,36 @@ pub fn build_tree_report(
 
 // Display Logic
 
+/// Creates a colored bar string representing utilization
+fn create_bar(current: u32, total: u32, width: usize) -> String {
+    if total == 0 {
+        return "N/A".dimmed().to_string();
+    }
+    let percentage = current as f64 / total as f64;
+    let filled_len = (width as f64 * percentage).round() as usize;
+
+    let filled = "■".repeat(filled_len).red();
+    let empty = " ".repeat(width.saturating_sub(filled_len));
+
+    format!("[{}{}]", filled, empty)
+}
+
+
 /// The public entry point for printing the tree report
 pub fn print_tree_report(root: &TreeReportData) {
-    println!("--- Feature Tree Report ---");
-    // Kick off the recursive printing process starting at the root's children
+    println!("--- Feature Tree Report ---\n");
+    // Print the stats for the root/total line first
+    let cpu_bar = create_bar(root.stats.alloc_cpus, root.stats.total_cpus, 30);
+    println!(
+        "{}: {} Nodes, {}/{} CPUs {}",
+        root.name.bold(),
+        root.stats.node_count,
+        root.stats.alloc_cpus,
+        root.stats.total_cpus,
+        cpu_bar
+    );
+    
+    // Kick off the recursive printing process for the children
     let mut sorted_children: Vec<_> = root.children.values().collect();
     sorted_children.sort_by(|a, b| a.name.cmp(&b.name));
 
@@ -107,16 +133,26 @@ pub fn print_tree_report(root: &TreeReportData) {
 /// Recursively prints a node and its children to form the tree structure
 fn print_node_recursive(tree_node: &TreeNode, prefix: &str, is_last: bool) {
     // Determine the correct prefix for the current node
-    // This creates the `|--` and ` `--` tree branches
     let connector = if is_last { "└──" } else { "├──" };
     println!("{}{}{}", prefix, connector, tree_node.name.bold());
 
-    // Create the prefix for this node's children
-    // Children get a deeper indentation
+    // Create the prefix for the stats and children's lines 
     let child_prefix = if is_last { "    " } else { "│   " };
-    let full_child_prefix = format!("{}{}", prefix, child_prefix);
+    
+    // Print the statistics for this node
+    let cpu_bar = create_bar(tree_node.stats.alloc_cpus, tree_node.stats.total_cpus, 30);
+    println!(
+        "{}{}Stats: {} Nodes, {}/{} CPUs {}",
+        prefix,
+        child_prefix,
+        tree_node.stats.node_count,
+        tree_node.stats.alloc_cpus,
+        tree_node.stats.total_cpus,
+        cpu_bar
+    );
 
-    // Sort and print children recursively
+    // Sort and print children recursively 
+    let full_child_prefix = format!("{}{}", prefix, child_prefix);
     let mut sorted_children: Vec<_> = tree_node.children.values().collect();
     sorted_children.sort_by(|a, b| a.name.cmp(&b.name));
     
