@@ -99,7 +99,6 @@ pub enum NodeState {
     End,
 }
 
-#[allow(dead_code)]
 impl From<u32> for NodeState {
     fn from(state_num: u32) -> Self {
 

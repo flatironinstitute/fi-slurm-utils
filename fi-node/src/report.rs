@@ -182,7 +182,6 @@ pub fn build_report(
 }
 
 /// Formats and prints the aggregated report data to the console.
-//#[allow(clippy::implicit_saturating_sub)]
 pub fn print_report(report_data: &ReportData) {
     let mut max_state_width = "STATE".len();
     for (state, group) in report_data.iter() {
