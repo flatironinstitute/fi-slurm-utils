@@ -128,7 +128,7 @@ fn create_gauge(current: u32, total: u32, width: usize, bar_color: Color, text_f
         GaugeText::Percentage => format!("{:.1}%", percentage * 100.0),
     };
 
-    let empty_color = (40, 40, 40); // Dark grey background
+    let empty_color = (0, 0, 0); // Dark grey background
 
     let mut gauge_chars: Vec<String> = Vec::with_capacity(width);
     for _ in 0..filled_len {
