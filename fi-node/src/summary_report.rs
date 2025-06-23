@@ -208,9 +208,9 @@ pub fn print_summary_report(summary_data: &SummaryReportData, no_color: bool) {
     for feature_name in sorted_features {
         if let Some(summary) = summary_data.get(feature_name) {
             // Use GaugeText::Proportion for individual feature rows
-            let node_gauge = create_gauge(idle_nodes, total_nodes, gauge_width, 
+            let node_gauge = create_gauge(summary.idle_nodes, summary.total_nodes, gauge_width, 
                 Color::Green, GaugeText::Proportion, no_color);
-            let cpu_gauge = create_gauge(idle_cpus, total_cpus, gauge_width, 
+            let cpu_gauge = create_gauge(summary.idle_cpus, summary.total_cpus, gauge_width, 
                 Color::Cyan, GaugeText::Proportion, no_color);
             println!(
                 "{:<width$} {} {}",
