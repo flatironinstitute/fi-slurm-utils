@@ -52,8 +52,7 @@ fn main() -> Result<(), String> {
     if args.debug { println!("Loaded job data"); }
 
     let filtered_nodes = filter::filter_nodes_by_feature(&nodes_collection, &args.feature, args.exact);
-    // let filtered_result = filter::filter_nodes_by_feature(&nodes_collection, &args.feature, args.exact);
-    // if args.debug && !args.feature.is_empty() { println!("Filtered nodes by feature")}
+    if args.debug && !args.feature.is_empty() { println!("Filtered nodes by feature")}
 
     // validating input
     if !args.feature.is_empty() && filtered_nodes.is_empty() {
