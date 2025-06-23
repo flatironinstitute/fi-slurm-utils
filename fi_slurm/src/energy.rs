@@ -3,7 +3,6 @@ use rust_bind::bindings::acct_gather_energy_t;
 use crate::utils::time_t_to_datetime;
 
 #[derive(Clone, Debug)]
-#[allow(dead_code)]
 pub struct AcctGatherEnergy {
     average_watts: u32, // average power consumption of node, in watts
     base_consumed_energy: u64,
