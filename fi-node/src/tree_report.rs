@@ -144,10 +144,12 @@ fn create_avail_bar(current: u32, total: u32, width: usize, color: Color) -> Str
 
 
 /// The public entry point for printing the tree report
-pub fn print_tree_report(root: &TreeReportData) {
+pub fn print_tree_report(root: &TreeReportData, no_color: bool) {
     println!("--- Feature Tree Report ---\n");
-    let node_bar = create_avail_bar(root.stats.idle_nodes, root.stats.total_nodes, 30, Color::Green);
-    let cpu_bar = create_avail_bar(root.stats.idle_cpus, root.stats.total_cpus, 30, Color::Cyan);
+    let node_bar = create_avail_bar(root.stats.idle_nodes, root.stats.total_nodes, 30, 
+        if no_color {Color::White} else {Color::Green});
+    let cpu_bar = create_avail_bar(root.stats.idle_cpus, root.stats.total_cpus, 30, 
+        if no_color {Color::White} else {Color::Cyan});
     println!(
         "{}: {}/{} Nodes Avail {}, {}/{} CPUs Avail {}",
         root.name.bold(),
@@ -164,12 +166,12 @@ pub fn print_tree_report(root: &TreeReportData) {
 
     for (i, child) in sorted_children.iter().enumerate() {
         let is_last = i == sorted_children.len() - 1;
-        print_node_recursive(child, "", is_last);
+        print_node_recursive(child, "", is_last, no_color);
     }
 }
 
 /// Recursively prints a node and its children to form the tree structure
-fn print_node_recursive(tree_node: &TreeNode, prefix: &str, is_last: bool) {
+fn print_node_recursive(tree_node: &TreeNode, prefix: &str, is_last: bool, no_color: bool) {
     let mut path_parts = vec![tree_node.name.as_str()];
     let mut current_node = tree_node;
 
@@ -186,8 +188,10 @@ fn print_node_recursive(tree_node: &TreeNode, prefix: &str, is_last: bool) {
     let child_prefix = if is_last { "    " } else { "│   " };
     
     // Now both bars represent availability
-    let node_bar = create_avail_bar(current_node.stats.idle_nodes, current_node.stats.total_nodes, 30, Color::Green);
-    let cpu_bar = create_avail_bar(current_node.stats.idle_cpus, current_node.stats.total_cpus, 30, Color::Cyan);
+    let node_bar = create_avail_bar(current_node.stats.idle_nodes, current_node.stats.total_nodes, 30, 
+        if no_color {Color::White} else {Color::Green});
+    let cpu_bar = create_avail_bar(current_node.stats.idle_cpus, current_node.stats.total_cpus, 30, 
+        if no_color {Color::White} else {Color::Cyan});
     
     println!(
         "{}{}Nodes: {}/{} Avail {}",
@@ -204,7 +208,7 @@ fn print_node_recursive(tree_node: &TreeNode, prefix: &str, is_last: bool) {
     
     for (i, child) in sorted_children.iter().enumerate() {
         let is_child_last = i == sorted_children.len() - 1;
-        print_node_recursive(child, &full_child_prefix, is_child_last);
+        print_node_recursive(child, &full_child_prefix, is_child_last, no_color);
     }
 }
 
