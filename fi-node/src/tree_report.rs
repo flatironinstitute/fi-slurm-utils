@@ -103,7 +103,7 @@ pub fn build_tree_report(
                        current_level.stats.idle_nodes += 1;
                        current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                     }
-                    
+
                     // Build the sub-branch from the *remaining* features
                     for feature in node.features.iter().filter(|f| *f != filter) {
                          current_level = current_level.children.entry(feature.clone()).or_default();
@@ -157,7 +157,7 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool) {
 
     let node_padding = " ".repeat(max_text_width - node_text.len());
     let cpu_padding = " ".repeat(max_text_width - cpu_text.len());
-    
+
     println!(
         "{}: {}{} {}",
         root.name.bold(),
@@ -172,6 +172,7 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool) {
         cpu_padding,
         cpu_bar
     );
+    println!(" ");
 
     //println!(
     //    "{}: {}/{} Nodes Avail {}, {}/{} Processors Avail {}",
@@ -183,7 +184,7 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool) {
     //    root.stats.total_cpus,
     //    cpu_bar
     //);
-    
+
     let mut sorted_children: Vec<_> = root.children.values().collect();
     sorted_children.sort_by(|a, b| a.name.cmp(&b.name));
 
@@ -192,6 +193,7 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool) {
         print_node_recursive(child, "", is_last, no_color);
     }
 }
+
 
 /// Recursively prints a node and its children to form the tree structure
 fn print_node_recursive(tree_node: &TreeNode, prefix: &str, is_last: bool, no_color: bool) {
@@ -206,13 +208,15 @@ fn print_node_recursive(tree_node: &TreeNode, prefix: &str, is_last: bool, no_co
 
     let collapsed_name = path_parts.join(", ");
     let connector = if is_last { "└──" } else { "├──" };
-    println!("\n{}{}{}", prefix, connector, collapsed_name.bold());
+    
+    // FIX: Print the feature name line *without* a leading newline.
+    // The separation is now handled by the parent before the recursive call.
+    println!("{}{}{}", prefix, connector, collapsed_name.bold());
 
     let child_prefix = if is_last { "    " } else { "│   " };
 
-
     let node_text = format!("Nodes: {}/{}", current_node.stats.idle_nodes, current_node.stats.total_nodes);
-    let cpu_text = format!("CPUs:  {}/{}", current_node.stats.idle_cpus, current_node.stats.total_cpus);
+    let cpu_text = format!("Processors:  {}/{}", current_node.stats.idle_cpus, current_node.stats.total_cpus);
     let max_text_width = node_text.len().max(cpu_text.len()) + " Avail".len();
 
     let node_padding = " ".repeat(max_text_width - (node_text.len() + " Avail".len()));
@@ -223,36 +227,93 @@ fn print_node_recursive(tree_node: &TreeNode, prefix: &str, is_last: bool, no_co
     let cpu_bar = create_avail_bar(current_node.stats.idle_cpus, current_node.stats.total_cpus, 30, 
         if no_color {Color::White} else {Color::Cyan});
 
-    //// Now both bars represent availability
-    //let node_bar = create_avail_bar(current_node.stats.idle_nodes, current_node.stats.total_nodes, 30, 
-    //    if no_color {Color::White} else {Color::Green});
-    //let cpu_bar = create_avail_bar(current_node.stats.idle_cpus, current_node.stats.total_cpus, 30, 
-    //    if no_color {Color::White} else {Color::Cyan});
-
     println!(
         "{}{} {} {} {}",
-        prefix, child_prefix, node_text.dimmed(), node_padding, node_bar
+        prefix, child_prefix, node_text, node_padding, node_bar
     );
     println!(
         "{}{} {} {} {}",
-        prefix, child_prefix, cpu_text.dimmed(), cpu_padding, cpu_bar
+        prefix, child_prefix, cpu_text, cpu_padding, cpu_bar
     );   
-    //println!(
-    //    "{}{}Nodes: {}/{} Avail {}",
-    //    prefix, child_prefix, current_node.stats.idle_nodes, current_node.stats.total_nodes, node_bar
-    //);
-    //println!(
-    //    "{}{}Processors:  {}/{} Avail {}",
-    //    prefix, child_prefix, current_node.stats.idle_cpus, current_node.stats.total_cpus, cpu_bar
-    //);
 
-    let full_child_prefix = format!("{}{}", prefix, child_prefix);
     let mut sorted_children: Vec<_> = current_node.children.values().collect();
     sorted_children.sort_by(|a, b| a.name.cmp(&b.name));
     
+    // FIX: Before iterating through children, print the connecting pipe if needed.
+    //if !sorted_children.is_empty() {
+    //    println!("{}{}", prefix, child_prefix);
+    //}
+    
+    println!("{}{}", prefix, child_prefix);
+
+    let full_child_prefix = format!("{}{}", prefix, child_prefix);
     for (i, child) in sorted_children.iter().enumerate() {
         let is_child_last = i == sorted_children.len() - 1;
         print_node_recursive(child, &full_child_prefix, is_child_last, no_color);
     }
 }
 
+///// Recursively prints a node and its children to form the tree structure
+//fn print_node_recursive(tree_node: &TreeNode, prefix: &str, is_last: bool, no_color: bool) {
+//    let mut path_parts = vec![tree_node.name.as_str()];
+//    let mut current_node = tree_node;
+//
+//    while current_node.children.len() == 1 {
+//        let single_child = current_node.children.values().next().unwrap();
+//        path_parts.push(single_child.name.as_str());
+//        current_node = single_child;
+//    }
+//
+//    let collapsed_name = path_parts.join(", ");
+//    let connector = if is_last { "└──" } else { "├──" };
+//
+//    println!("{}", prefix);
+//    println!("{}{}{}", prefix, connector, collapsed_name.bold());
+//
+//    let child_prefix = if is_last { "    " } else { "│   " };
+//
+//    let node_text = format!("Nodes: {}/{}", current_node.stats.idle_nodes, current_node.stats.total_nodes);
+//    let cpu_text = format!("CPUs:  {}/{}", current_node.stats.idle_cpus, current_node.stats.total_cpus);
+//    let max_text_width = node_text.len().max(cpu_text.len()) + " Avail".len();
+//
+//    let node_padding = " ".repeat(max_text_width - (node_text.len() + " Avail".len()));
+//    let cpu_padding = " ".repeat(max_text_width - (cpu_text.len() + " Avail".len()));
+//
+//    let node_bar = create_avail_bar(current_node.stats.idle_nodes, current_node.stats.total_nodes, 30, 
+//        if no_color {Color::White} else {Color::Green});
+//    let cpu_bar = create_avail_bar(current_node.stats.idle_cpus, current_node.stats.total_cpus, 30, 
+//        if no_color {Color::White} else {Color::Cyan});
+//
+//    //// Now both bars represent availability
+//    //let node_bar = create_avail_bar(current_node.stats.idle_nodes, current_node.stats.total_nodes, 30, 
+//    //    if no_color {Color::White} else {Color::Green});
+//    //let cpu_bar = create_avail_bar(current_node.stats.idle_cpus, current_node.stats.total_cpus, 30, 
+//    //    if no_color {Color::White} else {Color::Cyan});
+//
+//    println!(
+//        "{}{} {} {} {}",
+//        prefix, child_prefix, node_text, node_padding, node_bar
+//    );
+//    println!(
+//        "{}{} {} {} {}",
+//        prefix, child_prefix, cpu_text, cpu_padding, cpu_bar
+//    );   
+//    //println!(
+//    //    "{}{}Nodes: {}/{} Avail {}",
+//    //    prefix, child_prefix, current_node.stats.idle_nodes, current_node.stats.total_nodes, node_bar
+//    //);
+//    //println!(
+//    //    "{}{}Processors:  {}/{} Avail {}",
+//    //    prefix, child_prefix, current_node.stats.idle_cpus, current_node.stats.total_cpus, cpu_bar
+//    //);
+//
+//    let full_child_prefix = format!("{}{}", prefix, child_prefix);
+//    let mut sorted_children: Vec<_> = current_node.children.values().collect();
+//    sorted_children.sort_by(|a, b| a.name.cmp(&b.name));
+//
+//    for (i, child) in sorted_children.iter().enumerate() {
+//        let is_child_last = i == sorted_children.len() - 1;
+//        print_node_recursive(child, &full_child_prefix, is_child_last, no_color);
+//    }
+//}
+//
