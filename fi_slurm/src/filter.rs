@@ -1,5 +1,39 @@
 use crate::nodes::{Node, SlurmNodes};
+use crate::compound_filter::{evaluate, FeatureExpression};
 use std::collections::HashSet;
+
+/// Filters a collection of nodes based on a parsed `FeatureExpression` AST.
+///
+/// If no expression is provided (`filter_ast` is None), it returns references
+/// to all nodes. Otherwise, it evaluates the expression for each node.
+///
+/// # Arguments
+///
+/// * `all_nodes` - A reference to the complete, unfiltered `SlurmNodes` collection.
+/// * `filter_ast` - An `Option` containing the parsed expression tree.
+/// * `exact_match` - A boolean to control matching behavior for terms in the expression.
+///
+/// # Returns
+///
+/// A `Vec` containing borrowed references to the nodes that passed the filter.
+pub fn filter_nodes_by_expression<'a>(
+    all_nodes: &'a SlurmNodes,
+    filter_ast: &Option<FeatureExpression>,
+    exact_match: bool,
+) -> Vec<&'a Node> {
+    let Some(expr) = filter_ast else {
+        // If no filter expression is provided, return all nodes.
+        return all_nodes.nodes.values().collect();
+    };
+
+    // If there is an expression, filter the nodes by evaluating it.
+    all_nodes
+        .nodes
+        .values()
+        .filter(|node| evaluate(expr, node, exact_match))
+        .collect()
+}
+
 
 /// Filters a collection of nodes based on a list of required features.
 ///
