@@ -2,6 +2,7 @@
 #![allow(non_upper_case_globals)]
 #![allow(non_snake_case)]
 
+pub mod compound_filter;
 pub mod energy;
 pub mod filter;
 pub mod gres;
