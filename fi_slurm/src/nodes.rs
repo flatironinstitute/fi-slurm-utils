@@ -171,6 +171,69 @@ impl fmt::Display for NodeState {
     }
 }
 
+/// Represents the GPU GRES of a node, assuming that a given node has only one kind of GPU
+pub struct GpuInfo {
+    pub name: String,
+    pub total_gpus: u16,
+    pub allocated_gpus: u16,
+}
+
+/// Parses gres and gres_used strings to create an optional GpuInfo struct.
+///
+/// This function looks for the first GRES entry that starts with "gpu" and
+/// uses that as the definitive GPU type for the node.
+fn create_gpu_info(
+    gres_str: *const i8,
+    gres_used_str: *const i8,
+) -> Option<GpuInfo> {
+    // Helper to convert C string to a Rust String.
+    let c_str_to_string = |ptr: *const i8| -> String {
+        if ptr.is_null() {
+            String::new()
+        } else {
+            unsafe { std::ffi::CStr::from_ptr(ptr) }.to_string_lossy().into_owned()
+        }
+    };
+
+    let configured_str = c_str_to_string(gres_str);
+
+    // Find the first gres entry that is a gpu.
+    let gpu_part = configured_str
+        .split(',')
+        .find(|part| part.starts_with("gpu"))?;
+
+    // Parse the parts of the gpu string, e.g., "gpu:a100:4"
+    let parts: Vec<&str> = gpu_part.split(':').collect();
+    if parts.len() < 3 {
+        return None; // Malformed gres string
+    }
+
+    let name = format!("{}:{}", parts[0], parts[1]); // e.g., "gpu:a100"
+    let total_gpus = parts[2].parse::<u64>().unwrap_or(0);
+
+    // Now, find the allocated count from the gres_used string.
+    let used_str = c_str_to_string(gres_used_str);
+    let allocated_gpus = used_str
+        .split(',')
+        .find_map(|part| {
+            // Find the corresponding entry in the used string.
+            if part.starts_with(&name) {
+                // The format is often like "gpu:a100:2(IDX...)"
+                part.split(':').nth(2)?.parse::<u64>().ok()
+            } else {
+                None
+            }
+        })
+        .unwrap_or(0);
+
+    Some(GpuInfo {
+        name,
+        total_gpus,
+        allocated_gpus,
+    })
+}
+
+
 type NodeName = String;
 
 // pub struct Node, a safe counterpart to node_info_t
@@ -204,8 +267,9 @@ pub struct Node {
     pub active_features: Vec<String>, // aka features_act
 
     // Generic Resources (GRES), like GPUs
-    pub configured_gres: HashMap<String, u64>,
-    pub allocated_gres: HashMap<String, u64>,
+    // pub configured_gres: HashMap<String, u64>,
+    // pub allocated_gres: HashMap<String, u64>,
+    pub gpu_info: Option<GpuInfo>,
     pub gres: String,
     pub gres_drain: String,
     pub gres_used: String,
@@ -323,8 +387,7 @@ impl Node {
 
 
             // Generic Resources (GRES)
-            configured_gres: unsafe {parse_gres_str(raw_node.gres)},
-            allocated_gres: unsafe {parse_gres_str(raw_node.gres_used)},
+            gpu_info: create_gpu_info(raw_node.gres, raw_node.gres_used),
             gres: unsafe {c_str_to_string(raw_node.gres)}, // Keep the raw string for reference
             gres_drain: unsafe {c_str_to_string(raw_node.gres_drain)},
             gres_used: unsafe {c_str_to_string(raw_node.gres_used)}, // Keep the raw string for reference
