@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use fi_slurm::jobs::SlurmJobs;
 use fi_slurm::{jobs, nodes, parser::parse_slurm_hostlist, utils::{SlurmConfig, initialize_slurm}};
 use fi_slurm::filter;
+use fi_slurm::compound_filter;
 
 /// The main entry point for the `fi-node`
 ///
@@ -24,7 +25,7 @@ fn main() -> Result<(), String> {
         return Ok(())
     }
 
-    if args.exact && args.feature.is_empty() {
+    if args.exact && args.feature.is_none() {
         eprintln!("-e/--exact has no effect without the -f/--feature argument. Did you intend to filter by a feature?")
     }
 
@@ -51,11 +52,15 @@ fn main() -> Result<(), String> {
     let jobs_collection = jobs::get_jobs()?;
     if args.debug { println!("Loaded job data"); }
 
-    let filtered_nodes = filter::filter_nodes_by_feature(&nodes_collection, &args.feature, args.exact);
-    if args.debug && !args.feature.is_empty() { println!("Filtered nodes by feature")}
+    if 
+
+    // let filtered_nodes = filter::filter_nodes_by_feature(&nodes_collection, &args.feature, args.exact);
+    let filtered_nodes = filter::filter_nodes_by_expression(&nodes_collection, args.feature, args.exact);
+
+    if args.debug && !args.feature.is_none() { println!("Filtered nodes by feature")}
 
     // validating input
-    if !args.feature.is_empty() && filtered_nodes.is_empty() {
+    if !args.feature.is_none() && filtered_nodes.is_empty() {
         eprintln!("Warning, no nodes found matching the specifiad features");
 
         if args.exact {
@@ -171,7 +176,7 @@ struct Args {
     #[arg(short, long)]
     summary: bool,
     #[arg(short, long, num_args = 1..)]
-    feature: Vec<String>,
+    feature: Option<String>,
     #[arg(short, long)]
     exact: bool,
     #[arg(long)]
