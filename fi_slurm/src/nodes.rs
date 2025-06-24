@@ -30,7 +30,7 @@ impl RawSlurmNodeInfo {
 
         let update_time = 0; // defaulting to time 0 to get all information
 
-        let show_flags = 0; //placeholder for more detailed flag behavior
+        let show_flags = 2; // only getting SHOW_DETAIL 
 
         let return_code = unsafe {
             slurm_load_node(
