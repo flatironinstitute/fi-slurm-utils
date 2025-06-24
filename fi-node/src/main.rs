@@ -6,7 +6,7 @@ use clap::Parser;
 use std::collections::HashMap;
 use fi_slurm::jobs::SlurmJobs;
 use fi_slurm::{jobs, nodes, parser::parse_slurm_hostlist, utils::{SlurmConfig, initialize_slurm}};
-use fi_slurm::filter::{self, gather_all_features};
+use fi_slurm::filter;
 
 /// The main entry point for the `fi-node`
 ///
@@ -62,7 +62,7 @@ fn main() -> Result<(), String> {
             eprint!("\n Consider removing the `--exact` argument");
         }
 
-        let _all_features = gather_all_features(&nodes_collection);
+        let _all_features = filter::gather_all_features(&nodes_collection);
         // TODO: more detailed error suggestions, maybe strsim, maybe just print a list of node
         // names?
     }
