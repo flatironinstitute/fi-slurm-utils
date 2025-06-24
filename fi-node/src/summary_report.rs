@@ -114,7 +114,7 @@ enum GaugeText {
 }
 
 /// Creates a string representing a gauge with text overlaid
-fn create_gauge(current: u32, total: u32, width: usize, bar_color: Color, text_format: GaugeText) -> String {
+fn create_gauge(current: u32, total: u32, width: usize, bar_color: Color, text_format: GaugeText, no_color: bool) -> String {
     if total == 0 {
         return format!("{:^width$}", "-");
     }
@@ -128,11 +128,13 @@ fn create_gauge(current: u32, total: u32, width: usize, bar_color: Color, text_f
         GaugeText::Percentage => format!("{:.1}%", percentage * 100.0),
     };
 
-    let empty_color = (40, 40, 40); // Dark grey background
+    let empty_color = (0, 0, 0); // Dark grey background
 
     let mut gauge_chars: Vec<String> = Vec::with_capacity(width);
     for _ in 0..filled_len {
-        gauge_chars.push(" ".on_color(bar_color).to_string());
+        gauge_chars.push(" ".on_color(
+            if no_color {Color::White} else {bar_color}).to_string());
+
     }
     for _ in filled_len..width {
         gauge_chars.push(" ".on_truecolor(empty_color.0, empty_color.1, empty_color.2).to_string());
@@ -144,7 +146,8 @@ fn create_gauge(current: u32, total: u32, width: usize, bar_color: Color, text_f
         if let Some(pos) = text_start_pos.checked_add(i) {
             if pos < width {
                 if pos < filled_len {
-                    gauge_chars[pos] = char.to_string().white().on_color(bar_color).to_string();
+                    gauge_chars[pos] = char.to_string().black().on_color(
+                         if no_color {Color::White} else {bar_color}).to_string();
                 } else {
                     gauge_chars[pos] = char.to_string().white().on_truecolor(empty_color.0, empty_color.1, empty_color.2).to_string();
                 }
@@ -157,7 +160,7 @@ fn create_gauge(current: u32, total: u32, width: usize, bar_color: Color, text_f
 
 
 /// Formats and prints the feature summary report to the console
-pub fn print_summary_report(summary_data: &SummaryReportData) {
+pub fn print_summary_report(summary_data: &SummaryReportData, no_color: bool) {
     // Pass 1: Pre-calculate column widths 
     let mut max_feature_width = "FEATURE".len();
     for feature_name in summary_data.keys() {
@@ -186,8 +189,8 @@ pub fn print_summary_report(summary_data: &SummaryReportData) {
     }
 
     // Use GaugeText::Percentage for the final TOTAL row
-    let node_gauge = create_gauge(idle_nodes, total_nodes, gauge_width, Color::Green, GaugeText::Percentage);
-    let cpu_gauge = create_gauge(idle_cpus, total_cpus, gauge_width, Color::Cyan, GaugeText::Percentage);
+    let node_gauge = create_gauge(idle_nodes, total_nodes, gauge_width, Color::Green, GaugeText::Percentage, no_color);
+    let cpu_gauge = create_gauge(idle_cpus, total_cpus, gauge_width, Color::Cyan, GaugeText::Percentage, no_color);
 
     // Print Headers
     println!(
@@ -205,9 +208,10 @@ pub fn print_summary_report(summary_data: &SummaryReportData) {
     for feature_name in sorted_features {
         if let Some(summary) = summary_data.get(feature_name) {
             // Use GaugeText::Proportion for individual feature rows
-            let node_gauge = create_gauge(summary.idle_nodes, summary.total_nodes, gauge_width, Color::Green, GaugeText::Proportion);
-            let cpu_gauge = create_gauge(summary.idle_cpus, summary.total_cpus, gauge_width, Color::Cyan, GaugeText::Proportion);
-
+            let node_gauge = create_gauge(summary.idle_nodes, summary.total_nodes, gauge_width, 
+                Color::Green, GaugeText::Proportion, no_color);
+            let cpu_gauge = create_gauge(summary.idle_cpus, summary.total_cpus, gauge_width, 
+                Color::Cyan, GaugeText::Proportion, no_color);
             println!(
                 "{:<width$} {} {}",
                 feature_name,

@@ -182,7 +182,7 @@ pub fn build_report(
 }
 
 /// Formats and prints the aggregated report data to the console.
-pub fn print_report(report_data: &ReportData) {
+pub fn print_report(report_data: &ReportData, no_color: bool) {
     let mut max_state_width = "STATE".len();
     for (state, group) in report_data.iter() {
         max_state_width = max_state_width.max(state.to_string().len());
@@ -236,22 +236,22 @@ pub fn print_report(report_data: &ReportData) {
                     let base_str = base.to_string();
                     let flags_str = format!("+{}", flags.join("+").to_uppercase());
                     let colored_base = match **base {
-                        NodeState::Idle => base_str.green(),
-                        NodeState::Mixed => base_str.blue(),
-                        NodeState::Allocated => base_str.yellow(),
-                        NodeState::Down => base_str.red(),
-                        NodeState::Error => base_str.magenta(),
+                        NodeState::Idle => if no_color { base_str.white()} else {base_str.green()},
+                        NodeState::Mixed => if no_color { base_str.white()} else {base_str.blue()},
+                        NodeState::Allocated => if no_color { base_str.white()} else {base_str.yellow()},
+                        NodeState::Down => if no_color { base_str.white()} else {base_str.red()},
+                        NodeState::Error => if no_color { base_str.white()} else {base_str.magenta()},
                         _ => base_str.cyan(),
                     };
                     format!("{}{}", colored_base, flags_str)
                 }
                 _ => {
                     match state {
-                        NodeState::Idle => uncolored_str.green().to_string(),
-                        NodeState::Mixed => uncolored_str.blue().to_string(),
-                        NodeState::Allocated => uncolored_str.yellow().to_string(),
-                        NodeState::Down => uncolored_str.red().bold().to_string(),
-                        NodeState::Error => uncolored_str.magenta().to_string(),
+                        NodeState::Idle => if no_color { uncolored_str.white().to_string()} else {uncolored_str.green().to_string()},
+                        NodeState::Mixed => if no_color { uncolored_str.white().to_string()} else {uncolored_str.blue().to_string()},
+                        NodeState::Allocated => if no_color { uncolored_str.white().to_string()} else {uncolored_str.yellow().to_string()},
+                        NodeState::Down => if no_color { uncolored_str.white().to_string()} else {uncolored_str.red().to_string()},
+                        NodeState::Error => if no_color { uncolored_str.white().to_string()} else {uncolored_str.magenta().to_string()},
                         _ => uncolored_str,
                     }
                 }
@@ -312,7 +312,7 @@ pub fn print_report(report_data: &ReportData) {
         let bar_width: usize = 50;
         let filled_chars = (bar_width as f64 * (utilization_percent / 100.0)).round() as usize;
 
-        let filled_bar = "█".repeat(filled_chars).blue();
+        let filled_bar = if no_color {"█".repeat(filled_chars).white()} else {"█".repeat(filled_chars).blue()};
         let empty_chars = bar_width.saturating_sub(filled_chars);         
         let empty_bar = "░".repeat(empty_chars).normal();
         
@@ -324,9 +324,9 @@ pub fn print_report(report_data: &ReportData) {
         let bar_width: usize = 50;
         let filled_chars = (bar_width as f64 * (utilization_percent / 100.0)).round() as usize;
         
-        let filled_bar = "█".repeat(filled_chars).red();
+        let filled_bar = if no_color {"█".repeat(filled_chars).white()} else {"█".repeat(filled_chars).red()};
         let empty_chars = bar_width.saturating_sub(filled_chars);        
-        let empty_bar = "░".repeat(empty_chars).green();
+        let empty_bar = if no_color {"░".repeat(empty_chars).white()} else {"░".repeat(empty_chars).green()};
 
         println!("Overall CPU Utilization: \n [{}{}] {:.1}%", filled_bar, empty_bar, utilization_percent);
     }

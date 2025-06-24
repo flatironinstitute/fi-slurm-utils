@@ -1,5 +1,6 @@
 pub mod report;
 pub mod summary_report;
+pub mod tree_report;
 
 use clap::Parser;
 use std::collections::HashMap;
@@ -21,6 +22,10 @@ fn main() -> Result<(), String> {
     if args.help {
         print_help();
         return Ok(())
+    }
+
+    if args.exact && args.feature.is_empty() {
+        eprintln!("-e/--exact has no effect without the -f/--feature argument. Did you intend to filter by a feature?")
     }
 
     // This MUST be the very first Slurm function called 
@@ -47,8 +52,7 @@ fn main() -> Result<(), String> {
     if args.debug { println!("Loaded job data"); }
 
     let filtered_nodes = filter::filter_nodes_by_feature(&nodes_collection, &args.feature, args.exact);
-    // let filtered_result = filter::filter_nodes_by_feature(&nodes_collection, &args.feature, args.exact);
-    // if args.debug && !args.feature.is_empty() { println!("Filtered nodes by feature")}
+    if args.debug && !args.feature.is_empty() { println!("Filtered nodes by feature")}
 
     // validating input
     if !args.feature.is_empty() && filtered_nodes.is_empty() {
@@ -58,7 +62,7 @@ fn main() -> Result<(), String> {
             eprint!("\n Consider removing the `--exact` argument");
         }
 
-       let _all_features = gather_all_features(&nodes_collection);
+        let _all_features = gather_all_features(&nodes_collection);
         // TODO: more detailed error suggestions, maybe strsim, maybe just print a list of node
         // names?
     }
@@ -87,14 +91,22 @@ fn main() -> Result<(), String> {
 
         // Print Report 
         if args.debug { println!("\n--- Slurm Node Feature Report ---"); }
-        report::print_report(&report);
-    } else {
+        report::print_report(&report, args.no_color);
+
+        return Ok(())
+    } else if args.summary {
         // Aggregate data into summary report
         let summary_report = summary_report::build_summary_report(&filtered_nodes, &jobs_collection, &node_to_job_map);
         if args.debug { println!("Aggregated data into {} feature types.", summary_report.len()); }
 
         if args.debug { println!("\n--- Slurm Summary Report ---"); }
-        summary_report::print_summary_report(&summary_report);
+        summary_report::print_summary_report(&summary_report, args.no_color);
+        
+        return Ok(())
+    } else {
+        // Aggregate data into the tree report 
+        let tree_report = tree_report::build_tree_report(&filtered_nodes, &jobs_collection, &node_to_job_map, &args.feature);
+        tree_report::print_tree_report(&tree_report, args.no_color);
     }
 
     Ok(())
@@ -132,15 +144,19 @@ fn build_node_to_job_map(jobs: &SlurmJobs) -> HashMap<String, Vec<u32>> {
 fn print_help() {
     println!("\n
         Welcome to fi-node! This is a command-line utility for examining the available nodes in the cluster through the Slurm Job Scheduler. \n
-        Usage: fi-node [OPTIONS] \n\n
-        Options: \n
-        -d, --detailed          Prints the detailed, state-by-state report of node availability \n
-            --debug             Prints the step-by-step process of querying Slurm \n
+        Usage: fi-node [OPTIONS] \n
+        Options: 
+        -d, --detailed          Prints the detailed, state-by-state report of node availability 
+            --debug             Prints the step-by-step process of querying Slurm 
+        -s  --summary           Prints the top-level summary report for each feature type
+        -f  --feature           Select individual features to filter by. `--feature icelake` would only show information for icelake nodes.
+                                For multiple features, separate them with spaces, such as `--feature genoa gpu skylake`
+        -e  --exact             In combination with --feature, filter only by exact match rather than substrings
+            --no-color          Disable colors in output
         -h  --help              Prints the options and documentation for the fi-node command-line tool. You are here!
         "
     )
 }
-
 
 /// A command-line utility to report the state of a Slurm cluster,
 /// showing a summary of nodes grouped by state and feature
@@ -153,12 +169,15 @@ struct Args {
     #[arg(short, long)]
     detailed: bool,
     #[arg(short, long)]
-    help: bool,
+    summary: bool,
     #[arg(short, long, num_args = 1..)]
     feature: Vec<String>,
     #[arg(short, long)]
     exact: bool,
-    
+    #[arg(long)]
+    no_color: bool,
+    #[arg(short, long)]
+    help: bool,
 }
 
 
