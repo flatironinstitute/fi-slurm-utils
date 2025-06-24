@@ -214,7 +214,7 @@ pub fn print_report(report_data: &ReportData, no_color: bool) {
 
     println!(
         "{:<width$} {:>5} {:>13}",
-        "STATE".bold(), "COUNT".bold(), "CPU (A/T)".bold(),  width = max_state_width
+        "STATE".bold(), "COUNT".bold(), "PROCESSORS (A/T)".bold(),  width = max_state_width
     );
     println!("{}", "-".repeat(max_state_width + 23));
 
@@ -328,7 +328,7 @@ pub fn print_report(report_data: &ReportData, no_color: bool) {
         let empty_chars = bar_width.saturating_sub(filled_chars);        
         let empty_bar = if no_color {"░".repeat(empty_chars).white()} else {"░".repeat(empty_chars).green()};
 
-        println!("Overall CPU Utilization: \n [{}{}] {:.1}%", filled_bar, empty_bar, utilization_percent);
+        println!("Overall Processor Utilization: \n [{}{}] {:.1}%", filled_bar, empty_bar, utilization_percent);
     }
 }
 
