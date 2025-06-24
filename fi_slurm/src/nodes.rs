@@ -2,7 +2,6 @@ use std::{collections::HashMap, ffi::CStr, fmt};
 use chrono::{DateTime, Utc};
 use crate::utils::{time_t_to_datetime, c_str_to_string};
 use crate::energy::AcctGatherEnergy; 
-use crate::gres::parse_gres_str;
 use crate::states::NodeStateFlags;
 use rust_bind::bindings::{
     node_info_msg_t, node_info_t, 
@@ -172,10 +171,11 @@ impl fmt::Display for NodeState {
 }
 
 /// Represents the GPU GRES of a node, assuming that a given node has only one kind of GPU
+#[derive(Clone, Debug)]
 pub struct GpuInfo {
     pub name: String,
-    pub total_gpus: u16,
-    pub allocated_gpus: u16,
+    pub total_gpus: u64,
+    pub allocated_gpus: u64,
 }
 
 /// Parses gres and gres_used strings to create an optional GpuInfo struct.
