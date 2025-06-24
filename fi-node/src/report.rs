@@ -84,11 +84,11 @@ pub fn build_report(
 ) -> ReportData {
     let mut report_data = ReportData::new();
 
-    // Iterate through every node we loaded from Slurm.
-    // for node in nodes.nodes.values() {
+    // Iterate through every node we loaded from Slurm
+    // for node in nodes.nodes.values() 
     for &node in nodes {
         // --- Calculate Allocated CPUs for this specific node ---
-        // Sum the CPUs from all jobs running on this node.
+        // Sum the CPUs from all jobs running on this node
         let alloc_cpus_for_node: u32 = if let Some(job_ids) = node_to_job_map.get(&node.name) {
             job_ids
                 .iter()
@@ -129,57 +129,98 @@ pub fn build_report(
                 group.summary.total_gpus += count;
             }
         }
-        // commented out, since it turns out that gres_used is empty most or all the time
         for (gres_name, &count) in &node.allocated_gres {
             if gres_name.starts_with("gpu") {
                 group.summary.alloc_gpus += count;
             }
         }
-        
-        // --- Feature Subgroup Logic ---
+
+
+
+        // --- Subgrouping Logic ---
+        // A node can belong to one primary feature group (non-gpu) AND multiple GRES groups.
+        let mut node_in_feature_subgroup = false;
         if let Some(feature) = node.features.first() {
-            // FIX: Replicate the original script's logic to ignore the generic "gpu"
+            // Replicate the original script's logic to ignore the generic "gpu"
             // feature, deferring to the more specific GRES subgroups.
             if feature != "gpu" {
                 let subgroup_line = group.subgroups.entry(feature.clone()).or_default();
                 subgroup_line.node_count += 1;
                 subgroup_line.total_cpus += node.cpus as u32;
                 subgroup_line.alloc_cpus += alloc_cpus_for_node;
-                // FIX: CPU-based features should not aggregate GPU stats. This is
-                // handled by the GRES-specific subgroups below.
+                node_in_feature_subgroup = true;
             }
         }
 
-        // --- GRES Subgroup Logic ---
+        //// --- Feature Subgroup Logic ---
+        //if let Some(feature) = node.features.first() {
+        //    // FIX: Replicate the original script's logic to ignore the generic "gpu"
+        //    // feature, deferring to the more specific GRES subgroups.
+        //    if feature != "gpu" {
+        //        let subgroup_line = group.subgroups.entry(feature.clone()).or_default();
+        //        subgroup_line.node_count += 1;
+        //        subgroup_line.total_cpus += node.cpus as u32;
+        //        subgroup_line.alloc_cpus += alloc_cpus_for_node;
+        //        // FIX: CPU-based features should not aggregate GPU stats. This is
+        //        // handled by the GRES-specific subgroups below.
+        //    }
+        //}
+
+
         for (gres_name, &configured_count) in &node.configured_gres {
             let subgroup_line = group.subgroups.entry(gres_name.clone()).or_default();
 
-            // FIX: Only add the node count if it hasn't been added by the feature logic.
-            // This prevents double-counting nodes in the subgroup totals.
-            // A simple way is to check if the subgroup is new.
-            if subgroup_line.node_count == 0 {
-                subgroup_line.node_count = 1; // Or handle more complex multi-gres nodes
+            // Only add the node/cpu counts if it wasn't already counted in a primary feature group.
+            // This prevents double-counting for nodes like `icelake,gpu`.
+            if !node_in_feature_subgroup {
+                subgroup_line.node_count += 1;
+                subgroup_line.total_cpus += node.cpus as u32;
+                subgroup_line.alloc_cpus += alloc_cpus_for_node;
             }
-            // For simplicity in this example, we assume CPU stats are mainly relevant to the primary feature.
-            // A more complex model could distribute these.
-            
-            // FIX: Add the configured GPU count for THIS specific GRES.
+
+            // Always add the specific GPU stats to the GRES subgroup.
             if gres_name.starts_with("gpu") {
                 subgroup_line.total_gpus += configured_count;
-            }
-        }
-        // commented out, since it turns out that gres_used is empty most or all the time
-        //// FIX: This second loop remains necessary to add the allocated counts.
-        for (gres_name, &allocated_count) in &node.allocated_gres {
-            if let Some(subgroup_line) = group.subgroups.get_mut(gres_name) {
-                 if gres_name.starts_with("gpu") {
+                // Look up the corresponding allocated count.
+                if let Some(allocated_count) = node.allocated_gres.get(gres_name) {
                     subgroup_line.alloc_gpus += allocated_count;
-                 }
+                }
             }
         }
+        //// --- GRES Subgroup Logic ---
+        //for (gres_name, &configured_count) in &node.configured_gres {
+        //    let subgroup_line = group.subgroups.entry(gres_name.clone()).or_default();
+        //
+        //    // FIX: Only add the node count if it hasn't been added by the feature logic.
+        //    // This prevents double-counting nodes in the subgroup totals.
+        //    // A simple way is to check if the subgroup is new.
+        //    if subgroup_line.node_count == 0 {
+        //        subgroup_line.node_count = 1; // Or handle more complex multi-gres nodes
+        //    }
+        //    // For simplicity in this example, we assume CPU stats are mainly relevant to the primary feature.
+        //    // A more complex model could distribute these.
+        //
+        //    // FIX: Add the configured GPU count for THIS specific GRES.
+        //    if gres_name.starts_with("gpu") {
+        //        subgroup_line.total_gpus += configured_count;
+        //    }
+        //}
+        //// commented out, since it turns out that gres_used is empty most or all the time
+        ////// FIX: This second loop remains necessary to add the allocated counts.
+        //for (gres_name, &allocated_count) in &node.allocated_gres {
+        //    if let Some(subgroup_line) = group.subgroups.get_mut(gres_name) {
+        //         if gres_name.starts_with("gpu") {
+        //            subgroup_line.alloc_gpus += allocated_count;
+        //         }
+        //    }
+        //}
+
+
+
     }
     report_data
 }
+
 
 /// Formats and prints the aggregated report data to the console.
 pub fn print_report(report_data: &ReportData, no_color: bool) {
@@ -230,7 +271,7 @@ pub fn print_report(report_data: &ReportData, no_color: bool) {
             let uncolored_str = state.to_string();
             let padding_len = max_state_width.saturating_sub(uncolored_str.len());
             let padding = " ".repeat(padding_len);
-            
+
             let colored_str = match state {
                 NodeState::Compound { base, flags } => {
                     let base_str = base.to_string();
@@ -256,14 +297,14 @@ pub fn print_report(report_data: &ReportData, no_color: bool) {
                     }
                 }
             };
-            
+
             let cpu_str = format!("{:>5}/{:<5}", group.summary.alloc_cpus, group.summary.total_cpus);
             let gpu_str = if group.summary.total_gpus > 0 {
                 format!("{:>5}/{:<5}", group.summary.alloc_gpus, group.summary.total_gpus)
             } else {
                 "-".to_string()
             };
-            
+
             println!("{}{}{:>5} {:>13} {:>13}", colored_str, padding, group.summary.node_count, cpu_str, gpu_str);
             //println!("{}{}{:>5} {:>13}", colored_str, padding, group.summary.node_count, cpu_str);
 
@@ -278,7 +319,7 @@ pub fn print_report(report_data: &ReportData, no_color: bool) {
                     } else {
                         "-".to_string()
                     };
-                    
+
                     let indented_name = format!("  {}", subgroup_name);
                     let sub_padding_len = max_state_width.saturating_sub(indented_name.len());
                     let sub_padding = " ".repeat(sub_padding_len);
@@ -289,7 +330,7 @@ pub fn print_report(report_data: &ReportData, no_color: bool) {
             }
         }
     }
-    
+
     println!("{}", "-".repeat(max_state_width + 23));
     let total_cpu_str = format!("{:>5}/{:<5}", total_line.alloc_cpus, total_line.total_cpus);
     let total_gpu_str = format!("{:>5}/{:<5}", total_line.alloc_gpus, total_line.total_gpus);
@@ -315,7 +356,7 @@ pub fn print_report(report_data: &ReportData, no_color: bool) {
         let filled_bar = if no_color {"█".repeat(filled_chars).white()} else {"█".repeat(filled_chars).blue()};
         let empty_chars = bar_width.saturating_sub(filled_chars);         
         let empty_bar = "░".repeat(empty_chars).normal();
-        
+
         println!("Overall Node Utilization: \n [{}{}] {:.1}%", filled_bar, empty_bar, utilization_percent);
     }
 
@@ -323,7 +364,7 @@ pub fn print_report(report_data: &ReportData, no_color: bool) {
         let utilization_percent = (total_line.alloc_cpus as f64 / total_line.total_cpus as f64) * 100.0;
         let bar_width: usize = 50;
         let filled_chars = (bar_width as f64 * (utilization_percent / 100.0)).round() as usize;
-        
+
         let filled_bar = if no_color {"█".repeat(filled_chars).white()} else {"█".repeat(filled_chars).red()};
         let empty_chars = bar_width.saturating_sub(filled_chars);        
         let empty_bar = if no_color {"░".repeat(empty_chars).white()} else {"░".repeat(empty_chars).green()};

@@ -268,13 +268,13 @@ impl Node {
         };
 
         // --- TEMPORARY DEBUGGING CODE ---
-        let gres_used_str = unsafe {c_str_to_string(raw_node.gres_used)};
-        if !gres_used_str.is_empty() {
+        let gres_conf_str = unsafe {c_str_to_string(raw_node.gres)};
+        if !gres_conf_str.is_empty() {
             let node_name = unsafe {c_str_to_string(raw_node.name)};
             println!(
                 "SUCCESS: Node '{}' has gres_used: '{}'",
                 node_name,
-                gres_used_str
+                gres_conf_str,
             );
         }
 
