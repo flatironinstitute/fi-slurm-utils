@@ -151,7 +151,7 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool) {
     let cpu_bar = create_avail_bar(root.stats.idle_cpus, root.stats.total_cpus, 30, 
         if no_color {Color::White} else {Color::Cyan});
     println!(
-        "{}: {}/{} Nodes Avail {}, {}/{} CPUs Avail {}",
+        "{}: {}/{} Nodes Avail {}, {}/{} Processors Avail {}",
         root.name.bold(),
         root.stats.idle_nodes,
         root.stats.total_nodes,
@@ -198,7 +198,7 @@ fn print_node_recursive(tree_node: &TreeNode, prefix: &str, is_last: bool, no_co
         prefix, child_prefix, current_node.stats.idle_nodes, current_node.stats.total_nodes, node_bar
     );
     println!(
-        "{}{}CPUs:  {}/{} Avail {}",
+        "{}{}Processors:  {}/{} Avail {}",
         prefix, child_prefix, current_node.stats.idle_cpus, current_node.stats.total_cpus, cpu_bar
     );
 
