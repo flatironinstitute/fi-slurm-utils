@@ -35,11 +35,11 @@ impl ReportLine {
             }
         }
         // commented out, since it turns out that gres_used is empty most or all the time
-        //for (gres_name, &count) in &node.allocated_gres {
-        //    if gres_name.starts_with("gpu") {
-        //        self.alloc_gpus += count;
-        //    }
-        //}
+        for (gres_name, &count) in &node.allocated_gres {
+            if gres_name.starts_with("gpu") {
+                self.alloc_gpus += count;
+            }
+        }
     }
 }
 
@@ -130,11 +130,11 @@ pub fn build_report(
             }
         }
         // commented out, since it turns out that gres_used is empty most or all the time
-        //for (gres_name, &count) in &node.allocated_gres {
-        //    if gres_name.starts_with("gpu") {
-        //        group.summary.alloc_gpus += count;
-        //    }
-        //}
+        for (gres_name, &count) in &node.allocated_gres {
+            if gres_name.starts_with("gpu") {
+                group.summary.alloc_gpus += count;
+            }
+        }
         
         // --- Feature Subgroup Logic ---
         if let Some(feature) = node.features.first() {
@@ -170,13 +170,13 @@ pub fn build_report(
         }
         // commented out, since it turns out that gres_used is empty most or all the time
         //// FIX: This second loop remains necessary to add the allocated counts.
-        //for (gres_name, &allocated_count) in &node.allocated_gres {
-        //    if let Some(subgroup_line) = group.subgroups.get_mut(gres_name) {
-        //         if gres_name.starts_with("gpu") {
-        //            subgroup_line.alloc_gpus += allocated_count;
-        //         }
-        //    }
-        //}
+        for (gres_name, &allocated_count) in &node.allocated_gres {
+            if let Some(subgroup_line) = group.subgroups.get_mut(gres_name) {
+                 if gres_name.starts_with("gpu") {
+                    subgroup_line.alloc_gpus += allocated_count;
+                 }
+            }
+        }
     }
     report_data
 }
@@ -258,14 +258,14 @@ pub fn print_report(report_data: &ReportData, no_color: bool) {
             };
             
             let cpu_str = format!("{:>5}/{:<5}", group.summary.alloc_cpus, group.summary.total_cpus);
-            //let gpu_str = if group.summary.total_gpus > 0 {
-            //    format!("{:>5}/{:<5}", group.summary.alloc_gpus, group.summary.total_gpus)
-            //} else {
-            //    "-".to_string()
-            //};
+            let gpu_str = if group.summary.total_gpus > 0 {
+                format!("{:>5}/{:<5}", group.summary.alloc_gpus, group.summary.total_gpus)
+            } else {
+                "-".to_string()
+            };
             
-            //println!("{}{}{:>5} {:>13} {:>13}", colored_str, padding, group.summary.node_count, cpu_str, gpu_str);
-            println!("{}{}{:>5} {:>13}", colored_str, padding, group.summary.node_count, cpu_str);
+            println!("{}{}{:>5} {:>13} {:>13}", colored_str, padding, group.summary.node_count, cpu_str, gpu_str);
+            //println!("{}{}{:>5} {:>13}", colored_str, padding, group.summary.node_count, cpu_str);
 
             let mut sorted_subgroups: Vec<&String> = group.subgroups.keys().collect();
             sorted_subgroups.sort();
@@ -273,18 +273,18 @@ pub fn print_report(report_data: &ReportData, no_color: bool) {
             for subgroup_name in sorted_subgroups {
                 if let Some(subgroup_line) = group.subgroups.get(subgroup_name) {
                     let sub_cpu_str = format!("{:>5}/{:<5}", subgroup_line.alloc_cpus, subgroup_line.total_cpus);
-                    //let sub_gpu_str = if subgroup_line.total_gpus > 0 {
-                    //    format!("{:>5}/{:<5}", subgroup_line.alloc_gpus, subgroup_line.total_gpus)
-                    //} else {
-                    //    "-".to_string()
-                    //};
+                    let sub_gpu_str = if subgroup_line.total_gpus > 0 {
+                        format!("{:>5}/{:<5}", subgroup_line.alloc_gpus, subgroup_line.total_gpus)
+                    } else {
+                        "-".to_string()
+                    };
                     
                     let indented_name = format!("  {}", subgroup_name);
                     let sub_padding_len = max_state_width.saturating_sub(indented_name.len());
                     let sub_padding = " ".repeat(sub_padding_len);
 
-                    println!("{}{}{:>5} {:>13}", indented_name, sub_padding, subgroup_line.node_count, sub_cpu_str);
-                    //println!("{}{}{:>5} {:>13} {:>13}", indented_name, sub_padding, subgroup_line.node_count, sub_cpu_str, sub_gpu_str);
+                    //println!("{}{}{:>5} {:>13}", indented_name, sub_padding, subgroup_line.node_count, sub_cpu_str);
+                    println!("{}{}{:>5} {:>13} {:>13}", indented_name, sub_padding, subgroup_line.node_count, sub_cpu_str, sub_gpu_str);
                 }
             }
         }
@@ -292,9 +292,9 @@ pub fn print_report(report_data: &ReportData, no_color: bool) {
     
     println!("{}", "-".repeat(max_state_width + 23));
     let total_cpu_str = format!("{:>5}/{:<5}", total_line.alloc_cpus, total_line.total_cpus);
-    //let total_gpu_str = format!("{:>5}/{:<5}", total_line.alloc_gpus, total_line.total_gpus);
+    let total_gpu_str = format!("{:>5}/{:<5}", total_line.alloc_gpus, total_line.total_gpus);
     let total_padding = " ".repeat(max_state_width - "TOTAL".len());
-    println!("{}{}{:>5} {:>13}", "TOTAL".bold(), total_padding, total_line.node_count, total_cpu_str);
+    println!("{}{}{:>5} {:>13} {:>13}", "TOTAL".bold(), total_padding, total_line.node_count, total_cpu_str, total_gpu_str);
 
     println!();
 
