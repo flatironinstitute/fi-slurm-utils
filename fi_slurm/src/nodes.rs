@@ -331,17 +331,6 @@ impl Node {
             }
         };
 
-        // --- TEMPORARY DEBUGGING CODE ---
-        let gres_conf_str = unsafe {c_str_to_string(raw_node.gres)};
-        if !gres_conf_str.is_empty() {
-            let node_name = unsafe {c_str_to_string(raw_node.name)};
-            println!(
-                "SUCCESS: Node '{}' has gres_used: '{}'",
-                node_name,
-                gres_conf_str,
-            );
-        }
-
         let energy = if raw_node.energy.is_null() {
             None
         } else {
