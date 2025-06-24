@@ -35,7 +35,7 @@ fn is_node_available(state: &NodeState) -> bool {
         NodeState::Compound { base, flags } => {
             if **base == NodeState::Idle {
                 // Node is idle, but check for disqualifying flags.
-                !flags.iter().any(|flag| flag == "MAINT" || flag == "RES")
+                !flags.iter().any(|flag| flag == "MAINT" || flag == "DOWN" || flag == "DRAIN" || flag == "INVALID_REG")
             } else {
                 false
             }
