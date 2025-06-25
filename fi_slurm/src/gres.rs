@@ -1,19 +1,20 @@
 use std::collections::HashMap;
 use std::ffi::CStr;
 
-/// Parses a raw, comma-separated GRES string from Slurm into a HashMap
+/// Parses a raw, comma-separated GRES string from Slurm into a HashMap.
 ///
-/// The function handles multiple GRES formats, such as "gpu:h100:4" or
-/// "license:matlab:1". It is designed to be robust against malformed entries
+/// This function is designed to be robust against complex GRES strings, such as
+/// "gpu:a100:4(IDX:0-3)", by correctly identifying the full GRES name and
+/// extracting only the numerical part of the count.
 ///
 /// # Arguments
 ///
-/// * `gres_ptr` - A raw C string pointer (`*const i8`) to the GRES string
+/// * `gres_ptr` - A raw C string pointer (`*const i8`) to the GRES string.
 ///
 /// # Returns
 ///
-/// A `HashMap<String, u64>` where the key is the GRES identifier (e.g., "gpu:h100")
-/// and the value is the associated count
+/// A `HashMap<String, u64>` where the key is the full GRES identifier
+/// (e.g., "gpu:a100-sxm4-40gb") and the value is the associated count
 #[allow(clippy::missing_safety_doc)]
 pub unsafe fn parse_gres_str(gres_ptr: *const i8) -> HashMap<String, u64> {
     // If the pointer is null, there's nothing to parse. Return an empty map
@@ -22,40 +23,37 @@ pub unsafe fn parse_gres_str(gres_ptr: *const i8) -> HashMap<String, u64> {
     }
 
     // Safely convert the C string pointer to a Rust string slice
-    // .to_string_lossy() handles any potential invalid UTF-8 sequence
     let gres_str = unsafe { CStr::from_ptr(gres_ptr) }.to_string_lossy();
 
-    // If the resulting string is empty, we're done
     if gres_str.is_empty() {
         return HashMap::new();
     }
 
-    // The main parsing logic.
+    // The new, more robust parsing logic
     gres_str
-        .split(',') // 1. Split the full string into individual GRES definitions.
+        .split(',') // 1. Split the full string into individual GRES definitions
         .filter_map(|entry| {
-            // 2. For each entry, split it into its component parts by the colon
-            let parts: Vec<&str> = entry.split(':').collect();
+            // 2. Find the last colon to separate the name from the count part
+            // `rsplit_once` is perfect for this
+            if let Some((name, count_part)) = entry.rsplit_once(':') {
+                // `name` is now the full key, e.g., "gpu:a100-sxm4-40gb"
+                // `count_part` is the rest, e.g., "4(IDX:0-3)"
 
-            match parts.as_slice() {
-                // Case 1: Matches formats like "gpu:h100:4" or "name:type:count"
-                [name, gres_type, count_str] => {
-                    // The key combines the name and type for uniqueness
-                    let key = format!("{}:{}", name, gres_type);
-                    // Parse the count string into a number
-                    let value = count_str.parse::<u64>().ok()?;
-                    Some((key, value))
+                // 3. Extract only the leading digits from the count part
+                let count_str: String = count_part
+                    .chars()
+                    .take_while(|c| c.is_ascii_digit())
+                    .collect();
+
+                // 4. Parse the extracted digits into a number
+                if let Ok(value) = count_str.parse::<u64>() {
+                    Some((name.to_string(), value))
+                } else {
+                    None // Discard if parsing fails
                 }
-                // Case 2: Matches formats like "license:2" or "name:count"
-                [name, count_str] => {
-                    let key = name.to_string();
-                    let value = count_str.parse::<u64>().ok()?;
-                    Some((key, value))
-                }
-                // If the format is unexpected, filter_map with `None` will discard it
-                _ => None,
+            } else {
+                None // Discard entries that don't have a colon
             }
         })
-        .collect() // 3. Collect the valid (key, value) pairs into a HashMap
+        .collect() // 5. Collect the valid (key, value) pairs into a HashMap
 }
-
