@@ -2,7 +2,6 @@ use std::{collections::HashMap, ffi::CStr, fmt};
 use chrono::{DateTime, Utc};
 use crate::utils::{time_t_to_datetime, c_str_to_string};
 use crate::energy::AcctGatherEnergy; 
-use crate::gres::parse_gres_str;
 use crate::states::NodeStateFlags;
 use rust_bind::bindings::{
     node_info_msg_t, node_info_t, 
@@ -181,26 +180,100 @@ pub struct GpuInfo {
 
 /// Parses gres and gres_used strings to create an optional GpuInfo struct
 fn create_gpu_info(
-    gres_str: *const i8,
-    gres_used_str: *const i8,
+    gres_str_ptr: *const i8,
+    gres_used_ptr: *const i8,
 ) -> Option<GpuInfo> {
-    let configured_map = unsafe { parse_gres_str(gres_str) };
-    let allocated_map = unsafe { parse_gres_str(gres_used_str) };
+    /// A robust, local helper function to parse GRES strings.
+    fn parse_local_gres(raw_ptr: *const i8) -> HashMap<String, u64> {
+        if raw_ptr.is_null() {
+            return HashMap::new();
+        }
+        let gres_str = unsafe { CStr::from_ptr(raw_ptr) }.to_string_lossy();
+        
+        gres_str
+            .split(',')
+            .filter_map(|entry| {
+                // First, strip off any parenthesized metadata like (IDX:...).
+                let main_part = entry.split('(').next().unwrap_or(entry).trim();
+                
+                // Now, split the remaining "name:count" part.
+                if let Some((key, count_str)) = main_part.rsplit_once(':') {
+                    if let Ok(value) = count_str.parse::<u64>() {
+                        Some((key.to_string(), value))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
 
-    // Find the first (and likely only) GRES entry that is a GPU.
-    let (name, &total_gpus) = configured_map
-        .iter()
-        .find(|(key, _)| key.starts_with("gpu"))?;
+    let configured_map = parse_local_gres(gres_str_ptr);
+    let allocated_map = parse_local_gres(gres_used_ptr);
 
-    // Look up the corresponding allocated count from the parsed `gres_used` map.
-    let allocated_gpus = *allocated_map.get(name).unwrap_or(&0);
+    // Find the first (and likely only) GRES key that represents a GPU.
+    let gpu_key = configured_map
+        .keys()
+        .find(|key| key.starts_with("gpu"))
+        .cloned()?; // Clone the key so we can use it for lookups.
 
-    Some(GpuInfo {
-        name: name.clone(),
-        total_gpus,
-        allocated_gpus,
-    })
+    let total_gpus = *configured_map.get(&gpu_key).unwrap_or(&0);
+    let allocated_gpus = *allocated_map.get(&gpu_key).unwrap_or(&0);
+    
+    // Only create a GpuInfo struct if there are actually GPUs configured.
+    if total_gpus > 0 {
+        Some(GpuInfo {
+            name: gpu_key,
+            total_gpus,
+            allocated_gpus,
+        })
+    } else {
+        None
+    }
 }
+
+
+//fn create_gpu_info(
+//    gres_str: *const i8,
+//    gres_used_str: *const i8,
+//) -> Option<GpuInfo> {
+//    // 1. Parse both raw strings into HashMaps.
+//    let configured_map = unsafe { parse_gres_str(gres_str) };
+//    let allocated_map = unsafe { parse_gres_str(gres_used_str) };
+//
+//    // 2. Consolidate all unique keys from both maps.
+//    let mut all_keys = HashSet::new();
+//    for key in configured_map.keys() {
+//        all_keys.insert(key);
+//    }
+//    for key in allocated_map.keys() {
+//        all_keys.insert(key);
+//    }
+//
+//    // 3. Find the definitive GPU key from the consolidated set.
+//    let gpu_key = all_keys
+//        .into_iter()
+//        .find(|key| key.starts_with("gpu"))?;
+//
+//    // 4. Safely look up the total and allocated counts using the key.
+//    //    Default to 0 if a key isn't present in one of the maps.
+//    let total_gpus = *configured_map.get(gpu_key).unwrap_or(&0);
+//    let allocated_gpus = *allocated_map.get(gpu_key).unwrap_or(&0);
+//
+//    // Only create a GpuInfo struct if there are actually GPUs configured.
+//    dbg!(gpu_key.clone());
+//    if total_gpus > 0 {
+//        Some(GpuInfo {
+//            name: gpu_key.clone(),
+//            total_gpus,
+//            allocated_gpus,
+//        })
+//    } else {
+//        None
+//    }
+//}
 
 
 type NodeName = String;
