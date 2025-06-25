@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use rust_bind::bindings::{job_info, job_info_msg_t, slurm_free_job_info_msg, slurm_load_jobs};
-use crate::gres::parse_tres_str; 
+use crate::parser::parse_tres_str; 
 use crate::utils::{c_str_to_string, time_t_to_datetime};
 
 /// Fetches all job information from Slurm and returns it as a safe,
