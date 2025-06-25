@@ -29,7 +29,6 @@ pub unsafe fn parse_gres_str(gres_ptr: *const i8) -> HashMap<String, u64> {
         return HashMap::new();
     }
 
-    // The new, more robust parsing logic
     gres_str
         .split(',') // 1. Split the full string into individual GRES definitions
         .filter_map(|entry| {
