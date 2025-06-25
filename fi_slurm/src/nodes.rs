@@ -2,7 +2,6 @@ use std::{collections::HashMap, ffi::CStr, fmt};
 use chrono::{DateTime, Utc};
 use crate::utils::{time_t_to_datetime, c_str_to_string};
 use crate::energy::AcctGatherEnergy; 
-use crate::gres::parse_gres_str;
 use crate::states::NodeStateFlags;
 use rust_bind::bindings::{
     node_info_msg_t, node_info_t, 
@@ -171,6 +170,71 @@ impl fmt::Display for NodeState {
     }
 }
 
+/// Represents the GPU GRES of a node, assuming that a given node has only one kind of GPU
+#[derive(Clone, Debug)]
+pub struct GpuInfo {
+    pub name: String,
+    pub total_gpus: u64,
+    pub allocated_gpus: u64,
+}
+
+/// Parses gres and gres_used strings to create an optional GpuInfo struct
+fn create_gpu_info(
+    gres_str_ptr: *const i8,
+    gres_used_ptr: *const i8,
+) -> Option<GpuInfo> {
+    /// A robust, local helper function to parse GRES strings
+    fn parse_local_gres(raw_ptr: *const i8) -> HashMap<String, u64> {
+        if raw_ptr.is_null() {
+            return HashMap::new();
+        }
+        let gres_str = unsafe { CStr::from_ptr(raw_ptr) }.to_string_lossy();
+        
+        gres_str
+            .split(',')
+            .filter_map(|entry| {
+                // First, strip off any parenthesized metadata like (IDX:...)
+                let main_part = entry.split('(').next().unwrap_or(entry).trim();
+                
+                // Now, split the remaining "name:count" part.
+                if let Some((key, count_str)) = main_part.rsplit_once(':') {
+                    if let Ok(value) = count_str.parse::<u64>() {
+                        Some((key.to_string(), value))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    let configured_map = parse_local_gres(gres_str_ptr);
+    let allocated_map = parse_local_gres(gres_used_ptr);
+
+    // Find the first (and likely only) GRES key that represents a GPU
+    let gpu_key = configured_map
+        .keys()
+        .find(|key| key.starts_with("gpu"))
+        .cloned()?; // Clone the key so we can use it for lookups
+
+    let total_gpus = *configured_map.get(&gpu_key).unwrap_or(&0);
+    let allocated_gpus = *allocated_map.get(&gpu_key).unwrap_or(&0);
+    
+    // Only create a GpuInfo struct if there are actually GPUs configured
+    if total_gpus > 0 {
+        Some(GpuInfo {
+            name: gpu_key,
+            total_gpus,
+            allocated_gpus,
+        })
+    } else {
+        None
+    }
+}
+
+
 type NodeName = String;
 
 // pub struct Node, a safe counterpart to node_info_t
@@ -204,8 +268,9 @@ pub struct Node {
     pub active_features: Vec<String>, // aka features_act
 
     // Generic Resources (GRES), like GPUs
-    pub configured_gres: HashMap<String, u64>,
-    pub allocated_gres: HashMap<String, u64>,
+    // pub configured_gres: HashMap<String, u64>,
+    // pub allocated_gres: HashMap<String, u64>,
+    pub gpu_info: Option<GpuInfo>,
     pub gres: String,
     pub gres_drain: String,
     pub gres_used: String,
@@ -267,17 +332,6 @@ impl Node {
             }
         };
 
-        // --- TEMPORARY DEBUGGING CODE ---
-        let gres_conf_str = unsafe {c_str_to_string(raw_node.gres)};
-        if !gres_conf_str.is_empty() {
-            let node_name = unsafe {c_str_to_string(raw_node.name)};
-            println!(
-                "SUCCESS: Node '{}' has gres_used: '{}'",
-                node_name,
-                gres_conf_str,
-            );
-        }
-
         let energy = if raw_node.energy.is_null() {
             None
         } else {
@@ -323,8 +377,7 @@ impl Node {
 
 
             // Generic Resources (GRES)
-            configured_gres: unsafe {parse_gres_str(raw_node.gres)},
-            allocated_gres: unsafe {parse_gres_str(raw_node.gres_used)},
+            gpu_info: create_gpu_info(raw_node.gres, raw_node.gres_used),
             gres: unsafe {c_str_to_string(raw_node.gres)}, // Keep the raw string for reference
             gres_drain: unsafe {c_str_to_string(raw_node.gres_drain)},
             gres_used: unsafe {c_str_to_string(raw_node.gres_used)}, // Keep the raw string for reference

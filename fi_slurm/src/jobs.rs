@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use rust_bind::bindings::{job_info, job_info_msg_t, slurm_free_job_info_msg, slurm_load_jobs};
-use crate::gres::parse_gres_str; 
+use crate::parser::parse_tres_str; 
 use crate::utils::{c_str_to_string, time_t_to_datetime};
 
 /// Fetches all job information from Slurm and returns it as a safe,
@@ -44,9 +44,7 @@ impl RawSlurmJobInfo {
     pub fn load() -> Result<Self, String> {
         let mut job_info_msg_ptr: *mut job_info_msg_t = std::ptr::null_mut();
 
-        // TODO: The `show_flags` should be set with the appropriate constants
-        // from the bindings file, e.g., `bindings::SHOW_ALL as u16`
-        let show_flags = 0; // Placeholder for now
+        let show_flags = 2; // just using the SHOW_DETAIL flag
 
         let return_code = unsafe {
             slurm_load_jobs(0, &mut job_info_msg_ptr, show_flags)
@@ -222,7 +220,7 @@ impl Job {
              num_cpus: raw_job.num_cpus,
              num_tasks: raw_job.num_tasks,
              nodes: unsafe {c_str_to_string(raw_job.nodes)},
-             allocated_gres: unsafe {parse_gres_str(raw_job.tres_alloc_str)},
+             allocated_gres: unsafe {parse_tres_str(raw_job.tres_alloc_str)},
              work_dir: unsafe {c_str_to_string(raw_job.work_dir)},
              command: unsafe {c_str_to_string(raw_job.command)},
              exit_code: raw_job.exit_code,
