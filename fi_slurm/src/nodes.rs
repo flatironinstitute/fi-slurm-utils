@@ -2,6 +2,7 @@ use std::{collections::HashMap, ffi::CStr, fmt};
 use chrono::{DateTime, Utc};
 use crate::utils::{time_t_to_datetime, c_str_to_string};
 use crate::energy::AcctGatherEnergy; 
+use crate::gres::parse_gres_str;
 use crate::states::NodeStateFlags;
 use rust_bind::bindings::{
     node_info_msg_t, node_info_t, 
@@ -178,56 +179,24 @@ pub struct GpuInfo {
     pub allocated_gpus: u64,
 }
 
-/// Parses gres and gres_used strings to create an optional GpuInfo struct.
-///
-/// This function looks for the first GRES entry that starts with "gpu" and
-/// uses that as the definitive GPU type for the node.
+/// Parses gres and gres_used strings to create an optional GpuInfo struct
 fn create_gpu_info(
     gres_str: *const i8,
     gres_used_str: *const i8,
 ) -> Option<GpuInfo> {
-    // Helper to convert C string to a Rust String.
-    let c_str_to_string = |ptr: *const i8| -> String {
-        if ptr.is_null() {
-            String::new()
-        } else {
-            unsafe { std::ffi::CStr::from_ptr(ptr) }.to_string_lossy().into_owned()
-        }
-    };
+    let configured_map = unsafe { parse_gres_str(gres_str) };
+    let allocated_map = unsafe { parse_gres_str(gres_used_str) };
 
-    let configured_str = c_str_to_string(gres_str);
+    // Find the first (and likely only) GRES entry that is a GPU.
+    let (name, &total_gpus) = configured_map
+        .iter()
+        .find(|(key, _)| key.starts_with("gpu"))?;
 
-    // Find the first gres entry that is a gpu.
-    let gpu_part = configured_str
-        .split(',')
-        .find(|part| part.starts_with("gpu"))?;
-
-    // Parse the parts of the gpu string, e.g., "gpu:a100:4"
-    let parts: Vec<&str> = gpu_part.split(':').collect();
-    if parts.len() < 3 {
-        return None; // Malformed gres string
-    }
-
-    let name = format!("{}:{}", parts[0], parts[1]); // e.g., "gpu:a100"
-    let total_gpus = parts[2].parse::<u64>().unwrap_or(0);
-
-    // Now, find the allocated count from the gres_used string.
-    let used_str = c_str_to_string(gres_used_str);
-    let allocated_gpus = used_str
-        .split(',')
-        .find_map(|part| {
-            // Find the corresponding entry in the used string.
-            if part.starts_with(&name) {
-                // The format is often like "gpu:a100:2(IDX...)"
-                part.split(':').nth(2)?.parse::<u64>().ok()
-            } else {
-                None
-            }
-        })
-        .unwrap_or(0);
+    // Look up the corresponding allocated count from the parsed `gres_used` map.
+    let allocated_gpus = *allocated_map.get(name).unwrap_or(&0);
 
     Some(GpuInfo {
-        name,
+        name: name.clone(),
         total_gpus,
         allocated_gpus,
     })
