@@ -135,18 +135,20 @@ pub fn build_report(
             subgroup_line.total_gpus += gpu.total_gpus;
             subgroup_line.alloc_gpus += gpu.allocated_gpus;
 
-        } else {
-            // --- This is a CPU-only Node ---
-            // Fall back to using the first feature as its identity.
-            if let Some(feature) = node.features.first() {
-                let subgroup_line = group.subgroups.entry(feature.clone()).or_default();
-                
-                // Add its stats. GPU counts will naturally be zero.
-                subgroup_line.node_count += 1;
-                subgroup_line.total_cpus += node.cpus as u32;
-                subgroup_line.alloc_cpus += alloc_cpus_for_node;
-            }
+        // } else {
         }
+
+        // --- This is a CPU-only Node ---
+        // Fall back to using the first feature as its identity.
+        if let Some(feature) = node.features.first() {
+            let subgroup_line = group.subgroups.entry(feature.clone()).or_default();
+            
+            // Add its stats. GPU counts will naturally be zero.
+            subgroup_line.node_count += 1;
+            subgroup_line.total_cpus += node.cpus as u32;
+            subgroup_line.alloc_cpus += alloc_cpus_for_node;
+        }
+        
     }
     report_data
 }
