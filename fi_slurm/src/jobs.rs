@@ -200,10 +200,6 @@ impl Job {
     /// Creates a safe, owned Rust `Job` from a raw C `job_info` struct
     pub fn from_raw_binding(raw_job: &job_info) -> Result<Self, String> {
 
-        //let tres = unsafe {parse_tres_str(raw_job.tres_alloc_str)};
-        //if !tres.is_empty() {
-        //    dbg!(tres);
-        //}; 
         Ok(Job {
              job_id: raw_job.job_id,
              array_job_id: raw_job.array_job_id,
