@@ -28,17 +28,9 @@ impl ReportLine {
         // and may need to be calculated from jobs. For now, we assume a placeholder.
         // self.alloc_cpus += node.allocated_cpus as u32; 
 
-        // Sum up the GPUs from the GRES maps.
-        for (gres_name, &count) in &node.configured_gres {
-            if gres_name.starts_with("gpu") {
-                self.total_gpus += count;
-            }
-        }
-        // commented out, since it turns out that gres_used is empty most or all the time
-        for (gres_name, &count) in &node.allocated_gres {
-            if gres_name.starts_with("gpu") {
-                self.alloc_gpus += count;
-            }
+        if let Some(gpu) = &node.gpu_info {
+            self.total_gpus += gpu.total_gpus;
+            self.alloc_gpus += gpu.allocated_gpus;
         }
     }
 }
@@ -124,99 +116,37 @@ pub fn build_report(
         group.summary.node_count += 1;
         group.summary.total_cpus += node.cpus as u32;
         group.summary.alloc_cpus += alloc_cpus_for_node;
-        for (gres_name, &count) in &node.configured_gres {
-            if gres_name.starts_with("gpu") {
-                group.summary.total_gpus += count;
-            }
-        }
-        for (gres_name, &count) in &node.allocated_gres {
-            if gres_name.starts_with("gpu") {
-                group.summary.alloc_gpus += count;
-            }
+
+        if let Some(gpu) = &node.gpu_info {
+            group.summary.total_gpus += gpu.total_gpus;
+            group.summary.alloc_gpus += gpu.allocated_gpus;
         }
 
+        // Check if the node has GPU info.
+        if let Some(gpu) = &node.gpu_info {
+            // --- This is a GPU Node ---
+            // The subgroup is identified by the specific GPU name.
+            let subgroup_line = group.subgroups.entry(gpu.name.clone()).or_default();
+            
+            // Add ALL stats for this node to this one subgroup.
+            subgroup_line.node_count += 1;
+            subgroup_line.total_cpus += node.cpus as u32;
+            subgroup_line.alloc_cpus += alloc_cpus_for_node;
+            subgroup_line.total_gpus += gpu.total_gpus;
+            subgroup_line.alloc_gpus += gpu.allocated_gpus;
 
-
-        // --- Subgrouping Logic ---
-        // A node can belong to one primary feature group (non-gpu) AND multiple GRES groups.
-        let mut node_in_feature_subgroup = false;
-        if let Some(feature) = node.features.first() {
-            // Replicate the original script's logic to ignore the generic "gpu"
-            // feature, deferring to the more specific GRES subgroups.
-            if feature != "gpu" {
+        } else {
+            // --- This is a CPU-only Node ---
+            // Fall back to using the first feature as its identity.
+            if let Some(feature) = node.features.first() {
                 let subgroup_line = group.subgroups.entry(feature.clone()).or_default();
-                subgroup_line.node_count += 1;
-                subgroup_line.total_cpus += node.cpus as u32;
-                subgroup_line.alloc_cpus += alloc_cpus_for_node;
-                node_in_feature_subgroup = true;
-            }
-        }
-
-        //// --- Feature Subgroup Logic ---
-        //if let Some(feature) = node.features.first() {
-        //    // FIX: Replicate the original script's logic to ignore the generic "gpu"
-        //    // feature, deferring to the more specific GRES subgroups.
-        //    if feature != "gpu" {
-        //        let subgroup_line = group.subgroups.entry(feature.clone()).or_default();
-        //        subgroup_line.node_count += 1;
-        //        subgroup_line.total_cpus += node.cpus as u32;
-        //        subgroup_line.alloc_cpus += alloc_cpus_for_node;
-        //        // FIX: CPU-based features should not aggregate GPU stats. This is
-        //        // handled by the GRES-specific subgroups below.
-        //    }
-        //}
-
-
-        for (gres_name, &configured_count) in &node.configured_gres {
-            let subgroup_line = group.subgroups.entry(gres_name.clone()).or_default();
-
-            // Only add the node/cpu counts if it wasn't already counted in a primary feature group.
-            // This prevents double-counting for nodes like `icelake,gpu`.
-            if !node_in_feature_subgroup {
+                
+                // Add its stats. GPU counts will naturally be zero.
                 subgroup_line.node_count += 1;
                 subgroup_line.total_cpus += node.cpus as u32;
                 subgroup_line.alloc_cpus += alloc_cpus_for_node;
             }
-
-            // Always add the specific GPU stats to the GRES subgroup.
-            if gres_name.starts_with("gpu") {
-                subgroup_line.total_gpus += configured_count;
-                // Look up the corresponding allocated count.
-                if let Some(allocated_count) = node.allocated_gres.get(gres_name) {
-                    subgroup_line.alloc_gpus += allocated_count;
-                }
-            }
         }
-        //// --- GRES Subgroup Logic ---
-        //for (gres_name, &configured_count) in &node.configured_gres {
-        //    let subgroup_line = group.subgroups.entry(gres_name.clone()).or_default();
-        //
-        //    // FIX: Only add the node count if it hasn't been added by the feature logic.
-        //    // This prevents double-counting nodes in the subgroup totals.
-        //    // A simple way is to check if the subgroup is new.
-        //    if subgroup_line.node_count == 0 {
-        //        subgroup_line.node_count = 1; // Or handle more complex multi-gres nodes
-        //    }
-        //    // For simplicity in this example, we assume CPU stats are mainly relevant to the primary feature.
-        //    // A more complex model could distribute these.
-        //
-        //    // FIX: Add the configured GPU count for THIS specific GRES.
-        //    if gres_name.starts_with("gpu") {
-        //        subgroup_line.total_gpus += configured_count;
-        //    }
-        //}
-        //// commented out, since it turns out that gres_used is empty most or all the time
-        ////// FIX: This second loop remains necessary to add the allocated counts.
-        //for (gres_name, &allocated_count) in &node.allocated_gres {
-        //    if let Some(subgroup_line) = group.subgroups.get_mut(gres_name) {
-        //         if gres_name.starts_with("gpu") {
-        //            subgroup_line.alloc_gpus += allocated_count;
-        //         }
-        //    }
-        //}
-
-
-
     }
     report_data
 }
