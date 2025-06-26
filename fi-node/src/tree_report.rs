@@ -136,7 +136,7 @@ fn create_avail_bar(current: u32, total: u32, width: usize, color: Color, no_col
     let percentage = current as f64 / total as f64;
     let filled_len = (width as f64 * percentage).round() as usize;
 
-    let filled = "■".repeat(filled_len).color(color);
+    let filled = "■".repeat(filled_len).color(if no_color { Color::White} else { color });
     let empty = " ".repeat(width.saturating_sub(filled_len));
 
     format!("[{}{}]", filled, empty)
