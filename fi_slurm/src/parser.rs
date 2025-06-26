@@ -132,15 +132,25 @@ pub unsafe fn parse_tres_str(tres_ptr: *const i8) -> HashMap<String, u64> {
         .filter_map(|pair| {
             // Split each part by the '=' to get the key and value.
             if let Some((key, value_str)) = pair.split_once('=') {
-                // For the value, take only the leading digits and ignore
-                // any suffixes like 'M', 'G', etc.
-                let numeric_part: String = value_str
-                    .chars()
-                    .take_while(|c| c.is_ascii_digit())
-                    .collect();
+                // find where the numeric part ends and the unit part begins, if it exists
+                let numeric_end = value_str.
+                    find(|c: char| !c.is_ascii_digit()).
+                    unwrap_or(value_str.len());
+
+                let (numeric_part, unit_part) = value_str.split_at(numeric_end);
                 
-                if let Ok(value) = numeric_part.parse::<u64>() {
-                    Some((key.to_string(), value))
+                if let Ok(base_value) = numeric_part.parse::<u64>() {
+                    // if there is a string suffix, we try to parse that as a memory size indicator
+                    // and multiply the count in order to produce byte counts
+                    // assuming these refer to base-2 kibi- mebi- etc bytes
+                    let multiplier = match unit_part.chars().next() {
+                        Some('K') | Some('k') => 1024,
+                        Some('M') | Some('m') => 1024 * 1024,
+                        Some('G') | Some('g') => 1024 * 1024 * 1024,
+                        Some('T') | Some('t') => 1024 * 1024 * 1024 * 1024,
+                        _ => 1,
+                    };
+                    Some((key.to_string(), base_value * multiplier))
                 } else {
                     None // Could not parse the numeric part
                 }
@@ -229,7 +239,7 @@ mod tests {
         let result_map = unsafe { parse_tres_str(c_string.as_ptr()) };
 
         assert_eq!(result_map.get("cpu"), Some(&512));
-        assert_eq!(result_map.get("mem"), Some(&4000));
+        assert_eq!(result_map.get("mem"), Some(4000 * 1024 * 1024 * 1024).as_ref());
         assert_eq!(result_map.get("node"), Some(&4));
         assert_eq!(result_map.get("billing"), Some(&512));
     }
@@ -241,7 +251,7 @@ mod tests {
         let result_map = unsafe { parse_tres_str(c_string.as_ptr()) };
 
         assert_eq!(result_map.get("cpu"), Some(&96));
-        assert_eq!(result_map.get("mem"), Some(&1538000));
+        assert_eq!(result_map.get("mem"), Some(1538000 * 1024 * 1024).as_ref());
     }
 
     #[test]
@@ -250,18 +260,19 @@ mod tests {
         let c_string = CString::new(input_str).unwrap();
         let result_map = unsafe { parse_tres_str(c_string.as_ptr()) };
 
+        assert_eq!(result_map.get("mem"), Some(192 * 1024 * 1024 * 1024).as_ref());
         assert_eq!(result_map.get("gres/gpu"), Some(&8));
         assert_eq!(result_map.get("gres/gpu:h100_pcie"), Some(&8));
         assert_eq!(result_map.get("cpu"), Some(&32));
     }
-
     #[test]
     fn test_tres_with_single_gpu_type() {
         // This tests a case where a specific GPU type might not be listed, only the generic one.
-        let input_str = "cpu=10,mem=180G,node=1,billing=10,gres/gpu=1";
+        let input_str = "cpu=10,mem=180T,node=1,billing=10,gres/gpu=1";
         let c_string = CString::new(input_str).unwrap();
         let result_map = unsafe { parse_tres_str(c_string.as_ptr()) };
 
+        assert_eq!(result_map.get("mem"), Some(180 * 1024 * 1024 * 1024 * 1024).as_ref());
         assert_eq!(result_map.get("gres/gpu"), Some(&1));
         assert_eq!(result_map.get("gres/gpu:a100-sxm4-40gb"), None); // Ensure it doesn't exist
     }

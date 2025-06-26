@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
-use rust_bind::bindings::{job_info, job_info_msg_t, slurm_free_job_info_msg, slurm_load_jobs};
+use rust_bind::bindings::{job_info, job_info_msg_t, slurm_free_job_info_msg, slurm_load_jobs, time_t};
 use crate::parser::parse_tres_str; 
 use crate::utils::{c_str_to_string, time_t_to_datetime};
 
@@ -13,7 +13,7 @@ pub fn get_jobs() -> Result<SlurmJobs, String> {
     // We load the raw C data into memory,
     // convert into safe, Rust-native structs, 
     // and then consume the wrapper to drop the original C memory
-    RawSlurmJobInfo::load()?.into_slurm_jobs()
+    RawSlurmJobInfo::load(0)?.into_slurm_jobs()
 }
 
 /// We use this struct to manage the C-allocatd memory,
@@ -41,13 +41,13 @@ impl RawSlurmJobInfo {
     /// This is the only function that directly calls the unsafe `slurm_load_jobs`
     /// FFI function. On success, it returns an instance of the safe RAII wrapper, 
     /// to be consumed by the .into_slurm_info() method
-    pub fn load() -> Result<Self, String> {
+    pub fn load(update_time: time_t) -> Result<Self, String> {
         let mut job_info_msg_ptr: *mut job_info_msg_t = std::ptr::null_mut();
 
         let show_flags = 2; // just using the SHOW_DETAIL flag
 
         let return_code = unsafe {
-            slurm_load_jobs(0, &mut job_info_msg_ptr, show_flags)
+            slurm_load_jobs(update_time, &mut job_info_msg_ptr, show_flags)
         };
 
         if return_code == 0 && !job_info_msg_ptr.is_null() {
@@ -75,6 +75,27 @@ impl RawSlurmJobInfo {
         }
     }
     
+    //pub fn into_message(self) -> JobInfoMsg {
+    //    if self.ptr.is_null() {
+    //        return 0 // create a more expressive return type, or error handling
+    //
+    //    }
+    //
+    //    unsafe {
+    //        let msg = &*self.ptr;
+    //        let last_backfill = msg.last_backfill;
+    //        let last_update = msg.last_update;
+    //        let record_count = msg.record_count;
+    //        let job_array = msg.job_array;
+    //
+    //        JobInfoMsg {
+    //            last_backfill,
+    //            last_update,
+    //            record_count,
+    //            job_array
+    //        }
+    //    }
+    //}
     /// Consumes the wrapper to transform the raw C data into a safe, owned `SlurmJobs` collection
     pub fn into_slurm_jobs(self) -> Result<SlurmJobs, String> {
         let raw_jobs_slice = self.as_slice();
@@ -98,6 +119,13 @@ impl RawSlurmJobInfo {
             last_backfill,
         })
     }
+}
+
+struct _JobInfoMsg {
+    last_backfill: time_t,
+    last_update: time_t,
+    record_count: u32,
+    job_array: *mut job_info
 }
 
 /// Represents the state of a Slurm job in a type-safe way
