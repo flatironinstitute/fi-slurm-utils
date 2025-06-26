@@ -1,6 +1,7 @@
 pub mod report;
 pub mod summary_report;
 pub mod tree_report;
+pub mod tui;
 
 use clap::Parser;
 use std::collections::HashMap;
@@ -8,6 +9,16 @@ use fi_slurm::jobs::SlurmJobs;
 use fi_slurm::{jobs, nodes, parser::parse_slurm_hostlist, utils::{SlurmConfig, initialize_slurm}};
 use fi_slurm::filter::{self, gather_all_features};
 use fi_slurm::prometheus::{get_max_resource, get_usage_by, Cluster, Grouping, Resource};
+
+// use ratatui::{
+//     crossterm::event::{self, Event, KeyCode},
+//     layout::{Constraint, Layout, Rect},
+//     style::{Color, Modifier, Style, Stylize},
+//     symbols::{self, Marker},
+//     text::{Line, Span},
+//     widgets::{Axis, Block, Chart, Dataset, GraphType, LegendPosition},
+//     DefaultTerminal, Frame,
+// };
 
 /// The main entry point for the `fi-node`
 ///
@@ -19,6 +30,14 @@ use fi_slurm::prometheus::{get_max_resource, get_usage_by, Cluster, Grouping, Re
 fn main() -> Result<(), String> {
 
     let args = Args::parse();
+
+    if args.terminal {
+        color_eyre::install()?;
+        let terminal = ratatui::init();
+        let app_result = tui::App::new().run(terminal);
+        ratatui::restore();
+        app_result
+    }
 
     if args.help {
         print_help();
@@ -209,6 +228,8 @@ struct Args {
     no_color: bool,
     #[arg(short, long)]
     prometheus: bool,
+    #[arg(long)]
+    terminal: bool,
     #[arg(short, long)]
     help: bool,
 }
