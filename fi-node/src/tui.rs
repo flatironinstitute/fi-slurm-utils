@@ -1,16 +1,16 @@
-use chrono::{Duration, Utc};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use ratatui::{
+    prelude::Stylize,
     backend::{Backend, CrosstermBackend},
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     symbols,
     text::Span,
-    widgets::{Axis, Block, Borders, Chart, Dataset, GraphType, LegendPosition},
+    widgets::{Axis, Block, Borders, Chart, Dataset, LegendPosition},
     Frame, Terminal,
 };
 use std::collections::HashMap;
@@ -75,7 +75,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<()> {
     loop {
-        terminal.draw(|f| ui(f, &app))?;
+        terminal.draw(|f| ui::<B>(f, &app))?;
 
         if event::poll(std::time::Duration::from_millis(250))? {
             if let Event::Key(key) = event::read()? {
@@ -99,13 +99,13 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
 
 // --- UI Drawing ---
 
-fn ui<B: Backend>(f: &mut Frame<B>, app: &App) {
+fn ui<B: Backend>(f: &mut Frame, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Length(3), Constraint::Min(0)].as_ref())
-        .split(f.size());
+        .split(f.area());
 
-    draw_tabs(f, chunks[0], app.current_view);
+    draw_tabs::<B>(f, chunks[0], app.current_view);
     
     let chart_data = match app.current_view {
         AppView::CpuByAccount => &app.cpu_by_account,
@@ -114,11 +114,11 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &App) {
     };
     
     // The chart now takes up the entire bottom area.
-    draw_chart(f, chunks[1], chart_data);
+    draw_chart::<B>(f, chunks[1], chart_data);
 }
 
-fn draw_tabs<B: Backend>(f: &mut Frame<B>, area: Rect, current_view: AppView) {
-    let titles = ["1: CPU by Account", "2: CPU by Node Type", "3: GPU by Type"]
+fn draw_tabs<B: Backend>(f: &mut Frame, area: Rect, current_view: AppView) {
+    let titles: Vec<Span> = ["1: CPU by Account", "2: CPU by Node Type", "3: GPU by Type"]
         .iter()
         .map(|t| Span::from(*t))
         .collect();
@@ -142,11 +142,11 @@ fn draw_tabs<B: Backend>(f: &mut Frame<B>, area: Rect, current_view: AppView) {
     f.render_widget(tabs, area);
 }
 
-fn draw_chart<B: Backend>(f: &mut Frame<B>, area: Rect, data: &ChartData) {
+fn draw_chart<B: Backend>(f: &mut Frame, area: Rect, data: &ChartData) {
     // FIX: No need for horizontal chunks anymore, the legend is part of the chart.
         
     let x_axis = Axis::default()
-        .title("Time (Days Ago)".into())
+        .title("Time (Days Ago)")
         .style(Style::default().fg(Color::Gray))
         .bounds([0.0, 7.0]) // 8 days total
         .labels(
@@ -154,11 +154,11 @@ fn draw_chart<B: Backend>(f: &mut Frame<B>, area: Rect, data: &ChartData) {
                 .iter()
                 .cloned()
                 .map(Span::from)
-                .collect(),
+                .collect::<Vec<Span>>(),
         );
 
     let y_axis = Axis::default()
-        .title(data.y_axis_title.into())
+        .title(data.y_axis_title)
         .style(Style::default().fg(Color::Gray))
         .bounds(data.y_axis_bounds)
         .labels(
@@ -170,7 +170,7 @@ fn draw_chart<B: Backend>(f: &mut Frame<B>, area: Rect, data: &ChartData) {
             ]
             .iter()
             .map(|&v| Span::from(format!("{:.0}", v)))
-            .collect(),
+            .collect::<Vec<Span>>(),
         );
 
     let chart = Chart::new(data.datasets.clone())
@@ -183,7 +183,7 @@ fn draw_chart<B: Backend>(f: &mut Frame<B>, area: Rect, data: &ChartData) {
         .y_axis(y_axis)
         // FIX: Configure the legend directly on the chart.
         .legend_position(Some(LegendPosition::TopRight))
-        .legend_style(Style::default().fg(Color::White));
+        .style(Style::default().fg(Color::White));
 
     // The chart now renders in the full area provided.
     f.render_widget(chart, area);
@@ -234,7 +234,7 @@ fn transform_to_datasets<'a>(data: HashMap<&'a str, Vec<u64>>) -> Vec<Dataset<'a
         Color::LightBlue,
     ];
     
-    data.into_iter()
+    let datasets = data.into_iter()
         .enumerate()
         .map(|(i, (name, values))| {
             let data_points: Vec<(f64, f64)> = values
@@ -249,7 +249,8 @@ fn transform_to_datasets<'a>(data: HashMap<&'a str, Vec<u64>>) -> Vec<Dataset<'a
                 .style(Style::default().fg(colors[i % colors.len()]))
                 .data(&data_points)
         })
-        .collect()
+        .collect();
+    datasets
 }
 
 
