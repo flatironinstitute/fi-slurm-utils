@@ -75,27 +75,27 @@ impl RawSlurmJobInfo {
         }
     }
     
-    pub fn into_message(self) -> JobInfoMsg {
-        if self.ptr.is_null() {
-            return 0 // create a more expressive return type, or error handling
-
-        }
-
-        unsafe {
-            let msg = &*self.ptr;
-            let last_backfill = msg.last_backfill;
-            let last_update = msg.last_update;
-            let record_count = msg.record_count;
-            let job_array = msg.job_array;
-
-            JobInfoMsg {
-                last_backfill,
-                last_update,
-                record_count,
-                job_array
-            }
-        }
-    }
+    //pub fn into_message(self) -> JobInfoMsg {
+    //    if self.ptr.is_null() {
+    //        return 0 // create a more expressive return type, or error handling
+    //
+    //    }
+    //
+    //    unsafe {
+    //        let msg = &*self.ptr;
+    //        let last_backfill = msg.last_backfill;
+    //        let last_update = msg.last_update;
+    //        let record_count = msg.record_count;
+    //        let job_array = msg.job_array;
+    //
+    //        JobInfoMsg {
+    //            last_backfill,
+    //            last_update,
+    //            record_count,
+    //            job_array
+    //        }
+    //    }
+    //}
     /// Consumes the wrapper to transform the raw C data into a safe, owned `SlurmJobs` collection
     pub fn into_slurm_jobs(self) -> Result<SlurmJobs, String> {
         let raw_jobs_slice = self.as_slice();
@@ -121,7 +121,7 @@ impl RawSlurmJobInfo {
     }
 }
 
-struct JobInfoMsg {
+struct _JobInfoMsg {
     last_backfill: time_t,
     last_update: time_t,
     record_count: u32,
