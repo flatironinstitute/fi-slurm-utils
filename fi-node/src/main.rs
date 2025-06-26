@@ -31,7 +31,7 @@ fn main() -> Result<(), String> {
         let max_resource_rusty = get_max_resource(Cluster::Rusty, None, Resource::Cpus, None, None);
 
         let gpu_rusty = get_usage_by(Cluster::Rusty, Grouping::GpuType, Resource::Gpus, 7, "1d");
-        let gpu_max_resource = get_max_resource(Cluster::Rusty, Some(Grouping::GpuType), Resource::Cpus, None, None);
+        let gpu_max_resource = get_max_resource(Cluster::Rusty, Some(Grouping::GpuType), Resource::Gpus, None, None);
 
         let acct_popeye = get_usage_by(Cluster::Popeye, Grouping::Account, Resource::Cpus, 7, "1d");
         let nodes_popeye = get_usage_by(Cluster::Popeye, Grouping::Nodes, Resource::Cpus, 7, "1d");
