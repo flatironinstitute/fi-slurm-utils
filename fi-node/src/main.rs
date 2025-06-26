@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use fi_slurm::jobs::SlurmJobs;
 use fi_slurm::{jobs, nodes, parser::parse_slurm_hostlist, utils::{SlurmConfig, initialize_slurm}};
 use fi_slurm::filter::{self, gather_all_features};
+use fi_slurm::prometheus;
 
 /// The main entry point for the `fi-node`
 ///
@@ -21,6 +22,14 @@ fn main() -> Result<(), String> {
 
     if args.help {
         print_help();
+        return Ok(())
+    }
+
+    if args.prometheus {
+        println!("rusty cpu");
+        println!(prometheus::get_usage_by("account", "rusty", 7, "1d"));
+        println!(prometheus::get_usage_by("nodes", "rusty", 7, "1d"));
+        println!(prometheus::get_max_resource("rusty", None));
         return Ok(())
     }
 
@@ -176,6 +185,8 @@ struct Args {
     exact: bool,
     #[arg(long)]
     no_color: bool,
+    #[arg(short, long)]
+    prometheus: bool,
     #[arg(short, long)]
     help: bool,
 }
