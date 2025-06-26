@@ -129,7 +129,7 @@ pub fn build_tree_report(
 
 
 /// Creates a colored bar string for available resources (nodes or CPUs)
-fn create_avail_bar(current: u32, total: u32, width: usize, color: Color) -> String {
+fn create_avail_bar(current: u32, total: u32, width: usize, color: Color, no_color: bool) -> String {
     if total == 0 {
         return "N/A".dimmed().to_string();
     }
@@ -207,30 +207,33 @@ fn calculate_max_width(tree_node: &TreeNode, prefix_len: usize) -> usize {
 pub fn print_tree_report(root: &TreeReportData, no_color: bool) {
     println!("--- Feature Tree Report ---\n");
 
-    // --- Pass 1: Calculate dynamic column width ---
     let max_width = calculate_max_width(root, 0) + 2;
+    let bar_width = 20;
 
-    // --- Print Headers ---
     println!(
-        "{:<width$} {:>18} {:>18}",
-        "FEATURE".bold(), "NODES (Avail/Total)".bold(), "CPUs (Avail/Total)".bold(), width = max_width
+        "{:<width$} {:>18} {:>18} {:<bar_w$} {:<bar_w$}",
+        "FEATURE".bold(), "NODES (Avail/Total)".bold(), "CPUs (Avail/Total)".bold(), "NODE AVAIL.".bold(), "CPU AVAIL.".bold(),
+        width = max_width,
+        bar_w = bar_width + 2 // +2 for brackets
     );
-    println!("{}", "-".repeat(max_width + 40));
+    println!("{}", "-".repeat(max_width + 40 + (bar_width + 2) * 2));
 
-    // --- Print Root/Total line ---
     let node_text = format!("{}/{}", root.stats.idle_nodes, root.stats.total_nodes);
     let cpu_text = format!("{}/{}", root.stats.idle_cpus, root.stats.total_cpus);
+    let node_bar = create_avail_bar(root.stats.idle_nodes, root.stats.total_nodes, bar_width, Color::Green, no_color);
+    let cpu_bar = create_avail_bar(root.stats.idle_cpus, root.stats.total_cpus, bar_width, Color::Cyan, no_color);
+
     println!(
-        "{:<width$} {:>18} {:>18}",
-        root.name.bold(), node_text, cpu_text, width = max_width
+        "{:<width$} {:>18} {:>18} {} {}",
+        root.name.bold(), node_text, cpu_text, node_bar, cpu_bar,
+        width = max_width
     );
 
-    // --- Kick off recursive printing for children ---
     let mut sorted_children: Vec<_> = root.children.values().collect();
     sorted_children.sort_by(|a, b| a.name.cmp(&b.name));
     for (i, child) in sorted_children.iter().enumerate() {
         let is_last = i == sorted_children.len() - 1;
-        print_node_recursive(child, "", is_last, no_color, max_width);
+        print_node_recursive(child, "", is_last, no_color, max_width, bar_width);
     }
 }
 
@@ -294,7 +297,7 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool) {
 // }
 
 /// Recursively prints a node and its children to form the tree structure.
-fn print_node_recursive(tree_node: &TreeNode, prefix: &str, is_last: bool, no_color: bool, max_width: usize) {
+fn print_node_recursive(tree_node: &TreeNode, prefix: &str, is_last: bool, no_color: bool, max_width: usize, bar_width: usize) {
     let mut path_parts = vec![tree_node.name.as_str()];
     let mut current_node = tree_node;
 
@@ -308,27 +311,28 @@ fn print_node_recursive(tree_node: &TreeNode, prefix: &str, is_last: bool, no_co
     let connector = if is_last { "└──" } else { "├──" };
     let display_name = format!("{}{}{}", prefix, connector, collapsed_name);
 
-    // Prepare stats text
     let node_text = format!("{}/{}", current_node.stats.idle_nodes, current_node.stats.total_nodes);
     let cpu_text = format!("{}/{}", current_node.stats.idle_cpus, current_node.stats.total_cpus);
+    let node_bar = create_avail_bar(current_node.stats.idle_nodes, current_node.stats.total_nodes, bar_width, Color::Green, no_color);
+    let cpu_bar = create_avail_bar(current_node.stats.idle_cpus, current_node.stats.total_cpus, bar_width, Color::Cyan, no_color);
 
-    // Print the single, aligned line for this node
     println!(
-        "{:<width$} {:>18} {:>18}",
+        "{:<width$} {:>18} {:>18} {} {}",
         display_name.bold(),
         node_text,
         cpu_text,
+        node_bar,
+        cpu_bar,
         width = max_width
     );
     
-    // Recurse on the remaining branches
     let full_child_prefix = format!("{}{}", prefix, if is_last { "    " } else { "│   " });
     let mut sorted_children: Vec<_> = current_node.children.values().collect();
     sorted_children.sort_by(|a, b| a.name.cmp(&b.name));
     
     for (i, child) in sorted_children.iter().enumerate() {
         let is_child_last = i == sorted_children.len() - 1;
-        print_node_recursive(child, &full_child_prefix, is_child_last, no_color, max_width);
+        print_node_recursive(child, &full_child_prefix, is_child_last, no_color, max_width, bar_width);
     }
 }
 
