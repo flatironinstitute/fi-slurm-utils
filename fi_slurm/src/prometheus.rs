@@ -194,11 +194,16 @@ pub fn get_usage_by(
 pub fn get_max_resource(
     cluster: Cluster,
     grouping: Option<Grouping>,
+    days: Option<i64>,
+    step: Option<&str>,
 ) -> Result<HashMap<String, u64>, Box<dyn std::error::Error>> {
     let now = Utc::now();
+    let start_time = now - Duration::days(days.unwrap_or(0));
+
+
     
     let cap_query = capacity_query(grouping, Resource::Cpus); // Assuming Cpus
-    let result = query(&cap_query, &cluster, now, None, None)?;
+    let result = query(&cap_query, &cluster, start_time, Some(now), step)?;
     
     if let Some(g) = grouping {
         Ok(group_by(result, g))
