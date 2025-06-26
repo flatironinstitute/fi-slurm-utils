@@ -10,16 +10,6 @@ use fi_slurm::{jobs, nodes, parser::parse_slurm_hostlist, utils::{SlurmConfig, i
 use fi_slurm::filter::{self, gather_all_features};
 use fi_slurm::prometheus::{get_max_resource, get_usage_by, Cluster, Grouping, Resource};
 
-// use ratatui::{
-//     crossterm::event::{self, Event, KeyCode},
-//     layout::{Constraint, Layout, Rect},
-//     style::{Color, Modifier, Style, Stylize},
-//     symbols::{self, Marker},
-//     text::{Line, Span},
-//     widgets::{Axis, Block, Chart, Dataset, GraphType, LegendPosition},
-//     DefaultTerminal, Frame,
-// };
-
 /// The main entry point for the `fi-node`
 ///
 /// The function orchestrates the main pipeline:
@@ -32,11 +22,11 @@ fn main() -> Result<(), String> {
     let args = Args::parse();
 
     if args.terminal {
-        color_eyre::install()?;
+        //color_eyre::install()?;
         let terminal = ratatui::init();
-        let app_result = tui::App::new().run(terminal);
+        let _app_result = tui::App::new().run(terminal);
         ratatui::restore();
-        app_result
+        return Ok(())
     }
 
     if args.help {

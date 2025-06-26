@@ -14,7 +14,6 @@
 //! [examples readme]: https://github.com/ratatui/ratatui/blob/main/examples/README.md
 
 use std::time::{Duration, Instant};
-use fi_slurm::prometheus::{get_max_resource, get_usage_by, Cluster, Grouping, Resource};
 
 use color_eyre::Result;
 use ratatui::{
