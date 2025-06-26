@@ -205,14 +205,13 @@ fn calculate_max_width(tree_node: &TreeNode, prefix_len: usize) -> usize {
 
 /// The public entry point for printing the tree report.
 pub fn print_tree_report(root: &TreeReportData, no_color: bool) {
-    println!("--- Feature Tree Report ---\n");
 
     let max_width = calculate_max_width(root, 0) + 2;
     let bar_width = 20;
 
     println!(
         "{:<width$} {:>18} {:>18} {:<bar_w$} {:<bar_w$}",
-        "FEATURE".bold(), "NODES (Avail/Total)".bold(), "CPUs (Avail/Total)".bold(), "NODE AVAIL.".bold(), "CPU AVAIL.".bold(),
+        "FEATURE".bold(), "NODES (Avail/Total)".bold(), "PROCESSORS (Avail/Total)".bold(), "NODE AVAIL.".bold(), "CPU AVAIL.".bold(),
         width = max_width,
         bar_w = bar_width + 2 // +2 for brackets
     );
