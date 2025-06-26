@@ -239,7 +239,7 @@ mod tests {
         let result_map = unsafe { parse_tres_str(c_string.as_ptr()) };
 
         assert_eq!(result_map.get("cpu"), Some(&512));
-        assert_eq!(result_map.get("mem"), Some(&4000 * 1024 * 1024 * 1024));
+        assert_eq!(result_map.get("mem"), Some(4000 * 1024 * 1024 * 1024).as_ref());
         assert_eq!(result_map.get("node"), Some(&4));
         assert_eq!(result_map.get("billing"), Some(&512));
     }
@@ -251,7 +251,7 @@ mod tests {
         let result_map = unsafe { parse_tres_str(c_string.as_ptr()) };
 
         assert_eq!(result_map.get("cpu"), Some(&96));
-        assert_eq!(result_map.get("mem"), Some(&1538000 * 1024 * 1024));
+        assert_eq!(result_map.get("mem"), Some(1538000 * 1024 * 1024).as_ref());
     }
 
     #[test]
@@ -260,7 +260,7 @@ mod tests {
         let c_string = CString::new(input_str).unwrap();
         let result_map = unsafe { parse_tres_str(c_string.as_ptr()) };
 
-        assert_eq!(result_map.get("mem"), Some(192 * 1024 * 1024 * 1024));
+        assert_eq!(result_map.get("mem"), Some(192 * 1024 * 1024 * 1024).as_ref());
         assert_eq!(result_map.get("gres/gpu"), Some(&8));
         assert_eq!(result_map.get("gres/gpu:h100_pcie"), Some(&8));
         assert_eq!(result_map.get("cpu"), Some(&32));
@@ -272,7 +272,7 @@ mod tests {
         let c_string = CString::new(input_str).unwrap();
         let result_map = unsafe { parse_tres_str(c_string.as_ptr()) };
 
-        assert_eq!(result_map.get("mem"), Some(180 * 1024 * 1024 * 1024 * 1024));
+        assert_eq!(result_map.get("mem"), Some(180 * 1024 * 1024 * 1024 * 1024).as_ref());
         assert_eq!(result_map.get("gres/gpu"), Some(&1));
         assert_eq!(result_map.get("gres/gpu:a100-sxm4-40gb"), None); // Ensure it doesn't exist
     }
