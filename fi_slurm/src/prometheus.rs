@@ -125,7 +125,11 @@ fn _query(
     let response = client.get(&url).query(&params).send()?;
     response.error_for_status_ref()?; // Check for HTTP errors like 4xx or 5xx
 
-    let result: PrometheusResponse = response.json()?;
+    // FIX: The blocking `Response` must first be converted to text,
+    // and then that text is parsed by serde_json.
+    let body_text = response.text()?;
+    let result: PrometheusResponse = serde_json::from_str(&body_text)?;
+
     if result.status != "success" {
         return Err("Prometheus query was not successful".into());
     }
