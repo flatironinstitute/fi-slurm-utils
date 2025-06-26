@@ -21,13 +21,13 @@ fn main() -> Result<(), String> {
 
     let args = Args::parse();
 
-    if args.terminal {
-        //color_eyre::install()?;
-        let terminal = ratatui::init();
-        let _app_result = tui::App::new().run(terminal);
-        ratatui::restore();
-        return Ok(())
-    }
+    //if args.terminal {
+    //    //color_eyre::install()?;
+    //    let terminal = ratatui::init();
+    //    let _app_result = tui::App::new().run(terminal);
+    //    ratatui::restore();
+    //    return Ok(())
+    //}
 
     if args.help {
         print_help();
