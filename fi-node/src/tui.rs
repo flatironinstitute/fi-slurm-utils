@@ -10,12 +10,11 @@ use ratatui::{
     style::{Color, Modifier, Style},
     symbols,
     text::Span,
-    widgets::{Axis, Block, Borders, Chart, Dataset, GraphType, Legend, Paragraph},
+    widgets::{Axis, Block, Borders, Chart, Dataset, GraphType, LegendPosition},
     Frame, Terminal,
 };
 use std::collections::HashMap;
 use std::io;
-use std::time::Instant;
 
 // --- Data Structures ---
 // We'll use these to hold the parsed data.
@@ -114,6 +113,7 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &App) {
         AppView::GpuByType => &app.gpu_by_type,
     };
     
+    // The chart now takes up the entire bottom area.
     draw_chart(f, chunks[1], chart_data);
 }
 
@@ -143,10 +143,7 @@ fn draw_tabs<B: Backend>(f: &mut Frame<B>, area: Rect, current_view: AppView) {
 }
 
 fn draw_chart<B: Backend>(f: &mut Frame<B>, area: Rect, data: &ChartData) {
-    let chart_chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(80), Constraint::Percentage(20)])
-        .split(area);
+    // FIX: No need for horizontal chunks anymore, the legend is part of the chart.
         
     let x_axis = Axis::default()
         .title("Time (Days Ago)".into())
@@ -165,10 +162,15 @@ fn draw_chart<B: Backend>(f: &mut Frame<B>, area: Rect, data: &ChartData) {
         .style(Style::default().fg(Color::Gray))
         .bounds(data.y_axis_bounds)
         .labels(
-            data.y_axis_bounds
-                .iter()
-                .map(|&v| Span::from(format!("{}", v)))
-                .collect(),
+            // Create 3 labels for the Y axis: bottom, middle, top.
+            [
+                data.y_axis_bounds[0],
+                (data.y_axis_bounds[0] + data.y_axis_bounds[1]) / 2.0,
+                data.y_axis_bounds[1],
+            ]
+            .iter()
+            .map(|&v| Span::from(format!("{:.0}", v)))
+            .collect(),
         );
 
     let chart = Chart::new(data.datasets.clone())
@@ -178,22 +180,13 @@ fn draw_chart<B: Backend>(f: &mut Frame<B>, area: Rect, data: &ChartData) {
                 .borders(Borders::ALL),
         )
         .x_axis(x_axis)
-        .y_axis(y_axis);
+        .y_axis(y_axis)
+        // FIX: Configure the legend directly on the chart.
+        .legend_position(Some(LegendPosition::TopRight))
+        .legend_style(Style::default().fg(Color::White));
 
-    f.render_widget(chart, chart_chunks[0]);
-    
-    // --- Draw Legend ---
-    let legend_items: Vec<ratatui::widgets::ListItem> = data.datasets.iter().map(|dataset| {
-        ratatui::widgets::ListItem::new(Span::styled(
-            dataset.name.clone().unwrap_or_default(),
-            Style::default().fg(dataset.style.fg.unwrap_or(Color::White))
-        ))
-    }).collect();
-
-    let legend = Legend::new(legend_items)
-        .block(Block::default().title("Legend").borders(Borders::ALL));
-        
-    f.render_widget(legend, chart_chunks[1]);
+    // The chart now renders in the full area provided.
+    f.render_widget(chart, area);
 }
 
 
@@ -234,7 +227,7 @@ impl<'a> App<'a> {
 }
 
 // Helper function to transform HashMap data into Ratatui Datasets
-fn transform_to_datasets<'a>(data: HashMap<&'a str, Vec<u64>>, title: &'a str) -> Vec<Dataset<'a>> {
+fn transform_to_datasets<'a>(data: HashMap<&'a str, Vec<u64>>) -> Vec<Dataset<'a>> {
     let colors = [
         Color::Red, Color::Green, Color::Yellow, Color::Blue, Color::Magenta,
         Color::Cyan, Color::Gray, Color::LightRed, Color::LightGreen, Color::LightYellow,
@@ -270,7 +263,7 @@ fn get_cpu_by_account_data<'a>() -> ChartData<'a> {
     data.insert("ccq", vec![13069, 15037, 13427, 8736, 6113, 14145, 11137, 11903]);
     data.insert("cmbas", vec![3305, 3317, 3141, 13541, 30837, 34459, 13595, 13297]);
     
-    let datasets = transform_to_datasets(data, "CPU Usage by Account");
+    let datasets = transform_to_datasets(data);
     ChartData {
         title: "CPU Usage by Account (8 Days)",
         datasets,
@@ -285,7 +278,7 @@ fn get_cpu_by_node_data<'a>() -> ChartData<'a> {
     data.insert("rome", vec![32838, 75145, 65599, 60634, 76185, 73253, 43232, 55127]);
     data.insert("genoa", vec![26592, 40704, 35232, 29760, 38432, 33184, 30628, 39636]);
     
-    let datasets = transform_to_datasets(data, "CPU Usage by Node Type");
+    let datasets = transform_to_datasets(data);
     ChartData {
         title: "CPU Usage by Node Type (8 Days)",
         datasets,
@@ -300,7 +293,7 @@ fn get_gpu_by_type_data<'a>() -> ChartData<'a> {
     data.insert("h100_pcie", vec![77, 91, 94, 67, 102, 81, 109, 94]);
     data.insert("a100-sxm4-40gb", vec![25, 63, 37, 36, 67, 82, 98, 97]);
     
-    let datasets = transform_to_datasets(data, "GPU Usage by Type");
+    let datasets = transform_to_datasets(data);
     ChartData {
         title: "GPU Usage by Type (8 Days)",
         datasets,
