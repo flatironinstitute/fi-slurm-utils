@@ -3,21 +3,23 @@ use reqwest::blocking::Client;
 use serde::Deserialize;
 use std::collections::HashMap;
 
-// --- Configuration and Core Enums ---
+// Configuration and Core Enums
 
-// A map of cluster names to their Prometheus endpoint URLs.
+// A map of cluster names to their Prometheus endpoint URLs
 fn get_prometheus_url(cluster: &Cluster) -> &'static str {
     match cluster {
-        Cluster::Cluster1 => "http://prometheus.example1.org:portnum",
-        Cluster::Cluster2 => "http://prometheus.example1.org:portnum",
+        Cluster::Popeye => "http://popeye-prometheus.flatironinstitute.org:80",
+        Cluster::Rusty => "http://prometheus.flatironinstitute.org:80",
     }
 }
 
-// Using enums for type safety, similar to Python's Literal type.
+
+
+// Using enums for type safety, similar to Python's Literal type
 #[derive(Debug, Clone, Copy)]
 pub enum Cluster {
-    Cluster1,
-    Cluster2,
+    Popeye,
+    Rusty,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -27,7 +29,7 @@ pub enum Grouping {
     GpuType,
 }
 
-// Helper to convert the Grouping enum to its string representation for queries.
+// Helper to convert the Grouping enum to its string representation for queries
 impl std::fmt::Display for Grouping {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -55,7 +57,7 @@ impl std::fmt::Display for Resource {
     }
 }
 
-// --- Structs for Deserializing Prometheus JSON Response ---
+// Structs for Deserializing Prometheus JSON Response
 
 #[derive(Deserialize, Debug)]
 struct PrometheusResponse {
@@ -66,29 +68,27 @@ struct PrometheusResponse {
 #[derive(Deserialize, Debug)]
 struct PrometheusData {
     #[serde(rename = "resultType")]
-    result_type: String,
+    _result_type: String,
     result: Vec<PrometheusResult>,
 }
 
 #[derive(Deserialize, Debug)]
 struct PrometheusResult {
     metric: HashMap<String, String>,
-    // For instant queries, `value` will be present.
+    // For instant queries, `value` will be present
     value: Option<(f64, String)>,
-    // For range queries, `values` will be present.
+    // For range queries, `values` will be present
     values: Option<Vec<(f64, String)>>,
 }
 
-// --- Private Helper Functions ---
-
-fn _usage_query(grouping: Grouping, resource: Resource) -> String {
+fn usage_query(grouping: Grouping, resource: Resource) -> String {
     format!(
         "sum by({}) (slurm_job_{}{{state=\"running\",job=\"slurm\"}})",
         grouping, resource
     )
 }
 
-fn _capacity_query(grouping: Option<Grouping>, resource: Resource) -> String {
+fn capacity_query(grouping: Option<Grouping>, resource: Resource) -> String {
     let by_clause =
         grouping.map_or_else(String::new, |g| format!("by({})", g));
     format!(
@@ -97,8 +97,8 @@ fn _capacity_query(grouping: Option<Grouping>, resource: Resource) -> String {
     )
 }
 
-/// The core function for querying the Prometheus API.
-fn _query(
+/// The core function for querying the Prometheus API
+fn query(
     query: &str,
     cluster: &Cluster,
     start: DateTime<Utc>,
@@ -125,8 +125,6 @@ fn _query(
     let response = client.get(&url).query(&params).send()?;
     response.error_for_status_ref()?; // Check for HTTP errors like 4xx or 5xx
 
-    // FIX: The blocking `Response` must first be converted to text,
-    // and then that text is parsed by serde_json.
     let body_text = response.text()?;
     let result: PrometheusResponse = serde_json::from_str(&body_text)?;
 
@@ -138,7 +136,7 @@ fn _query(
 }
 
 /// Processes an instant query result.
-fn _group_by(result: PrometheusResponse, metric: Grouping) -> HashMap<String, u64> {
+fn group_by(result: PrometheusResponse, metric: Grouping) -> HashMap<String, u64> {
     let mut data_dict = HashMap::new();
     let metric_key = metric.to_string();
 
@@ -155,7 +153,7 @@ fn _group_by(result: PrometheusResponse, metric: Grouping) -> HashMap<String, u6
 }
 
 /// Processes a range query result, ensuring all time series are aligned.
-fn _range_group_by(result: PrometheusResponse, metric: Grouping) -> HashMap<String, Vec<u64>> {
+fn range_group_by(result: PrometheusResponse, metric: Grouping) -> HashMap<String, Vec<u64>> {
     // This is a simplified version. A full implementation would need the two-pass
     // logic from the Python script to handle missing data points correctly.
     let mut data_dict = HashMap::new();
@@ -187,10 +185,10 @@ pub fn get_usage_by(
     let now = Utc::now();
     let start_time = now - Duration::days(days);
 
-    let query = _usage_query(grouping, Resource::Cpus); // Assuming Cpus for now
-    let result = _query(&query, &cluster, start_time, Some(now), Some(step))?;
+    let usage_query = usage_query(grouping, Resource::Cpus); // Assuming Cpus for now
+    let result = query(&usage_query, &cluster, start_time, Some(now), Some(step))?;
 
-    Ok(_range_group_by(result, grouping))
+    Ok(range_group_by(result, grouping))
 }
 
 pub fn get_max_resource(
@@ -199,11 +197,11 @@ pub fn get_max_resource(
 ) -> Result<HashMap<String, u64>, Box<dyn std::error::Error>> {
     let now = Utc::now();
     
-    let query = _capacity_query(grouping, Resource::Cpus); // Assuming Cpus
-    let result = _query(&query, &cluster, now, None, None)?;
+    let cap_query = capacity_query(grouping, Resource::Cpus); // Assuming Cpus
+    let result = query(&cap_query, &cluster, now, None, None)?;
     
     if let Some(g) = grouping {
-        Ok(_group_by(result, g))
+        Ok(group_by(result, g))
     } else {
         // Handle case where there is no grouping
         let mut total = 0;
