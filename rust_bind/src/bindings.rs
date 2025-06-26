@@ -1845,7 +1845,7 @@ const _: () = {
 pub struct __pthread_cond_s {
     pub __bindgen_anon_1: __pthread_cond_s__bindgen_ty_1,
     pub __bindgen_anon_2: __pthread_cond_s__bindgen_ty_2,
-    pub __g_refs: [::std::os::raw::c_uint; 2usize],
+    pub __glibc_unused___g_refs: [::std::os::raw::c_uint; 2usize],
     pub __g_size: [::std::os::raw::c_uint; 2usize],
     pub __g1_orig_size: ::std::os::raw::c_uint,
     pub __wrefs: ::std::os::raw::c_uint,
@@ -1923,8 +1923,8 @@ const _: () = {
 const _: () = {
     ["Size of __pthread_cond_s"][::std::mem::size_of::<__pthread_cond_s>() - 48usize];
     ["Alignment of __pthread_cond_s"][::std::mem::align_of::<__pthread_cond_s>() - 8usize];
-    ["Offset of field: __pthread_cond_s::__g_refs"]
-        [::std::mem::offset_of!(__pthread_cond_s, __g_refs) - 16usize];
+    ["Offset of field: __pthread_cond_s::__glibc_unused___g_refs"]
+        [::std::mem::offset_of!(__pthread_cond_s, __glibc_unused___g_refs) - 16usize];
     ["Offset of field: __pthread_cond_s::__g_size"]
         [::std::mem::offset_of!(__pthread_cond_s, __g_size) - 24usize];
     ["Offset of field: __pthread_cond_s::__g1_orig_size"]
