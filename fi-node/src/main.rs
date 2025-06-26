@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use fi_slurm::jobs::SlurmJobs;
 use fi_slurm::{jobs, nodes, parser::parse_slurm_hostlist, utils::{SlurmConfig, initialize_slurm}};
 use fi_slurm::filter::{self, gather_all_features};
-use fi_slurm::prometheus::{Cluster, Grouping, get_usage_by, get_max_resource};
+use fi_slurm::prometheus::{get_max_resource, get_usage_by, Cluster, Grouping, Resource};
 
 /// The main entry point for the `fi-node`
 ///
@@ -26,13 +26,32 @@ fn main() -> Result<(), String> {
     }
 
     if args.prometheus {
-        let acct_rusty = get_usage_by(Grouping::Account, Cluster::Rusty, 7, "1d");
-        let nodes_rusty = get_usage_by(Grouping::Nodes, Cluster::Rusty, 7, "1d");
-        let max_resource = get_max_resource(Cluster::Rusty, None, None, None);
+        let acct_rusty = get_usage_by(Cluster::Rusty, Grouping::Account, Resource::Cpus, 7, "1d");
+        let nodes_rusty = get_usage_by(Cluster::Rusty, Grouping::Nodes, Resource::Cpus, 7, "1d");
+        let max_resource_rusty = get_max_resource(Cluster::Rusty, None, Resource::Cpus, None, None);
+
+        let gpu_rusty = get_usage_by(Cluster::Rusty, Grouping::GpuType, Resource::Gpus, 7, "1d");
+        let gpu_max_resource = get_max_resource(Cluster::Rusty, Some(Grouping::GpuType), Resource::Cpus, None, None);
+
+        let acct_popeye = get_usage_by(Cluster::Popeye, Grouping::Account, Resource::Cpus, 7, "1d");
+        let nodes_popeye = get_usage_by(Cluster::Popeye, Grouping::Nodes, Resource::Cpus, 7, "1d");
+        let max_resource_popeye = get_max_resource(Cluster::Popeye, None, Resource::Cpus, None, None);
+
         println!("rusty cpu");
         println!("{:?}", acct_rusty);
         println!("{:?}", nodes_rusty);
-        println!("{:?}", max_resource);
+        println!("{:?} \n", max_resource_rusty);
+
+        println!("rusty gpus");
+
+        println!("{:?}", gpu_rusty);
+        println!("{:?} \n", gpu_max_resource);
+
+        println!("popeye cpu");
+        println!("{:?}", acct_popeye);
+        println!("{:?}", nodes_popeye);
+        println!("{:?}", max_resource_popeye);
+
         return Ok(())
     }
 
