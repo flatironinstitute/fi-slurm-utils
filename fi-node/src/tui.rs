@@ -1,354 +1,311 @@
-//! # [Ratatui] Chart example
-//!
-//! The latest version of this example is available in the [examples] folder in the repository.
-//!
-//! Please note that the examples are designed to be run against the `main` branch of the Github
-//! repository. This means that you may not be able to compile with the latest release version on
-//! crates.io, or the one that you have installed locally.
-//!
-//! See the [examples readme] for more information on finding examples that match the version of the
-//! library you are using.
-//!
-//! [Ratatui]: https://github.com/ratatui/ratatui
-//! [examples]: https://github.com/ratatui/ratatui/blob/main/examples
-//! [examples readme]: https://github.com/ratatui/ratatui/blob/main/examples/README.md
-
-use std::time::{Duration, Instant};
-
-use color_eyre::Result;
-use ratatui::{
-    crossterm::event::{self, Event, KeyCode},
-    layout::{Constraint, Layout, Rect},
-    style::{Color, Modifier, Style, Stylize},
-    symbols::{self, Marker},
-    text::{Line, Span},
-    widgets::{Axis, Block, Chart, Dataset, GraphType, LegendPosition},
-    DefaultTerminal, Frame,
+use chrono::{Duration, Utc};
+use crossterm::{
+    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
+    execute,
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
+use ratatui::{
+    backend::{Backend, CrosstermBackend},
+    layout::{Constraint, Direction, Layout, Rect},
+    style::{Color, Modifier, Style},
+    symbols,
+    text::Span,
+    widgets::{Axis, Block, Borders, Chart, Dataset, GraphType, Legend, Paragraph},
+    Frame, Terminal,
+};
+use std::collections::HashMap;
+use std::io;
+use std::time::Instant;
 
+// --- Data Structures ---
+// We'll use these to hold the parsed data.
+// In a real app, this would come from your `prometheus.rs` module.
 
-pub struct App {
-    signal1: SinSignal,
-    data1: Vec<(f64, f64)>,
-    signal2: SinSignal,
-    data2: Vec<(f64, f64)>,
-    window: [f64; 2],
+struct App<'a> {
+    /// The currently active view/tab.
+    current_view: AppView,
+    /// Data for the "CPU by Account" chart.
+    cpu_by_account: ChartData<'a>,
+    /// Data for the "CPU by Node Type" chart.
+    cpu_by_node: ChartData<'a>,
+    /// Data for the "GPU by GPU Type" chart.
+    gpu_by_type: ChartData<'a>,
+    /// Should the application quit?
+    should_quit: bool,
 }
 
-#[derive(Clone)]
-struct SinSignal {
-    x: f64,
-    interval: f64,
-    period: f64,
-    scale: f64,
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum AppView {
+    CpuByAccount,
+    CpuByNode,
+    GpuByType,
 }
 
-impl SinSignal {
-    const fn new(interval: f64, period: f64, scale: f64) -> Self {
-        Self {
-            x: 0.0,
-            interval,
-            period,
-            scale,
-        }
-    }
+struct ChartData<'a> {
+    title: &'a str,
+    datasets: Vec<Dataset<'a>>,
+    y_axis_bounds: [f64; 2],
+    y_axis_title: &'a str,
 }
 
-impl Iterator for SinSignal {
-    type Item = (f64, f64);
-    fn next(&mut self) -> Option<Self::Item> {
-        let point = (self.x, (self.x * 1.0 / self.period).sin() * self.scale);
-        self.x += self.interval;
-        Some(point)
-    }
+// --- Main Application Logic ---
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // --- Setup terminal ---
+    enable_raw_mode()?;
+    let mut stdout = io::stdout();
+    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+    let backend = CrosstermBackend::new(stdout);
+    let mut terminal = Terminal::new(backend)?;
+
+    // --- Create app and run it ---
+    let app = App::new();
+    run_app(&mut terminal, app)?;
+
+    // --- Restore terminal ---
+    disable_raw_mode()?;
+    execute!(
+        terminal.backend_mut(),
+        LeaveAlternateScreen,
+        DisableMouseCapture
+    )?;
+    terminal.show_cursor()?;
+
+    Ok(())
 }
 
-impl App {
-    pub fn new() -> Self {
-        let mut signal1 = SinSignal::new(0.2, 3.0, 18.0);
-        let mut signal2 = SinSignal::new(0.1, 2.0, 10.0);
-        let data1 = signal1.by_ref().take(200).collect::<Vec<(f64, f64)>>();
-        let data2 = signal2.by_ref().take(200).collect::<Vec<(f64, f64)>>();
-        Self {
-            signal1,
-            data1,
-            signal2,
-            data2,
-            window: [0.0, 20.0],
-        }
-    }
+fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<()> {
+    loop {
+        terminal.draw(|f| ui(f, &app))?;
 
-    pub fn run(mut self, mut terminal: DefaultTerminal) -> Result<()> {
-        let tick_rate = Duration::from_millis(250);
-        let mut last_tick = Instant::now();
-        loop {
-            terminal.draw(|frame| self.draw(frame))?;
-
-            let timeout = tick_rate.saturating_sub(last_tick.elapsed());
-            if event::poll(timeout)? {
-                if let Event::Key(key) = event::read()? {
-                    if key.code == KeyCode::Char('q') {
-                        return Ok(());
-                    }
+        if event::poll(std::time::Duration::from_millis(250))? {
+            if let Event::Key(key) = event::read()? {
+                match key.code {
+                    KeyCode::Char('q') => app.should_quit = true,
+                    KeyCode::Char('1') => app.current_view = AppView::CpuByAccount,
+                    KeyCode::Char('2') => app.current_view = AppView::CpuByNode,
+                    KeyCode::Char('3') => app.current_view = AppView::GpuByType,
+                    KeyCode::Right => app.next_view(),
+                    KeyCode::Left => app.prev_view(),
+                    _ => {}
                 }
             }
-            if last_tick.elapsed() >= tick_rate {
-                self.on_tick();
-                last_tick = Instant::now();
-            }
+        }
+
+        if app.should_quit {
+            return Ok(());
+        }
+    }
+}
+
+// --- UI Drawing ---
+
+fn ui<B: Backend>(f: &mut Frame<B>, app: &App) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(3), Constraint::Min(0)].as_ref())
+        .split(f.size());
+
+    draw_tabs(f, chunks[0], app.current_view);
+    
+    let chart_data = match app.current_view {
+        AppView::CpuByAccount => &app.cpu_by_account,
+        AppView::CpuByNode => &app.cpu_by_node,
+        AppView::GpuByType => &app.gpu_by_type,
+    };
+    
+    draw_chart(f, chunks[1], chart_data);
+}
+
+fn draw_tabs<B: Backend>(f: &mut Frame<B>, area: Rect, current_view: AppView) {
+    let titles = ["1: CPU by Account", "2: CPU by Node Type", "3: GPU by Type"]
+        .iter()
+        .map(|t| Span::from(*t))
+        .collect();
+    
+    let selected_index = match current_view {
+        AppView::CpuByAccount => 0,
+        AppView::CpuByNode => 1,
+        AppView::GpuByType => 2,
+    };
+
+    let tabs = ratatui::widgets::Tabs::new(titles)
+        .block(Block::default().title("Views").borders(Borders::ALL))
+        .select(selected_index)
+        .style(Style::default().fg(Color::Gray))
+        .highlight_style(
+            Style::default()
+                .add_modifier(Modifier::BOLD)
+                .bg(Color::DarkGray),
+        );
+
+    f.render_widget(tabs, area);
+}
+
+fn draw_chart<B: Backend>(f: &mut Frame<B>, area: Rect, data: &ChartData) {
+    let chart_chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(80), Constraint::Percentage(20)])
+        .split(area);
+        
+    let x_axis = Axis::default()
+        .title("Time (Days Ago)".into())
+        .style(Style::default().fg(Color::Gray))
+        .bounds([0.0, 7.0]) // 8 days total
+        .labels(
+            ["-7d", "-6d", "-5d", "-4d", "-3d", "-2d", "-1d", "Today"]
+                .iter()
+                .cloned()
+                .map(Span::from)
+                .collect(),
+        );
+
+    let y_axis = Axis::default()
+        .title(data.y_axis_title.into())
+        .style(Style::default().fg(Color::Gray))
+        .bounds(data.y_axis_bounds)
+        .labels(
+            data.y_axis_bounds
+                .iter()
+                .map(|&v| Span::from(format!("{}", v)))
+                .collect(),
+        );
+
+    let chart = Chart::new(data.datasets.clone())
+        .block(
+            Block::default()
+                .title(Span::from(data.title).bold())
+                .borders(Borders::ALL),
+        )
+        .x_axis(x_axis)
+        .y_axis(y_axis);
+
+    f.render_widget(chart, chart_chunks[0]);
+    
+    // --- Draw Legend ---
+    let legend_items: Vec<ratatui::widgets::ListItem> = data.datasets.iter().map(|dataset| {
+        ratatui::widgets::ListItem::new(Span::styled(
+            dataset.name.clone().unwrap_or_default(),
+            Style::default().fg(dataset.style.fg.unwrap_or(Color::White))
+        ))
+    }).collect();
+
+    let legend = Legend::new(legend_items)
+        .block(Block::default().title("Legend").borders(Borders::ALL));
+        
+    f.render_widget(legend, chart_chunks[1]);
+}
+
+
+// --- App State and Data Loading ---
+
+impl<'a> App<'a> {
+    fn new() -> App<'a> {
+        // In a real app, this data would be fetched from your prometheus module.
+        // Here, we use the hardcoded sample data you provided.
+        let cpu_by_account = get_cpu_by_account_data();
+        let cpu_by_node = get_cpu_by_node_data();
+        let gpu_by_type = get_gpu_by_type_data();
+
+        App {
+            current_view: AppView::CpuByAccount,
+            cpu_by_account,
+            cpu_by_node,
+            gpu_by_type,
+            should_quit: false,
         }
     }
 
-    fn on_tick(&mut self) {
-        self.data1.drain(0..5);
-        self.data1.extend(self.signal1.by_ref().take(5));
-
-        self.data2.drain(0..10);
-        self.data2.extend(self.signal2.by_ref().take(10));
-
-        self.window[0] += 1.0;
-        self.window[1] += 1.0;
+    fn next_view(&mut self) {
+        self.current_view = match self.current_view {
+            AppView::CpuByAccount => AppView::CpuByNode,
+            AppView::CpuByNode => AppView::GpuByType,
+            AppView::GpuByType => AppView::CpuByAccount,
+        }
     }
 
-    fn draw(&self, frame: &mut Frame) {
-        let [top, bottom] = Layout::vertical([Constraint::Fill(1); 2]).areas(frame.area());
-        let [animated_chart, bar_chart] =
-            Layout::horizontal([Constraint::Fill(1), Constraint::Length(29)]).areas(top);
-        let [line_chart, scatter] = Layout::horizontal([Constraint::Fill(1); 2]).areas(bottom);
-
-        self.render_animated_chart(frame, animated_chart);
-        render_barchart(frame, bar_chart);
-        render_line_chart(frame, line_chart);
-        render_scatter(frame, scatter);
-    }
-
-    fn render_animated_chart(&self, frame: &mut Frame, area: Rect) {
-        let x_labels = vec![
-            Span::styled(
-                format!("{}", self.window[0]),
-                Style::default().add_modifier(Modifier::BOLD),
-            ),
-            Span::raw(format!("{}", (self.window[0] + self.window[1]) / 2.0)),
-            Span::styled(
-                format!("{}", self.window[1]),
-                Style::default().add_modifier(Modifier::BOLD),
-            ),
-        ];
-        let datasets = vec![
-            Dataset::default()
-                .name("data2")
-                .marker(symbols::Marker::Dot)
-                .style(Style::default().fg(Color::Cyan))
-                .data(&self.data1),
-            Dataset::default()
-                .name("data3")
-                .marker(symbols::Marker::Braille)
-                .style(Style::default().fg(Color::Yellow))
-                .data(&self.data2),
-        ];
-
-        let chart = Chart::new(datasets)
-            .block(Block::bordered())
-            .x_axis(
-                Axis::default()
-                    .title("X Axis")
-                    .style(Style::default().fg(Color::Gray))
-                    .labels(x_labels)
-                    .bounds(self.window),
-            )
-            .y_axis(
-                Axis::default()
-                    .title("Y Axis")
-                    .style(Style::default().fg(Color::Gray))
-                    .labels(["-20".bold(), "0".into(), "20".bold()])
-                    .bounds([-20.0, 20.0]),
-            );
-
-        frame.render_widget(chart, area);
+    fn prev_view(&mut self) {
+        self.current_view = match self.current_view {
+            AppView::CpuByAccount => AppView::GpuByType,
+            AppView::CpuByNode => AppView::CpuByAccount,
+            AppView::GpuByType => AppView::CpuByNode,
+        }
     }
 }
 
-fn render_barchart(frame: &mut Frame, bar_chart: Rect) {
-    let dataset = Dataset::default()
-        .marker(symbols::Marker::HalfBlock)
-        .style(Style::new().fg(Color::Blue))
-        .graph_type(GraphType::Bar)
-        // a bell curve
-        .data(&[
-            (0., 0.4),
-            (10., 2.9),
-            (20., 13.5),
-            (30., 41.1),
-            (40., 80.1),
-            (50., 100.0),
-            (60., 80.1),
-            (70., 41.1),
-            (80., 13.5),
-            (90., 2.9),
-            (100., 0.4),
-        ]);
-
-    let chart = Chart::new(vec![dataset])
-        .block(Block::bordered().title_top(Line::from("Bar chart").cyan().bold().centered()))
-        .x_axis(
-            Axis::default()
-                .style(Style::default().gray())
-                .bounds([0.0, 100.0])
-                .labels(["0".bold(), "50".into(), "100.0".bold()]),
-        )
-        .y_axis(
-            Axis::default()
-                .style(Style::default().gray())
-                .bounds([0.0, 100.0])
-                .labels(["0".bold(), "50".into(), "100.0".bold()]),
-        )
-        .hidden_legend_constraints((Constraint::Ratio(1, 2), Constraint::Ratio(1, 2)));
-
-    frame.render_widget(chart, bar_chart);
-}
-
-fn render_line_chart(frame: &mut Frame, area: Rect) {
-    let datasets = vec![Dataset::default()
-        .name("Line from only 2 points".italic())
-        .marker(symbols::Marker::Braille)
-        .style(Style::default().fg(Color::Yellow))
-        .graph_type(GraphType::Line)
-        .data(&[(1., 1.), (4., 4.)])];
-
-    let chart = Chart::new(datasets)
-        .block(Block::bordered().title(Line::from("Line chart").cyan().bold().centered()))
-        .x_axis(
-            Axis::default()
-                .title("X Axis")
-                .style(Style::default().gray())
-                .bounds([0.0, 5.0])
-                .labels(["0".bold(), "2.5".into(), "5.0".bold()]),
-        )
-        .y_axis(
-            Axis::default()
-                .title("Y Axis")
-                .style(Style::default().gray())
-                .bounds([0.0, 5.0])
-                .labels(["0".bold(), "2.5".into(), "5.0".bold()]),
-        )
-        .legend_position(Some(LegendPosition::TopLeft))
-        .hidden_legend_constraints((Constraint::Ratio(1, 2), Constraint::Ratio(1, 2)));
-
-    frame.render_widget(chart, area);
-}
-
-fn render_scatter(frame: &mut Frame, area: Rect) {
-    let datasets = vec![
-        Dataset::default()
-            .name("Heavy")
-            .marker(Marker::Dot)
-            .graph_type(GraphType::Scatter)
-            .style(Style::new().yellow())
-            .data(&HEAVY_PAYLOAD_DATA),
-        Dataset::default()
-            .name("Medium".underlined())
-            .marker(Marker::Braille)
-            .graph_type(GraphType::Scatter)
-            .style(Style::new().magenta())
-            .data(&MEDIUM_PAYLOAD_DATA),
-        Dataset::default()
-            .name("Small")
-            .marker(Marker::Dot)
-            .graph_type(GraphType::Scatter)
-            .style(Style::new().cyan())
-            .data(&SMALL_PAYLOAD_DATA),
+// Helper function to transform HashMap data into Ratatui Datasets
+fn transform_to_datasets<'a>(data: HashMap<&'a str, Vec<u64>>, title: &'a str) -> Vec<Dataset<'a>> {
+    let colors = [
+        Color::Red, Color::Green, Color::Yellow, Color::Blue, Color::Magenta,
+        Color::Cyan, Color::Gray, Color::LightRed, Color::LightGreen, Color::LightYellow,
+        Color::LightBlue,
     ];
+    
+    data.into_iter()
+        .enumerate()
+        .map(|(i, (name, values))| {
+            let data_points: Vec<(f64, f64)> = values
+                .iter()
+                .enumerate()
+                .map(|(day_index, &value)| (day_index as f64, value as f64))
+                .collect();
 
-    let chart = Chart::new(datasets)
-        .block(Block::bordered().title(Line::from("Scatter chart").cyan().bold().centered()))
-        .x_axis(
-            Axis::default()
-                .title("Year")
-                .bounds([1960., 2020.])
-                .style(Style::default().fg(Color::Gray))
-                .labels(["1960", "1990", "2020"]),
-        )
-        .y_axis(
-            Axis::default()
-                .title("Cost")
-                .bounds([0., 75000.])
-                .style(Style::default().fg(Color::Gray))
-                .labels(["0", "37 500", "75 000"]),
-        )
-        .hidden_legend_constraints((Constraint::Ratio(1, 2), Constraint::Ratio(1, 2)));
-
-    frame.render_widget(chart, area);
+            Dataset::default()
+                .name(name.to_string())
+                .marker(symbols::Marker::Dot)
+                .style(Style::default().fg(colors[i % colors.len()]))
+                .data(&data_points)
+        })
+        .collect()
 }
 
-// Data from https://ourworldindata.org/space-exploration-satellites
-const HEAVY_PAYLOAD_DATA: [(f64, f64); 9] = [
-    (1965., 8200.),
-    (1967., 5400.),
-    (1981., 65400.),
-    (1989., 30800.),
-    (1997., 10200.),
-    (2004., 11600.),
-    (2014., 4500.),
-    (2016., 7900.),
-    (2018., 1500.),
-];
 
-const MEDIUM_PAYLOAD_DATA: [(f64, f64); 29] = [
-    (1963., 29500.),
-    (1964., 30600.),
-    (1965., 177_900.),
-    (1965., 21000.),
-    (1966., 17900.),
-    (1966., 8400.),
-    (1975., 17500.),
-    (1982., 8300.),
-    (1985., 5100.),
-    (1988., 18300.),
-    (1990., 38800.),
-    (1990., 9900.),
-    (1991., 18700.),
-    (1992., 9100.),
-    (1994., 10500.),
-    (1994., 8500.),
-    (1994., 8700.),
-    (1997., 6200.),
-    (1999., 18000.),
-    (1999., 7600.),
-    (1999., 8900.),
-    (1999., 9600.),
-    (2000., 16000.),
-    (2001., 10000.),
-    (2002., 10400.),
-    (2002., 8100.),
-    (2010., 2600.),
-    (2013., 13600.),
-    (2017., 8000.),
-];
+// --- Hardcoded Sample Data ---
+// Replace these functions with calls to your `prometheus.rs` module.
 
-const SMALL_PAYLOAD_DATA: [(f64, f64); 23] = [
-    (1961., 118_500.),
-    (1962., 14900.),
-    (1975., 21400.),
-    (1980., 32800.),
-    (1988., 31100.),
-    (1990., 41100.),
-    (1993., 23600.),
-    (1994., 20600.),
-    (1994., 34600.),
-    (1996., 50600.),
-    (1997., 19200.),
-    (1997., 45800.),
-    (1998., 19100.),
-    (2000., 73100.),
-    (2003., 11200.),
-    (2008., 12600.),
-    (2010., 30500.),
-    (2012., 20000.),
-    (2013., 10600.),
-    (2013., 34500.),
-    (2015., 10600.),
-    (2018., 23100.),
-    (2019., 17300.),
-];
+fn get_cpu_by_account_data<'a>() -> ChartData<'a> {
+    let mut data: HashMap<&str, Vec<u64>> = HashMap::new();
+    data.insert("scc", vec![320, 96, 0, 0, 0, 0, 0, 0]); // Padded with 0 for consistent length
+    data.insert("cca", vec![47088, 55076, 49644, 47153, 53669, 47712, 47059, 51621]);
+    data.insert("ccq", vec![13069, 15037, 13427, 8736, 6113, 14145, 11137, 11903]);
+    data.insert("cmbas", vec![3305, 3317, 3141, 13541, 30837, 34459, 13595, 13297]);
+    
+    let datasets = transform_to_datasets(data, "CPU Usage by Account");
+    ChartData {
+        title: "CPU Usage by Account (8 Days)",
+        datasets,
+        y_axis_bounds: [0.0, 150000.0], // Max CPU use is 144136
+        y_axis_title: "CPU Cores",
+    }
+}
 
+fn get_cpu_by_node_data<'a>() -> ChartData<'a> {
+    let mut data: HashMap<&str, Vec<u64>> = HashMap::new();
+    data.insert("icelake", vec![12726, 12480, 12295, 10590, 12930, 10053, 12922, 12832]);
+    data.insert("rome", vec![32838, 75145, 65599, 60634, 76185, 73253, 43232, 55127]);
+    data.insert("genoa", vec![26592, 40704, 35232, 29760, 38432, 33184, 30628, 39636]);
+    
+    let datasets = transform_to_datasets(data, "CPU Usage by Node Type");
+    ChartData {
+        title: "CPU Usage by Node Type (8 Days)",
+        datasets,
+        y_axis_bounds: [0.0, 150000.0],
+        y_axis_title: "CPU Cores",
+    }
+}
+
+fn get_gpu_by_type_data<'a>() -> ChartData<'a> {
+    let mut data: HashMap<&str, Vec<u64>> = HashMap::new();
+    data.insert("a100-sxm4-80gb", vec![85, 111, 82, 105, 93, 77, 108, 93]);
+    data.insert("h100_pcie", vec![77, 91, 94, 67, 102, 81, 109, 94]);
+    data.insert("a100-sxm4-40gb", vec![25, 63, 37, 36, 67, 82, 98, 97]);
+    
+    let datasets = transform_to_datasets(data, "GPU Usage by Type");
+    ChartData {
+        title: "GPU Usage by Type (8 Days)",
+        datasets,
+        y_axis_bounds: [0.0, 150.0], // Max GPU use is around 130
+        y_axis_title: "GPUs",
+    }
+}
 
