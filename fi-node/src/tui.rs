@@ -237,37 +237,44 @@ impl<'a> App<'a> {
 // --- Hardcoded Sample Data ---
 
 fn get_cpu_by_account_data<'a>() -> ChartData<'a> {
-    let data = fi_slurm::prometheus::get_usage_by(Cluster::Rusty, Grouping::Account, Resource::Cpus, 7, "1d");
+    let data = fi_slurm::prometheus::get_usage_by(Cluster::Rusty, Grouping::Account, Resource::Cpus, 7, "1d").unwrap();
 
-    let max = data.unwrap().values().max().unwrap().iter().max().unwrap();
+    let binding = data.clone();
+    let max = binding.values().max().unwrap().iter().max().unwrap();
     // got to be a better way to get the max value from a hashmap of vectors of numbers
     
     ChartData {
         title: "CPU Usage by Account (8 Days)",
-        source_data: data.unwrap(),
+        source_data: data,
         y_axis_bounds: [0.0, *max as f64 * 1.2],
         y_axis_title: "CPU Cores",
     }
 }
 
 fn get_cpu_by_node_data<'a>() -> ChartData<'a> {
-    let data = fi_slurm::prometheus::get_usage_by(Cluster::Rusty, Grouping::Nodes, Resource::Cpus, 7, "1d");
+    let data = fi_slurm::prometheus::get_usage_by(Cluster::Rusty, Grouping::Nodes, Resource::Cpus, 7, "1d").unwrap();
     
+    let binding = data.clone();
+    let max = binding.values().max().unwrap().iter().max().unwrap();
+
     ChartData {
         title: "CPU Usage by Node Type (8 Days)",
-        source_data: data.unwrap(),
-        y_axis_bounds: [0.0, 150000.0],
+        source_data: data,
+        y_axis_bounds: [0.0, *max as f64 * 1.2],
         y_axis_title: "CPU Cores",
     }
 }
 
 fn get_gpu_by_type_data<'a>() -> ChartData<'a> {
-    let data = fi_slurm::prometheus::get_usage_by(Cluster::Rusty, Grouping::GpuType, Resource::Gpus, 7, "1d");
+    let data = fi_slurm::prometheus::get_usage_by(Cluster::Rusty, Grouping::GpuType, Resource::Gpus, 7, "1d").unwrap();
     
+    let binding = data.clone();
+    let max = binding.values().max().unwrap().iter().max().unwrap();
+
     ChartData {
         title: "GPU Usage by Type (8 Days)",
-        source_data: data.unwrap(),
-        y_axis_bounds: [0.0, 150.0],
+        source_data: data,
+        y_axis_bounds: [0.0, *max as f64 * 1.2],
         y_axis_title: "GPUs",
     }
 }
