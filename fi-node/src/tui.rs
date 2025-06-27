@@ -162,10 +162,10 @@ fn draw_chart<B: Backend>(f: &mut Frame, area: Rect, data: &ChartData) {
         .collect();
         
     let x_axis = Axis::default()
-        .title("Time (Days Ago)".into())
+        .title(Span::from("Time (Days Ago)"))
         .style(Style::default().fg(Color::Gray))
         .bounds([0.0, 7.0]) // 8 days total
-        .labels(
+        .labels::<Vec<Span>>(
             ["-7d", "-6d", "-5d", "-4d", "-3d", "-2d", "-1d", "Today"]
                 .iter()
                 .cloned()
@@ -174,10 +174,10 @@ fn draw_chart<B: Backend>(f: &mut Frame, area: Rect, data: &ChartData) {
         );
 
     let y_axis = Axis::default()
-        .title(data.y_axis_title.into())
+        .title(Span::from(data.y_axis_title))
         .style(Style::default().fg(Color::Gray))
         .bounds(data.y_axis_bounds)
-        .labels(
+        .labels::<Vec<Span>>(
             [
                 data.y_axis_bounds[0],
                 (data.y_axis_bounds[0] + data.y_axis_bounds[1]) / 2.0,
