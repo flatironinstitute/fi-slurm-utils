@@ -43,7 +43,7 @@ struct ChartData<'a> {
 
 // --- Main Application Logic ---
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub fn tui_execute() -> Result<(), Box<dyn std::error::Error>> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
@@ -66,7 +66,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<()> {
     loop {
-        terminal.draw(|f| ui::<B>(f, &app))?;
+        terminal.draw(|f| ui(f, &app))?;
 
         if event::poll(std::time::Duration::from_millis(250))? {
             if let Event::Key(key) = event::read()? {
@@ -90,13 +90,13 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
 
 // --- UI Drawing ---
 
-fn ui<B: Backend>(f: &mut Frame, app: &App) {
+fn ui(f: &mut Frame, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Length(3), Constraint::Min(0)].as_ref())
         .split(f.area());
 
-    draw_tabs::<B>(f, chunks[0], app.current_view);
+    draw_tabs(f, chunks[0], app.current_view);
     
     let chart_data = match app.current_view {
         AppView::CpuByAccount => &app.cpu_by_account,
@@ -104,10 +104,10 @@ fn ui<B: Backend>(f: &mut Frame, app: &App) {
         AppView::GpuByType => &app.gpu_by_type,
     };
     
-    draw_chart::<B>(f, chunks[1], chart_data);
+    draw_chart(f, chunks[1], chart_data);
 }
 
-fn draw_tabs<B: Backend>(f: &mut Frame, area: Rect, current_view: AppView) {
+fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView) {
     let titles: Vec<Span> = ["1: CPU by Account", "2: CPU by Node Type", "3: GPU by Type"]
         .iter()
         .map(|t| Span::from(*t))
@@ -132,14 +132,14 @@ fn draw_tabs<B: Backend>(f: &mut Frame, area: Rect, current_view: AppView) {
     f.render_widget(tabs, area);
 }
 
-fn draw_chart<B: Backend>(f: &mut Frame, area: Rect, data: &ChartData) {
+fn draw_chart(f: &mut Frame, area: Rect, data: &ChartData) {
     let colors = [
         Color::Red, Color::Green, Color::Yellow, Color::Blue, Color::Magenta,
         Color::Cyan, Color::Gray, Color::LightRed, Color::LightGreen, Color::LightYellow,
         Color::LightBlue,
     ];
 
-    let all_series_data: Vec<(&str, Vec<(f64, f64)>)>  = data.source_data.iter().enumerate().map(|(i, (name, values))| {
+    let all_series_data: Vec<(&str, Vec<(f64, f64)>)>  = data.source_data.iter().map(|(name, values)| {
         let data_points: Vec<(f64, f64)> = values
             .iter()
             .enumerate()
