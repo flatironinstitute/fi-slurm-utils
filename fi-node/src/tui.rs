@@ -76,8 +76,8 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                     KeyCode::Char('1') => app.current_view = AppView::CpuByAccount,
                     KeyCode::Char('2') => app.current_view = AppView::CpuByNode,
                     KeyCode::Char('3') => app.current_view = AppView::GpuByType,
-                    KeyCode::Right => app.next_view(),
-                    KeyCode::Left => app.prev_view(),
+                    KeyCode::Right | KeyCode::Char('l')=> app.next_view(),
+                    KeyCode::Left | KeyCode::Char('h')=> app.prev_view(),
                     _ => {}
                 }
             }
