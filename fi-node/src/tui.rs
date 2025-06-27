@@ -133,51 +133,46 @@ fn draw_tabs<B: Backend>(f: &mut Frame, area: Rect, current_view: AppView) {
 }
 
 fn draw_chart<B: Backend>(f: &mut Frame, area: Rect, data: &ChartData) {
-    // FIX: Datasets are now created "just-in-time" inside the draw function.
-    // This solves the lifetime issue because the `all_data_points` Vec
-    // lives for the entire duration of this function call.
     let colors = [
         Color::Red, Color::Green, Color::Yellow, Color::Blue, Color::Magenta,
         Color::Cyan, Color::Gray, Color::LightRed, Color::LightGreen, Color::LightYellow,
         Color::LightBlue,
     ];
 
-    let datasets: Vec<Dataset> = data
-        .source_data
-        .iter()
-        .enumerate()
-        .map(|(i, (name, values))| {
-            let data_points: Vec<(f64, f64)> = values
-                .iter()
-                .enumerate()
-                .map(|(day_index, &value)| (day_index as f64, value as f64))
-                .collect();
+    let all_series_data: Vec<(&str, Vec<(f64, f64)>)>  = data.source_data.iter().enumerate().map(|(i, (name, values))| {
+        let data_points: Vec<(f64, f64)> = values
+            .iter()
+            .enumerate()
+            .map(|(day_index, &value)| (day_index as f64, value as f64))
+            .collect();
+        (*name, data_points)
+    }).collect();
 
-            Dataset::default()
-                .name((*name).to_string())
-                .marker(symbols::Marker::Dot)
-                .style(Style::default().fg(colors[i % colors.len()]))
-                .data(&data_points) // Borrows the data from the local `data_points`
-        })
-        .collect();
+    let datasets: Vec<Dataset> = all_series_data.iter().enumerate().map(| (i, (name, data_points))| {
+        Dataset::default()
+            .name((*name).to_string())
+            .marker(symbols::Marker::Dot)
+            .style(Style::default().fg(colors[i % colors.len()]))
+            .data(data_points)
+    }).collect();
         
     let x_axis = Axis::default()
         .title(Span::from("Time (Days Ago)"))
         .style(Style::default().fg(Color::Gray))
-        .bounds([0.0, 7.0]) // 8 days total
-        .labels::<Vec<Span>>(
+        .bounds([0.0, 7.0])
+        .labels(
             ["-7d", "-6d", "-5d", "-4d", "-3d", "-2d", "-1d", "Today"]
                 .iter()
                 .cloned()
                 .map(Span::from)
-                .collect(),
+                .collect::<Vec<Span>>(),
         );
 
     let y_axis = Axis::default()
         .title(Span::from(data.y_axis_title))
         .style(Style::default().fg(Color::Gray))
         .bounds(data.y_axis_bounds)
-        .labels::<Vec<Span>>(
+        .labels(
             [
                 data.y_axis_bounds[0],
                 (data.y_axis_bounds[0] + data.y_axis_bounds[1]) / 2.0,
@@ -185,10 +180,10 @@ fn draw_chart<B: Backend>(f: &mut Frame, area: Rect, data: &ChartData) {
             ]
             .iter()
             .map(|&v| Span::from(format!("{:.0}", v)))
-            .collect(),
+            .collect::<Vec<Span>>(),
         );
 
-    let chart = Chart::new(datasets) // Use the newly created datasets
+    let chart = Chart::new(datasets)
         .block(
             Block::default()
                 .title(Span::from(data.title).bold())
@@ -197,7 +192,7 @@ fn draw_chart<B: Backend>(f: &mut Frame, area: Rect, data: &ChartData) {
         .x_axis(x_axis)
         .y_axis(y_axis)
         .legend_position(Some(LegendPosition::TopRight))
-        .style(Style::default().fg(Color::White));
+        .style(Style::default());
 
     f.render_widget(chart, area);
 }
@@ -239,7 +234,6 @@ impl<'a> App<'a> {
 
 
 // --- Hardcoded Sample Data ---
-// FIX: These functions now return ChartData structs that own the source data.
 
 fn get_cpu_by_account_data<'a>() -> ChartData<'a> {
     let mut data: HashMap<&str, Vec<u64>> = HashMap::new();
@@ -282,4 +276,4 @@ fn get_gpu_by_type_data<'a>() -> ChartData<'a> {
         y_axis_bounds: [0.0, 150.0],
         y_axis_title: "GPUs",
     }
-} 
+}
