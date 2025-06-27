@@ -238,11 +238,14 @@ impl<'a> App<'a> {
 
 fn get_cpu_by_account_data<'a>() -> ChartData<'a> {
     let data = fi_slurm::prometheus::get_usage_by(Cluster::Rusty, Grouping::Account, Resource::Cpus, 7, "1d");
+
+    let max = data.unwrap().values().max().unwrap().iter().max().unwrap();
+    // got to be a better way to get the max value from a hashmap of vectors of numbers
     
     ChartData {
         title: "CPU Usage by Account (8 Days)",
         source_data: data.unwrap(),
-        y_axis_bounds: [0.0, 150000.0],
+        y_axis_bounds: [0.0, *max as f64 * 1.2],
         y_axis_title: "CPU Cores",
     }
 }
