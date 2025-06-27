@@ -1,3 +1,4 @@
+use fi_slurm::prometheus::{Cluster, Resource, Grouping};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
@@ -36,7 +37,7 @@ enum AppView {
 // FIX: ChartData now owns the source data directly.
 struct ChartData<'a> {
     title: &'a str,
-    source_data: HashMap<&'a str, Vec<u64>>,
+    source_data: HashMap<String, Vec<u64>>,
     y_axis_bounds: [f64; 2],
     y_axis_title: &'a str,
 }
@@ -139,13 +140,13 @@ fn draw_chart(f: &mut Frame, area: Rect, data: &ChartData) {
         Color::LightBlue,
     ];
 
-    let all_series_data: Vec<(&str, Vec<(f64, f64)>)>  = data.source_data.iter().map(|(name, values)| {
+    let all_series_data: Vec<(&String, Vec<(f64, f64)>)>  = data.source_data.iter().map(|(name, values)| {
         let data_points: Vec<(f64, f64)> = values
             .iter()
             .enumerate()
             .map(|(day_index, &value)| (day_index as f64, value as f64))
             .collect();
-        (*name, data_points)
+        (name, data_points)
     }).collect();
 
     let datasets: Vec<Dataset> = all_series_data.iter().enumerate().map(| (i, (name, data_points))| {
@@ -236,43 +237,33 @@ impl<'a> App<'a> {
 // --- Hardcoded Sample Data ---
 
 fn get_cpu_by_account_data<'a>() -> ChartData<'a> {
-    let mut data: HashMap<&str, Vec<u64>> = HashMap::new();
-    data.insert("scc", vec![320, 96, 0, 0, 0, 0, 0, 0]);
-    data.insert("cca", vec![47088, 55076, 49644, 47153, 53669, 47712, 47059, 51621]);
-    data.insert("ccq", vec![13069, 15037, 13427, 8736, 6113, 14145, 11137, 11903]);
-    data.insert("cmbas", vec![3305, 3317, 3141, 13541, 30837, 34459, 13595, 13297]);
+    let data = fi_slurm::prometheus::get_usage_by(Cluster::Rusty, Grouping::Account, Resource::Cpus, 7, "1d");
     
     ChartData {
         title: "CPU Usage by Account (8 Days)",
-        source_data: data,
+        source_data: data.unwrap(),
         y_axis_bounds: [0.0, 150000.0],
         y_axis_title: "CPU Cores",
     }
 }
 
 fn get_cpu_by_node_data<'a>() -> ChartData<'a> {
-    let mut data: HashMap<&str, Vec<u64>> = HashMap::new();
-    data.insert("icelake", vec![12726, 12480, 12295, 10590, 12930, 10053, 12922, 12832]);
-    data.insert("rome", vec![32838, 75145, 65599, 60634, 76185, 73253, 43232, 55127]);
-    data.insert("genoa", vec![26592, 40704, 35232, 29760, 38432, 33184, 30628, 39636]);
+    let data = fi_slurm::prometheus::get_usage_by(Cluster::Rusty, Grouping::Nodes, Resource::Cpus, 7, "1d");
     
     ChartData {
         title: "CPU Usage by Node Type (8 Days)",
-        source_data: data,
+        source_data: data.unwrap(),
         y_axis_bounds: [0.0, 150000.0],
         y_axis_title: "CPU Cores",
     }
 }
 
 fn get_gpu_by_type_data<'a>() -> ChartData<'a> {
-    let mut data: HashMap<&str, Vec<u64>> = HashMap::new();
-    data.insert("a100-sxm4-80gb", vec![85, 111, 82, 105, 93, 77, 108, 93]);
-    data.insert("h100_pcie", vec![77, 91, 94, 67, 102, 81, 109, 94]);
-    data.insert("a100-sxm4-40gb", vec![25, 63, 37, 36, 67, 82, 98, 97]);
+    let data = fi_slurm::prometheus::get_usage_by(Cluster::Rusty, Grouping::GpuType, Resource::Gpus, 7, "1d");
     
     ChartData {
         title: "GPU Usage by Type (8 Days)",
-        source_data: data,
+        source_data: data.unwrap(),
         y_axis_bounds: [0.0, 150.0],
         y_axis_title: "GPUs",
     }
