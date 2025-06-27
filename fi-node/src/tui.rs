@@ -17,19 +17,12 @@ use std::collections::HashMap;
 use std::io;
 
 // --- Data Structures ---
-// We'll use these to hold the parsed data.
-// In a real app, this would come from your `prometheus.rs` module.
 
 struct App<'a> {
-    /// The currently active view/tab.
     current_view: AppView,
-    /// Data for the "CPU by Account" chart.
     cpu_by_account: ChartData<'a>,
-    /// Data for the "CPU by Node Type" chart.
     cpu_by_node: ChartData<'a>,
-    /// Data for the "GPU by GPU Type" chart.
     gpu_by_type: ChartData<'a>,
-    /// Should the application quit?
     should_quit: bool,
 }
 
@@ -40,9 +33,10 @@ enum AppView {
     GpuByType,
 }
 
+// FIX: ChartData now owns the source data directly.
 struct ChartData<'a> {
     title: &'a str,
-    datasets: Vec<Dataset<'a>>,
+    source_data: HashMap<&'a str, Vec<u64>>,
     y_axis_bounds: [f64; 2],
     y_axis_title: &'a str,
 }
@@ -50,18 +44,15 @@ struct ChartData<'a> {
 // --- Main Application Logic ---
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // --- Setup terminal ---
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    // --- Create app and run it ---
     let app = App::new();
     run_app(&mut terminal, app)?;
 
-    // --- Restore terminal ---
     disable_raw_mode()?;
     execute!(
         terminal.backend_mut(),
@@ -113,7 +104,6 @@ fn ui<B: Backend>(f: &mut Frame, app: &App) {
         AppView::GpuByType => &app.gpu_by_type,
     };
     
-    // The chart now takes up the entire bottom area.
     draw_chart::<B>(f, chunks[1], chart_data);
 }
 
@@ -143,10 +133,36 @@ fn draw_tabs<B: Backend>(f: &mut Frame, area: Rect, current_view: AppView) {
 }
 
 fn draw_chart<B: Backend>(f: &mut Frame, area: Rect, data: &ChartData) {
-    // FIX: No need for horizontal chunks anymore, the legend is part of the chart.
+    // FIX: Datasets are now created "just-in-time" inside the draw function.
+    // This solves the lifetime issue because the `all_data_points` Vec
+    // lives for the entire duration of this function call.
+    let colors = [
+        Color::Red, Color::Green, Color::Yellow, Color::Blue, Color::Magenta,
+        Color::Cyan, Color::Gray, Color::LightRed, Color::LightGreen, Color::LightYellow,
+        Color::LightBlue,
+    ];
+
+    let datasets: Vec<Dataset> = data
+        .source_data
+        .iter()
+        .enumerate()
+        .map(|(i, (name, values))| {
+            let data_points: Vec<(f64, f64)> = values
+                .iter()
+                .enumerate()
+                .map(|(day_index, &value)| (day_index as f64, value as f64))
+                .collect();
+
+            Dataset::default()
+                .name((*name).to_string())
+                .marker(symbols::Marker::Dot)
+                .style(Style::default().fg(colors[i % colors.len()]))
+                .data(&data_points) // Borrows the data from the local `data_points`
+        })
+        .collect();
         
     let x_axis = Axis::default()
-        .title("Time (Days Ago)")
+        .title("Time (Days Ago)".into())
         .style(Style::default().fg(Color::Gray))
         .bounds([0.0, 7.0]) // 8 days total
         .labels(
@@ -154,15 +170,14 @@ fn draw_chart<B: Backend>(f: &mut Frame, area: Rect, data: &ChartData) {
                 .iter()
                 .cloned()
                 .map(Span::from)
-                .collect::<Vec<Span>>(),
+                .collect(),
         );
 
     let y_axis = Axis::default()
-        .title(data.y_axis_title)
+        .title(data.y_axis_title.into())
         .style(Style::default().fg(Color::Gray))
         .bounds(data.y_axis_bounds)
         .labels(
-            // Create 3 labels for the Y axis: bottom, middle, top.
             [
                 data.y_axis_bounds[0],
                 (data.y_axis_bounds[0] + data.y_axis_bounds[1]) / 2.0,
@@ -170,10 +185,10 @@ fn draw_chart<B: Backend>(f: &mut Frame, area: Rect, data: &ChartData) {
             ]
             .iter()
             .map(|&v| Span::from(format!("{:.0}", v)))
-            .collect::<Vec<Span>>(),
+            .collect(),
         );
 
-    let chart = Chart::new(data.datasets.clone())
+    let chart = Chart::new(datasets) // Use the newly created datasets
         .block(
             Block::default()
                 .title(Span::from(data.title).bold())
@@ -181,11 +196,9 @@ fn draw_chart<B: Backend>(f: &mut Frame, area: Rect, data: &ChartData) {
         )
         .x_axis(x_axis)
         .y_axis(y_axis)
-        // FIX: Configure the legend directly on the chart.
         .legend_position(Some(LegendPosition::TopRight))
         .style(Style::default().fg(Color::White));
 
-    // The chart now renders in the full area provided.
     f.render_widget(chart, area);
 }
 
@@ -194,8 +207,6 @@ fn draw_chart<B: Backend>(f: &mut Frame, area: Rect, data: &ChartData) {
 
 impl<'a> App<'a> {
     fn new() -> App<'a> {
-        // In a real app, this data would be fetched from your prometheus module.
-        // Here, we use the hardcoded sample data you provided.
         let cpu_by_account = get_cpu_by_account_data();
         let cpu_by_node = get_cpu_by_node_data();
         let gpu_by_type = get_gpu_by_type_data();
@@ -226,49 +237,21 @@ impl<'a> App<'a> {
     }
 }
 
-// Helper function to transform HashMap data into Ratatui Datasets
-fn transform_to_datasets<'a>(data: HashMap<&'a str, Vec<u64>>) -> Vec<Dataset<'a>> {
-    let colors = [
-        Color::Red, Color::Green, Color::Yellow, Color::Blue, Color::Magenta,
-        Color::Cyan, Color::Gray, Color::LightRed, Color::LightGreen, Color::LightYellow,
-        Color::LightBlue,
-    ];
-    
-    let datasets = data.into_iter()
-        .enumerate()
-        .map(|(i, (name, values))| {
-            let data_points: Vec<(f64, f64)> = values
-                .iter()
-                .enumerate()
-                .map(|(day_index, &value)| (day_index as f64, value as f64))
-                .collect();
-
-            Dataset::default()
-                .name(name.to_string())
-                .marker(symbols::Marker::Dot)
-                .style(Style::default().fg(colors[i % colors.len()]))
-                .data(&data_points)
-        })
-        .collect();
-    datasets
-}
-
 
 // --- Hardcoded Sample Data ---
-// Replace these functions with calls to your `prometheus.rs` module.
+// FIX: These functions now return ChartData structs that own the source data.
 
 fn get_cpu_by_account_data<'a>() -> ChartData<'a> {
     let mut data: HashMap<&str, Vec<u64>> = HashMap::new();
-    data.insert("scc", vec![320, 96, 0, 0, 0, 0, 0, 0]); // Padded with 0 for consistent length
+    data.insert("scc", vec![320, 96, 0, 0, 0, 0, 0, 0]);
     data.insert("cca", vec![47088, 55076, 49644, 47153, 53669, 47712, 47059, 51621]);
     data.insert("ccq", vec![13069, 15037, 13427, 8736, 6113, 14145, 11137, 11903]);
     data.insert("cmbas", vec![3305, 3317, 3141, 13541, 30837, 34459, 13595, 13297]);
     
-    let datasets = transform_to_datasets(data);
     ChartData {
         title: "CPU Usage by Account (8 Days)",
-        datasets,
-        y_axis_bounds: [0.0, 150000.0], // Max CPU use is 144136
+        source_data: data,
+        y_axis_bounds: [0.0, 150000.0],
         y_axis_title: "CPU Cores",
     }
 }
@@ -279,10 +262,9 @@ fn get_cpu_by_node_data<'a>() -> ChartData<'a> {
     data.insert("rome", vec![32838, 75145, 65599, 60634, 76185, 73253, 43232, 55127]);
     data.insert("genoa", vec![26592, 40704, 35232, 29760, 38432, 33184, 30628, 39636]);
     
-    let datasets = transform_to_datasets(data);
     ChartData {
         title: "CPU Usage by Node Type (8 Days)",
-        datasets,
+        source_data: data,
         y_axis_bounds: [0.0, 150000.0],
         y_axis_title: "CPU Cores",
     }
@@ -294,12 +276,10 @@ fn get_gpu_by_type_data<'a>() -> ChartData<'a> {
     data.insert("h100_pcie", vec![77, 91, 94, 67, 102, 81, 109, 94]);
     data.insert("a100-sxm4-40gb", vec![25, 63, 37, 36, 67, 82, 98, 97]);
     
-    let datasets = transform_to_datasets(data);
     ChartData {
         title: "GPU Usage by Type (8 Days)",
-        datasets,
-        y_axis_bounds: [0.0, 150.0], // Max GPU use is around 130
+        source_data: data,
+        y_axis_bounds: [0.0, 150.0],
         y_axis_title: "GPUs",
     }
-}
-
+} 
