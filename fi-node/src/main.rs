@@ -1,6 +1,7 @@
 pub mod report;
 pub mod summary_report;
 pub mod tree_report;
+pub mod tui;
 
 use clap::Parser;
 use std::collections::HashMap;
@@ -8,6 +9,8 @@ use fi_slurm::jobs::SlurmJobs;
 use fi_slurm::{jobs, nodes, parser::parse_slurm_hostlist, utils::{SlurmConfig, initialize_slurm}};
 use fi_slurm::filter::{self, gather_all_features};
 use fi_slurm::prometheus::{get_max_resource, get_usage_by, Cluster, Grouping, Resource};
+use crate::tui::tui_execute;
+
 
 /// The main entry point for the `fi-node`
 ///
@@ -19,6 +22,11 @@ use fi_slurm::prometheus::{get_max_resource, get_usage_by, Cluster, Grouping, Re
 fn main() -> Result<(), String> {
 
     let args = Args::parse();
+
+    if args.terminal {
+        let _ = tui_execute();
+        return Ok(())
+    }
 
     if args.help {
         print_help();
@@ -37,20 +45,20 @@ fn main() -> Result<(), String> {
         let nodes_popeye = get_usage_by(Cluster::Popeye, Grouping::Nodes, Resource::Cpus, 7, "1d");
         let max_resource_popeye = get_max_resource(Cluster::Popeye, None, Resource::Cpus, None, None);
 
-        println!("rusty cpu");
-        println!("{:?}", acct_rusty);
-        println!("{:?}", nodes_rusty);
-        println!("{:?} \n", max_resource_rusty);
+        println!("Rusty CPUs");
+        println!("By Account: {:?}", acct_rusty);
+        println!("By Node Type: {:?}", nodes_rusty);
+        println!("Max CPU Use: {:?} \n", max_resource_rusty);
 
-        println!("rusty gpus");
+        println!("Rusty GPUs");
 
-        println!("{:?}", gpu_rusty);
-        println!("{:?} \n", gpu_max_resource);
+        println!("By GPU Type: {:?}", gpu_rusty);
+        println!("Max GPU Use{:?} \n", gpu_max_resource);
 
-        println!("popeye cpu");
-        println!("{:?}", acct_popeye);
-        println!("{:?}", nodes_popeye);
-        println!("{:?}", max_resource_popeye);
+        println!("Popeye CPUs");
+        println!("By Account: {:?}", acct_popeye);
+        println!("By Node Type: {:?}", nodes_popeye);
+        println!("Max CPU Use: {:?}", max_resource_popeye);
 
         return Ok(())
     }
@@ -209,6 +217,8 @@ struct Args {
     no_color: bool,
     #[arg(short, long)]
     prometheus: bool,
+    #[arg(long)]
+    terminal: bool,
     #[arg(short, long)]
     help: bool,
 }
