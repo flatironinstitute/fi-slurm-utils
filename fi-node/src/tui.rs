@@ -34,7 +34,6 @@ enum AppView {
     GpuByType,
 }
 
-// FIX: ChartData now owns the source data directly.
 struct ChartData<'a> {
     title: &'a str,
     source_data: HashMap<String, Vec<u64>>,
@@ -42,7 +41,7 @@ struct ChartData<'a> {
     y_axis_title: &'a str,
 }
 
-// --- Main Application Logic ---
+// Main Application Logic
 
 pub fn tui_execute() -> Result<(), Box<dyn std::error::Error>> {
     enable_raw_mode()?;
@@ -89,7 +88,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
     }
 }
 
-// --- UI Drawing ---
+// UI Drawing 
 
 fn ui(f: &mut Frame, app: &App) {
     let chunks = Layout::default()
@@ -152,7 +151,7 @@ fn draw_chart(f: &mut Frame, area: Rect, data: &ChartData) {
     let datasets: Vec<Dataset> = all_series_data.iter().enumerate().map(| (i, (name, data_points))| {
         Dataset::default()
             .name((*name).to_string())
-            .marker(symbols::Marker::Dot)
+            .marker(symbols::Marker::Bar)
             .style(Style::default().fg(colors[i % colors.len()]))
             .data(data_points)
     }).collect();
@@ -199,7 +198,7 @@ fn draw_chart(f: &mut Frame, area: Rect, data: &ChartData) {
 }
 
 
-// --- App State and Data Loading ---
+// App State and Data Loading
 
 impl<'a> App<'a> {
     fn new() -> App<'a> {
@@ -233,8 +232,7 @@ impl<'a> App<'a> {
     }
 }
 
-
-// --- Hardcoded Sample Data ---
+// Prometheus interface 
 
 fn get_cpu_by_account_data<'a>() -> ChartData<'a> {
     let data = fi_slurm::prometheus::get_usage_by(Cluster::Rusty, Grouping::Account, Resource::Cpus, 7, "1d").unwrap();
