@@ -138,9 +138,6 @@ fn draw_chart(f: &mut Frame, area: Rect, data: &ChartData) {
         Color::Cyan, Color::Gray, Color::LightRed, Color::LightGreen, Color::LightYellow,
         Color::LightBlue,
     ];
-
-    // --- FIX: Data Transformation for Stacked Chart ---
-    // We need to calculate the cumulative sums before creating the datasets.
     
     // Sort the series by name to have a consistent stacking order.
     let mut sorted_series: Vec<_> = data.source_data.iter().collect();
@@ -259,7 +256,7 @@ fn get_cpu_by_account_data<'a>() -> ChartData<'a> {
     ChartData {
         title: "CPU Usage by Account (8 Days)",
         source_data: data,
-        y_axis_bounds: [0.0, max as f64 * 1.2],
+        y_axis_bounds: [0.0, max as f64],
         y_axis_title: "CPU Cores",
     }
 }
@@ -273,7 +270,7 @@ fn get_cpu_by_node_data<'a>() -> ChartData<'a> {
     ChartData {
         title: "CPU Usage by Node Type (8 Days)",
         source_data: data,
-        y_axis_bounds: [0.0, max as f64 * 1.2],
+        y_axis_bounds: [0.0, max as f64],
         y_axis_title: "CPU Cores",
     }
 }
@@ -287,7 +284,7 @@ fn get_gpu_by_type_data<'a>() -> ChartData<'a> {
     ChartData {
         title: "GPU Usage by Type (8 Days)",
         source_data: data,
-        y_axis_bounds: [0.0, max as f64 * 1.2],
+        y_axis_bounds: [0.0, max as f64],
         y_axis_title: "GPUs",
     }
 }
