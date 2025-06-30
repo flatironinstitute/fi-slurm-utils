@@ -189,21 +189,12 @@ pub fn print_report(report_data: &ReportData, no_color: bool) {
     let total_cpu_str = format!("{:>5}/{:<5}", total_line.alloc_cpus, total_line.total_cpus);
     let total_gpu_str = format!("{:>5}/{:<5}", total_line.alloc_gpus, total_line.total_gpus);
     let total_padding = " ".repeat(max_state_width - "TOTAL".len());
-    println!("{}{}{:>5} {:>13} {:>13}", "TOTAL".bold(), total_padding, total_line.node_count, total_cpu_str, total_gpu_str);
+    println!("{}{}{:>5} {:>13} {:>13} \t", "TOTAL".bold(), total_padding, total_line.node_count, total_cpu_str, total_gpu_str);
 
-    println!();
-
-    let utilized_nodes = report_data.iter().fold(0, |acc, (state, group)| {
-        let is_utilized = match state {
-            NodeState::Allocated | NodeState::Mixed => true,
-            NodeState::Compound{ base, ..} => matches!(**base, NodeState::Allocated | NodeState::Mixed),
-            _ => false,
-        };
-        if is_utilized { acc + group.summary.node_count } else { acc }
-    });
+    let utilized_nodes = get_node_utilization(report_data);
 
     if total_line.node_count > 0 {
-        let utilization_percent = (utilized_nodes as f64 / total_line.node_count as f64) * 100.0;
+        let utilization_percent = (utilized_nodes / total_line.node_count as f64) * 100.0;
         print_utilization(utilization_percent, 50, BarColor::Green, "Node", no_color);
     }
 
@@ -216,6 +207,18 @@ pub fn print_report(report_data: &ReportData, no_color: bool) {
         let utilization_percent = (total_line.alloc_gpus as f64 / total_line.total_gpus as f64) * 100.0;
         print_utilization(utilization_percent, 50, BarColor::Red, "GPU", no_color);
     }
+}
+
+fn get_node_utilization(report_data: &HashMap<NodeState, ReportGroup>) -> f64 {
+    let utilized_nodes = report_data.iter().fold(0, |account, (state, group)| {
+        let is_utilized = match state {
+            NodeState::Allocated | NodeState::Mixed => true,
+            NodeState::Compound{ base, ..} => matches!(**base, NodeState::Allocated | NodeState::Mixed),
+            _ => false,
+        };
+        if is_utilized { account + group.summary.node_count } else { account }
+    });
+    utilized_nodes as f64
 }
 
 #[allow(dead_code)]
