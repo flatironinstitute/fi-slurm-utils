@@ -9,7 +9,6 @@ use ratatui::{
     backend::{Backend, CrosstermBackend},
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    symbols,
     text::Span,
     widgets::{Axis, Block, Borders, Chart, Dataset, LegendPosition},
     Frame, Terminal,
@@ -17,6 +16,7 @@ use ratatui::{
 use std::collections::HashMap;
 use std::io;
 
+use ratatui::widgets::GraphType;
 // --- Data Structures ---
 
 struct App<'a> {
@@ -132,7 +132,7 @@ fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView) {
     f.render_widget(tabs, area);
 }
 
-fn draw_chart<B: Backend>(f: &mut Frame, area: Rect, data: &ChartData) {
+fn draw_chart(f: &mut Frame, area: Rect, data: &ChartData) {
     let colors = [
         Color::Red, Color::Green, Color::Yellow, Color::Blue, Color::Magenta,
         Color::Cyan, Color::Gray, Color::LightRed, Color::LightGreen, Color::LightYellow,
@@ -150,27 +150,28 @@ fn draw_chart<B: Backend>(f: &mut Frame, area: Rect, data: &ChartData) {
     // allowing us to "stack" them. It starts at all zeros.
     let mut baseline: Vec<f64> = vec![0.0; 8]; // Assuming 8 data points
     
+    let stacked_data: Vec<Vec<(f64, f64)>> = sorted_series.iter().map(|(_, values)| {
+        let mut stacked_points = Vec::with_capacity(values.len());
+
+        for (day_index, &value) in values.iter().enumerate() {
+            let stacked_y = baseline[day_index] + value as f64;
+            stacked_points.push((day_index as f64, stacked_y));
+            baseline[day_index] = stacked_y;
+        }
+        stacked_points
+    }).collect();
+
     let datasets: Vec<Dataset> = sorted_series
         .iter()
+        .zip(stacked_data.iter())
         .enumerate()
-        .map(|(i, (name, values))| {
-            let mut stacked_points = Vec::with_capacity(values.len());
-            for (day_index, &value) in values.iter().enumerate() {
-                // The new y-value is this series' value plus the baseline.
-                let stacked_y = baseline[day_index] + value as f64;
-                stacked_points.push((day_index as f64, stacked_y));
-                // Update the baseline for the *next* series.
-                baseline[day_index] = stacked_y;
-            }
-
-            Dataset::default()
-                .name((*name).to_string())
-                // FIX: Use GraphType::Line to connect the points.
-                .graph_type(GraphType::Line)
-                .style(Style::default().fg(colors[i % colors.len()]))
-                .data(&stacked_points)
-        })
-        .collect();
+        .map(|(i, ((name, _), points))| {
+        Dataset::default()
+            .name((*name).to_string())
+            .graph_type(GraphType::Line)
+            .style(Style::default().fg(colors[i % colors.len()]))
+            .data(points)
+    }).collect();
         
     let x_axis = Axis::default()
         .title(Span::from("Time (Days Ago)"))
