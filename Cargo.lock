@@ -538,7 +538,6 @@ version = "0.1.0"
 dependencies = [
  "bitflags",
  "chrono",
- "once_cell",
  "regex",
  "reqwest",
  "rust_bind",
