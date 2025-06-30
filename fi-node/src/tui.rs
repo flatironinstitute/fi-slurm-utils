@@ -214,73 +214,6 @@ fn draw_chart(f: &mut Frame, area: Rect, data: &ChartData) {
 }
 
 
-// fn draw_chart(f: &mut Frame, area: Rect, data: &ChartData) {
-//     let colors = [
-//         Color::Red, Color::Green, Color::Yellow, Color::Blue, Color::Magenta,
-//         Color::Cyan, Color::Gray, Color::LightRed, Color::LightGreen, Color::LightYellow,
-//         Color::LightBlue,
-//     ];
-//
-//     let all_series_data: Vec<(&String, Vec<(f64, f64)>)>  = data.source_data.iter().map(|(name, values)| {
-//         let data_points: Vec<(f64, f64)> = values
-//             .iter()
-//             .enumerate()
-//             .map(|(day_index, &value)| (day_index as f64, value as f64))
-//             .collect();
-//         (name, data_points)
-//     }).collect();
-//
-//     let datasets: Vec<Dataset> = all_series_data.iter().enumerate().map(| (i, (name, data_points))| {
-//         Dataset::default()
-//             .name((*name).to_string())
-//             .marker(symbols::Marker::Dot)
-//             // do this as summative lines
-//             .style(Style::default().fg(colors[i % colors.len()]))
-//             .data(data_points)
-//     }).collect();
-//
-//     let x_axis = Axis::default()
-//         .title(Span::from("Time (Days Ago)"))
-//         .style(Style::default().fg(Color::Gray))
-//         .bounds([0.0, 7.0])
-//         .labels(
-//             ["-7d", "-6d", "-5d", "-4d", "-3d", "-2d", "-1d", "Today"]
-//                 .iter()
-//                 .cloned()
-//                 .map(Span::from)
-//                 .collect::<Vec<Span>>(),
-//         );
-//
-//     let y_axis = Axis::default()
-//         .title(Span::from(data.y_axis_title))
-//         .style(Style::default().fg(Color::Gray))
-//         .bounds(data.y_axis_bounds)
-//         .labels(
-//             [
-//                 data.y_axis_bounds[0],
-//                 (data.y_axis_bounds[0] + data.y_axis_bounds[1]) / 2.0,
-//                 data.y_axis_bounds[1],
-//             ]
-//             .iter()
-//             .map(|&v| Span::from(format!("{:.0}", v)))
-//             .collect::<Vec<Span>>(),
-//         );
-//
-//     let chart = Chart::new(datasets)
-//         .block(
-//             Block::default()
-//                 .title(Span::from(data.title).bold())
-//                 .borders(Borders::ALL),
-//         )
-//         .x_axis(x_axis)
-//         .y_axis(y_axis)
-//         .legend_position(Some(LegendPosition::TopRight))
-//         .style(Style::default());
-//
-//     f.render_widget(chart, area);
-// }
-
-
 // App State and Data Loading
 
 impl<'a> App<'a> {
@@ -321,13 +254,12 @@ fn get_cpu_by_account_data<'a>() -> ChartData<'a> {
     let data = fi_slurm::prometheus::get_usage_by(Cluster::Rusty, Grouping::Account, Resource::Cpus, 7, "1d").unwrap();
 
     let binding = data.clone();
-    let max = binding.values().max().unwrap().iter().max().unwrap();
-    // got to be a better way to get the max value from a hashmap of vectors of numbers
+    let max = binding.values().map(|vec| vec.iter().sum::<u64>()).max().unwrap_or(0);
     
     ChartData {
         title: "CPU Usage by Account (8 Days)",
         source_data: data,
-        y_axis_bounds: [0.0, *max as f64 * 1.2],
+        y_axis_bounds: [0.0, max as f64 * 1.2],
         y_axis_title: "CPU Cores",
     }
 }
@@ -336,12 +268,12 @@ fn get_cpu_by_node_data<'a>() -> ChartData<'a> {
     let data = fi_slurm::prometheus::get_usage_by(Cluster::Rusty, Grouping::Nodes, Resource::Cpus, 7, "1d").unwrap();
     
     let binding = data.clone();
-    let max = binding.values().max().unwrap().iter().max().unwrap();
+    let max = binding.values().map(|vec| vec.iter().sum::<u64>()).max().unwrap_or(0);
 
     ChartData {
         title: "CPU Usage by Node Type (8 Days)",
         source_data: data,
-        y_axis_bounds: [0.0, *max as f64 * 1.2],
+        y_axis_bounds: [0.0, max as f64 * 1.2],
         y_axis_title: "CPU Cores",
     }
 }
@@ -350,12 +282,12 @@ fn get_gpu_by_type_data<'a>() -> ChartData<'a> {
     let data = fi_slurm::prometheus::get_usage_by(Cluster::Rusty, Grouping::GpuType, Resource::Gpus, 7, "1d").unwrap();
     
     let binding = data.clone();
-    let max = binding.values().max().unwrap().iter().max().unwrap();
+    let max = binding.values().map(|vec| vec.iter().sum::<u64>()).max().unwrap_or(0);
 
     ChartData {
         title: "GPU Usage by Type (8 Days)",
         source_data: data,
-        y_axis_bounds: [0.0, *max as f64 * 1.2],
+        y_axis_bounds: [0.0, max as f64 * 1.2],
         y_axis_title: "GPUs",
     }
 }
