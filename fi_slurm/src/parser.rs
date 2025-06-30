@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::ffi::CStr;
+use std::sync::Once;
 
 use once_cell::sync::Lazy;
 use regex::Regex;
@@ -25,9 +26,13 @@ use regex::Regex;
 pub fn parse_slurm_hostlist(hostlist_str: &str) -> Vec<String> {
     // We use `once_cell::sync::Lazy` to compile the regex only once, the first
     // time it's needed. This is much more performant than compiling it on every call
-    static RE: Lazy<Regex> = Lazy::new(|| {
+    static RE: Once<Regex> = Once::new();
+    RE.call_once(|| {
         Regex::new(r"^(.*)\[([^\]]+)\](.*)$").expect("Failed to compile hostlist regex")
     });
+    // static RE: Lazy<Regex> = Lazy::new(|| {
+    //     Regex::new(r"^(.*)\[([^\]]+)\](.*)$").expect("Failed to compile hostlist regex")
+    // });
 
     let mut expanded_nodes = Vec::new();
     let mut expressions = Vec::new();
