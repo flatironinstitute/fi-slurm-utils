@@ -132,29 +132,45 @@ fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView) {
     f.render_widget(tabs, area);
 }
 
-fn draw_chart(f: &mut Frame, area: Rect, data: &ChartData) {
+fn draw_chart<B: Backend>(f: &mut Frame, area: Rect, data: &ChartData) {
     let colors = [
         Color::Red, Color::Green, Color::Yellow, Color::Blue, Color::Magenta,
         Color::Cyan, Color::Gray, Color::LightRed, Color::LightGreen, Color::LightYellow,
         Color::LightBlue,
     ];
 
-    let all_series_data: Vec<(&String, Vec<(f64, f64)>)>  = data.source_data.iter().map(|(name, values)| {
-        let data_points: Vec<(f64, f64)> = values
-            .iter()
-            .enumerate()
-            .map(|(day_index, &value)| (day_index as f64, value as f64))
-            .collect();
-        (name, data_points)
-    }).collect();
+    // --- FIX: Data Transformation for Stacked Chart ---
+    // We need to calculate the cumulative sums before creating the datasets.
+    
+    // Sort the series by name to have a consistent stacking order.
+    let mut sorted_series: Vec<_> = data.source_data.iter().collect();
+    sorted_series.sort_by_key(|(name, _)| *name);
 
-    let datasets: Vec<Dataset> = all_series_data.iter().enumerate().map(| (i, (name, data_points))| {
-        Dataset::default()
-            .name((*name).to_string())
-            .marker(symbols::Marker::Bar)
-            .style(Style::default().fg(colors[i % colors.len()]))
-            .data(data_points)
-    }).collect();
+    // This will hold the y-values of the line below the current one,
+    // allowing us to "stack" them. It starts at all zeros.
+    let mut baseline: Vec<f64> = vec![0.0; 8]; // Assuming 8 data points
+    
+    let datasets: Vec<Dataset> = sorted_series
+        .iter()
+        .enumerate()
+        .map(|(i, (name, values))| {
+            let mut stacked_points = Vec::with_capacity(values.len());
+            for (day_index, &value) in values.iter().enumerate() {
+                // The new y-value is this series' value plus the baseline.
+                let stacked_y = baseline[day_index] + value as f64;
+                stacked_points.push((day_index as f64, stacked_y));
+                // Update the baseline for the *next* series.
+                baseline[day_index] = stacked_y;
+            }
+
+            Dataset::default()
+                .name((*name).to_string())
+                // FIX: Use GraphType::Line to connect the points.
+                .graph_type(GraphType::Line)
+                .style(Style::default().fg(colors[i % colors.len()]))
+                .data(&stacked_points)
+        })
+        .collect();
         
     let x_axis = Axis::default()
         .title(Span::from("Time (Days Ago)"))
@@ -191,11 +207,77 @@ fn draw_chart(f: &mut Frame, area: Rect, data: &ChartData) {
         )
         .x_axis(x_axis)
         .y_axis(y_axis)
-        .legend_position(Some(LegendPosition::TopRight))
-        .style(Style::default());
+        .legend_position(Some(LegendPosition::TopRight));
 
     f.render_widget(chart, area);
 }
+
+
+// fn draw_chart(f: &mut Frame, area: Rect, data: &ChartData) {
+//     let colors = [
+//         Color::Red, Color::Green, Color::Yellow, Color::Blue, Color::Magenta,
+//         Color::Cyan, Color::Gray, Color::LightRed, Color::LightGreen, Color::LightYellow,
+//         Color::LightBlue,
+//     ];
+//
+//     let all_series_data: Vec<(&String, Vec<(f64, f64)>)>  = data.source_data.iter().map(|(name, values)| {
+//         let data_points: Vec<(f64, f64)> = values
+//             .iter()
+//             .enumerate()
+//             .map(|(day_index, &value)| (day_index as f64, value as f64))
+//             .collect();
+//         (name, data_points)
+//     }).collect();
+//
+//     let datasets: Vec<Dataset> = all_series_data.iter().enumerate().map(| (i, (name, data_points))| {
+//         Dataset::default()
+//             .name((*name).to_string())
+//             .marker(symbols::Marker::Dot)
+//             // do this as summative lines
+//             .style(Style::default().fg(colors[i % colors.len()]))
+//             .data(data_points)
+//     }).collect();
+//
+//     let x_axis = Axis::default()
+//         .title(Span::from("Time (Days Ago)"))
+//         .style(Style::default().fg(Color::Gray))
+//         .bounds([0.0, 7.0])
+//         .labels(
+//             ["-7d", "-6d", "-5d", "-4d", "-3d", "-2d", "-1d", "Today"]
+//                 .iter()
+//                 .cloned()
+//                 .map(Span::from)
+//                 .collect::<Vec<Span>>(),
+//         );
+//
+//     let y_axis = Axis::default()
+//         .title(Span::from(data.y_axis_title))
+//         .style(Style::default().fg(Color::Gray))
+//         .bounds(data.y_axis_bounds)
+//         .labels(
+//             [
+//                 data.y_axis_bounds[0],
+//                 (data.y_axis_bounds[0] + data.y_axis_bounds[1]) / 2.0,
+//                 data.y_axis_bounds[1],
+//             ]
+//             .iter()
+//             .map(|&v| Span::from(format!("{:.0}", v)))
+//             .collect::<Vec<Span>>(),
+//         );
+//
+//     let chart = Chart::new(datasets)
+//         .block(
+//             Block::default()
+//                 .title(Span::from(data.title).bold())
+//                 .borders(Borders::ALL),
+//         )
+//         .x_axis(x_axis)
+//         .y_axis(y_axis)
+//         .legend_position(Some(LegendPosition::TopRight))
+//         .style(Style::default());
+//
+//     f.render_widget(chart, area);
+// }
 
 
 // App State and Data Loading
