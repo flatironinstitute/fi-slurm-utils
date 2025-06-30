@@ -189,7 +189,7 @@ pub fn print_report(report_data: &ReportData, no_color: bool) {
     );
     println!("{}", "-".repeat(max_state_width + 23));
 
-    let total_line = generate_total_line(report_data, sorted_states, max_state_width, no_color);
+    let total_line = generate_total_line(report_data.clone(), sorted_states, max_state_width, no_color);
 
 
     println!("{}", "-".repeat(max_state_width + 23));
