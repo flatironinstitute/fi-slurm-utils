@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 use std::ffi::CStr;
-use std::sync::Once;
+use std::sync::OnceLock;
 
-use once_cell::sync::Lazy;
 use regex::Regex;
 
 /// A robust parser for Slurm hostlist strings
@@ -24,15 +23,10 @@ use regex::Regex;
 ///
 /// A `Vec<String>` containing all the individual, expanded hostnames
 pub fn parse_slurm_hostlist(hostlist_str: &str) -> Vec<String> {
-    // We use `once_cell::sync::Lazy` to compile the regex only once, the first
-    // time it's needed. This is much more performant than compiling it on every call
-    static RE: Once<Regex> = Once::new();
-    RE.call_once(|| {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    let re = RE.get_or_init(|| {
         Regex::new(r"^(.*)\[([^\]]+)\](.*)$").expect("Failed to compile hostlist regex")
     });
-    // static RE: Lazy<Regex> = Lazy::new(|| {
-    //     Regex::new(r"^(.*)\[([^\]]+)\](.*)$").expect("Failed to compile hostlist regex")
-    // });
 
     let mut expanded_nodes = Vec::new();
     let mut expressions = Vec::new();
@@ -64,7 +58,7 @@ pub fn parse_slurm_hostlist(hostlist_str: &str) -> Vec<String> {
 
     for part in expressions {
         // For each part, check if it matches our ranged expression regex
-        if let Some(captures) = RE.captures(&part) {
+        if let Some(captures) = re.captures(&part) {
             // It's a ranged expression like "prefix[ranges]suffix"
             let prefix = captures.get(1).map_or("", |m| m.as_str());
             let range_list = captures.get(2).map_or("", |m| m.as_str());

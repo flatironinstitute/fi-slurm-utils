@@ -1,5 +1,6 @@
-
 use bitflags::bitflags;
+// bitflags has no dependencies of its own, and is already required as a dependency by bindgen and
+// crossterm. As a result, it's not recommended for dependency pruning
 use rust_bind::bindings;
 
 bitflags! {
