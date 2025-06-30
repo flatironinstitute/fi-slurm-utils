@@ -211,27 +211,39 @@ pub fn print_report(report_data: &ReportData, no_color: bool) {
 
     if total_line.node_count > 0 {
         let utilization_percent = (utilized_nodes as f64 / total_line.node_count as f64) * 100.0;
-        let bar_width: usize = 50;
-        let filled_chars = (bar_width as f64 * (utilization_percent / 100.0)).round() as usize;
-
-        let filled_bar = if no_color {"█".repeat(filled_chars).white()} else {"█".repeat(filled_chars).blue()};
-        let empty_chars = bar_width.saturating_sub(filled_chars);         
-        let empty_bar = "░".repeat(empty_chars).normal();
-
-        println!("Overall Node Utilization: \n [{}{}] {:.1}%", filled_bar, empty_bar, utilization_percent);
+        print_utilization(utilization_percent, 50, BarColor::Blue, no_color);
     }
 
     if total_line.total_cpus > 0 {
         let utilization_percent = (total_line.alloc_cpus as f64 / total_line.total_cpus as f64) * 100.0;
-        let bar_width: usize = 50;
+        print_utilization(utilization_percent, 50, BarColor::Red, no_color);
+    }
+}
+
+enum BarColor {
+    Red,
+    Green,
+    Blue
+}
+
+impl BarColor {
+    pub fn apply_color(self, text: String) -> ColoredString {
+        match self {
+            BarColor::Blue => text.blue(),
+            BarColor::Red => text.red(),
+            BarColor::Green => text.green()
+        }
+    }
+}
+
+fn print_utilization(utilization_percent: f64, bar_width: usize, bar_color: BarColor, no_color: bool) {
         let filled_chars = (bar_width as f64 * (utilization_percent / 100.0)).round() as usize;
 
-        let filled_bar = if no_color {"█".repeat(filled_chars).white()} else {"█".repeat(filled_chars).red()};
+        let filled_bar = if no_color {"█".repeat(filled_chars).white()} else {bar_color.apply_color("█".repeat(filled_chars))};
         let empty_chars = bar_width.saturating_sub(filled_chars);        
-        let empty_bar = if no_color {"░".repeat(empty_chars).white()} else {"░".repeat(empty_chars).green()};
+        let empty_bar = "░".repeat(empty_chars).normal();
 
-        println!("Overall Processor Utilization: \n [{}{}] {:.1}%", filled_bar, empty_bar, utilization_percent);
-    }
+        println!("Overall Node Utilization: \n [{}{}] {:.1}%", filled_bar, empty_bar, utilization_percent);
 }
 
 fn generate_total_line(report_data: &HashMap<NodeState, ReportGroup>, sorted_states: Vec<&NodeState>, max_state_width:  usize, no_color: bool) -> ReportLine{
