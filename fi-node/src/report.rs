@@ -271,7 +271,7 @@ fn generate_total_line(report_data: &HashMap<NodeState, ReportGroup>, sorted_sta
                 _ => {
                     match state {
                         NodeState::Idle => if no_color { uncolored_str.white().to_string()} else {uncolored_str.green().to_string()},
-                        NodeState::Mixed => if no_color { uncolored_str.white().to_string()} else {uncolored_str.blue().to_string()},
+                        NodeState::Mixed => if no_color { uncolored_str.white().to_string()} else {uncolored_str.cyan().to_string()},
                         NodeState::Allocated => if no_color { uncolored_str.white().to_string()} else {uncolored_str.yellow().to_string()},
                         NodeState::Down => if no_color { uncolored_str.white().to_string()} else {uncolored_str.red().to_string()},
                         NodeState::Error => if no_color { uncolored_str.white().to_string()} else {uncolored_str.magenta().to_string()},
