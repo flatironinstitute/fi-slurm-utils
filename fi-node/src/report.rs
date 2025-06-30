@@ -220,6 +220,7 @@ pub fn print_report(report_data: &ReportData, no_color: bool) {
     }
 }
 
+#[allow(dead_code)]
 enum BarColor {
     Red,
     Green,
