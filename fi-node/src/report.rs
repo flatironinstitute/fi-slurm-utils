@@ -107,15 +107,12 @@ pub fn build_report(
         group.summary.total_cpus += node.cpus as u32;
         group.summary.alloc_cpus += alloc_cpus_for_node;
 
-        if let Some(gpu) = &node.gpu_info {
-            group.summary.total_gpus += gpu.total_gpus;
-            group.summary.alloc_gpus += gpu.allocated_gpus;
-        }
-
         // Check if the node has GPU info.
         if let Some(gpu) = &node.gpu_info {
-            // --- This is a GPU Node ---
             // The subgroup is identified by the specific GPU name.
+            group.summary.total_gpus += gpu.total_gpus;
+            group.summary.alloc_gpus += gpu.allocated_gpus;
+
             let subgroup_line = group.subgroups.entry(gpu.name.clone()).or_default();
             
             // Add ALL stats for this node to this one subgroup.
@@ -124,7 +121,6 @@ pub fn build_report(
             subgroup_line.alloc_cpus += alloc_cpus_for_node;
             subgroup_line.total_gpus += gpu.total_gpus;
             subgroup_line.alloc_gpus += gpu.allocated_gpus;
-
         }
 
         // --- This is a CPU-only Node ---
