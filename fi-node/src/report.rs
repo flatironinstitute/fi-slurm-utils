@@ -292,7 +292,7 @@ fn generate_total_line(report_data: &HashMap<NodeState, ReportGroup>, sorted_sta
             let gpu_str = if group.summary.total_gpus > 0 {
                 format!("{:>5}/{:<5}", group.summary.alloc_gpus, group.summary.total_gpus)
             } else {
-                "-".to_string()
+                format!("{:<5}", "-".to_string())
             };
 
             println!("{}{}{:>5} {:>13} {:>13}", colored_str, padding, group.summary.node_count, cpu_str, gpu_str);
@@ -306,7 +306,7 @@ fn generate_total_line(report_data: &HashMap<NodeState, ReportGroup>, sorted_sta
                     let sub_gpu_str = if subgroup_line.total_gpus > 0 {
                         format!("{:>5}/{:<5}", subgroup_line.alloc_gpus, subgroup_line.total_gpus)
                     } else {
-                        "-".to_string()
+                        format!("{:<5}", "-".to_string())
                     };
 
                     let indented_name = format!("  {}", subgroup_name);
