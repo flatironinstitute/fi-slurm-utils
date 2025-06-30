@@ -99,18 +99,8 @@ pub fn build_report(
             0 // No jobs on this node, so 0 allocated CPUs.
         };
 
-        // --- Derive the true node state ---
-        // A node reporting as ALLOCATED might only be partially used. If so, we
-        // categorize it as MIXED for a more accurate report.
-        let derived_state = if alloc_cpus_for_node > 0 && alloc_cpus_for_node < node.cpus as u32 {
-            NodeState::Mixed
-        } else {
-            // Otherwise, we trust the state reported by Slurm.
-            node.state.clone()
-        };
-
         // Get the report group for the node's derived state.
-        let group = report_data.entry(derived_state).or_default();
+        let group = report_data.entry(node.state).or_default();
 
         // --- Update the Main Summary Line for the Group ---
         group.summary.node_count += 1;
