@@ -260,7 +260,7 @@ fn generate_total_line(report_data: &HashMap<NodeState, ReportGroup>, sorted_sta
                     let flags_str = format!("+{}", flags.join("+").to_uppercase());
                     let colored_base = match **base {
                         NodeState::Idle => if no_color { base_str.white()} else {base_str.green()},
-                        NodeState::Mixed => if no_color { base_str.white()} else {base_str.blue()},
+                        NodeState::Mixed => if no_color { base_str.white()} else {base_str.cyan()},
                         NodeState::Allocated => if no_color { base_str.white()} else {base_str.yellow()},
                         NodeState::Down => if no_color { base_str.white()} else {base_str.red()},
                         NodeState::Error => if no_color { base_str.white()} else {base_str.magenta()},
