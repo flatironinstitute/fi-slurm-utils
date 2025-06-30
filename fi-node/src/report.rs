@@ -135,7 +135,6 @@ pub fn build_report(
             subgroup_line.total_gpus += gpu.total_gpus;
             subgroup_line.alloc_gpus += gpu.allocated_gpus;
 
-        // } else {
         }
 
         // --- This is a CPU-only Node ---
@@ -148,7 +147,6 @@ pub fn build_report(
             subgroup_line.total_cpus += node.cpus as u32;
             subgroup_line.alloc_cpus += alloc_cpus_for_node;
         }
-        
     }
     report_data
 }
@@ -191,6 +189,52 @@ pub fn print_report(report_data: &ReportData, no_color: bool) {
     );
     println!("{}", "-".repeat(max_state_width + 23));
 
+    let total_line = generate_total_line(report_data, sorted_states, max_state_width, no_color);
+
+
+    println!("{}", "-".repeat(max_state_width + 23));
+    let total_cpu_str = format!("{:>5}/{:<5}", total_line.alloc_cpus, total_line.total_cpus);
+    let total_gpu_str = format!("{:>5}/{:<5}", total_line.alloc_gpus, total_line.total_gpus);
+    let total_padding = " ".repeat(max_state_width - "TOTAL".len());
+    println!("{}{}{:>5} {:>13} {:>13}", "TOTAL".bold(), total_padding, total_line.node_count, total_cpu_str, total_gpu_str);
+
+    println!();
+
+    let utilized_nodes = report_data.iter().fold(0, |acc, (state, group)| {
+        let is_utilized = match state {
+            NodeState::Allocated | NodeState::Mixed => true,
+            NodeState::Compound{ base, ..} => matches!(**base, NodeState::Allocated | NodeState::Mixed),
+            _ => false,
+        };
+        if is_utilized { acc + group.summary.node_count } else { acc }
+    });
+
+    if total_line.node_count > 0 {
+        let utilization_percent = (utilized_nodes as f64 / total_line.node_count as f64) * 100.0;
+        let bar_width: usize = 50;
+        let filled_chars = (bar_width as f64 * (utilization_percent / 100.0)).round() as usize;
+
+        let filled_bar = if no_color {"█".repeat(filled_chars).white()} else {"█".repeat(filled_chars).blue()};
+        let empty_chars = bar_width.saturating_sub(filled_chars);         
+        let empty_bar = "░".repeat(empty_chars).normal();
+
+        println!("Overall Node Utilization: \n [{}{}] {:.1}%", filled_bar, empty_bar, utilization_percent);
+    }
+
+    if total_line.total_cpus > 0 {
+        let utilization_percent = (total_line.alloc_cpus as f64 / total_line.total_cpus as f64) * 100.0;
+        let bar_width: usize = 50;
+        let filled_chars = (bar_width as f64 * (utilization_percent / 100.0)).round() as usize;
+
+        let filled_bar = if no_color {"█".repeat(filled_chars).white()} else {"█".repeat(filled_chars).red()};
+        let empty_chars = bar_width.saturating_sub(filled_chars);        
+        let empty_bar = if no_color {"░".repeat(empty_chars).white()} else {"░".repeat(empty_chars).green()};
+
+        println!("Overall Processor Utilization: \n [{}{}] {:.1}%", filled_bar, empty_bar, utilization_percent);
+    }
+}
+
+fn generate_total_line(report_data: HashMap<NodeState, ReportGroup>, sorted_states: Vec<&NodeState>, max_state_width: usize, no_color: bool) -> ReportLine{
     let mut total_line = ReportLine::default();
     for state in sorted_states {
         if let Some(group) = report_data.get(state) {
@@ -238,7 +282,6 @@ pub fn print_report(report_data: &ReportData, no_color: bool) {
             };
 
             println!("{}{}{:>5} {:>13} {:>13}", colored_str, padding, group.summary.node_count, cpu_str, gpu_str);
-            //println!("{}{}{:>5} {:>13}", colored_str, padding, group.summary.node_count, cpu_str);
 
             let mut sorted_subgroups: Vec<&String> = group.subgroups.keys().collect();
             sorted_subgroups.sort();
@@ -256,52 +299,10 @@ pub fn print_report(report_data: &ReportData, no_color: bool) {
                     let sub_padding_len = max_state_width.saturating_sub(indented_name.len());
                     let sub_padding = " ".repeat(sub_padding_len);
 
-                    //println!("{}{}{:>5} {:>13}", indented_name, sub_padding, subgroup_line.node_count, sub_cpu_str);
                     println!("{}{}{:>5} {:>13} {:>13}", indented_name, sub_padding, subgroup_line.node_count, sub_cpu_str, sub_gpu_str);
                 }
             }
         }
     }
-
-    println!("{}", "-".repeat(max_state_width + 23));
-    let total_cpu_str = format!("{:>5}/{:<5}", total_line.alloc_cpus, total_line.total_cpus);
-    let total_gpu_str = format!("{:>5}/{:<5}", total_line.alloc_gpus, total_line.total_gpus);
-    let total_padding = " ".repeat(max_state_width - "TOTAL".len());
-    println!("{}{}{:>5} {:>13} {:>13}", "TOTAL".bold(), total_padding, total_line.node_count, total_cpu_str, total_gpu_str);
-
-    println!();
-
-    let utilized_nodes = report_data.iter().fold(0, |acc, (state, group)| {
-        let is_utilized = match state {
-            NodeState::Allocated | NodeState::Mixed => true,
-            NodeState::Compound{ base, ..} => matches!(**base, NodeState::Allocated | NodeState::Mixed),
-            _ => false,
-        };
-        if is_utilized { acc + group.summary.node_count } else { acc }
-    });
-
-    if total_line.node_count > 0 {
-        let utilization_percent = (utilized_nodes as f64 / total_line.node_count as f64) * 100.0;
-        let bar_width: usize = 50;
-        let filled_chars = (bar_width as f64 * (utilization_percent / 100.0)).round() as usize;
-
-        let filled_bar = if no_color {"█".repeat(filled_chars).white()} else {"█".repeat(filled_chars).blue()};
-        let empty_chars = bar_width.saturating_sub(filled_chars);         
-        let empty_bar = "░".repeat(empty_chars).normal();
-
-        println!("Overall Node Utilization: \n [{}{}] {:.1}%", filled_bar, empty_bar, utilization_percent);
-    }
-
-    if total_line.total_cpus > 0 {
-        let utilization_percent = (total_line.alloc_cpus as f64 / total_line.total_cpus as f64) * 100.0;
-        let bar_width: usize = 50;
-        let filled_chars = (bar_width as f64 * (utilization_percent / 100.0)).round() as usize;
-
-        let filled_bar = if no_color {"█".repeat(filled_chars).white()} else {"█".repeat(filled_chars).red()};
-        let empty_chars = bar_width.saturating_sub(filled_chars);        
-        let empty_bar = if no_color {"░".repeat(empty_chars).white()} else {"░".repeat(empty_chars).green()};
-
-        println!("Overall Processor Utilization: \n [{}{}] {:.1}%", filled_bar, empty_bar, utilization_percent);
-    }
+    total_line
 }
-
