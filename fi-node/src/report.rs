@@ -270,7 +270,6 @@ fn get_node_utilization(report_data: &HashMap<NodeState, ReportGroup>) -> f64 {
     utilized_nodes as f64
 }
 
-#[allow(dead_code)]
 enum BarColor {
     Red,
     Green,
