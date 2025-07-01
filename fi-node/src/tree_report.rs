@@ -3,9 +3,9 @@ use crate::nodes::{Node, NodeState};
 use colored::*;
 use std::collections::HashMap;
 
-// --- Data Structures for the Tree Report ---
+// Data Structures for the Tree Report
 
-/// Represents a single node in the feature hierarchy tree.
+/// Represents a single node in the feature hierarchy tree
 #[derive(Default, Debug, Clone)]
 pub struct TreeNode {
     pub name: String,
@@ -13,7 +13,7 @@ pub struct TreeNode {
     pub children: HashMap<String, TreeNode>,
 }
 
-/// A simplified version of the ReportLine from the detailed report.
+/// A simplified version of the ReportLine from the detailed report
 #[derive(Default, Debug, Clone)]
 pub struct ReportLine {
     pub total_nodes: u32,
@@ -26,15 +26,15 @@ pub struct ReportLine {
 pub type TreeReportData = TreeNode;
 
 
-// --- Aggregation Logic ---
+// Aggregation Logic
 
-/// Helper function to determine if a node is available for new work.
+/// Helper function to determine if a node is available for new work
 fn is_node_available(state: &NodeState) -> bool {
     match state {
         NodeState::Idle => true,
         NodeState::Compound { base, flags } => {
             if **base == NodeState::Idle {
-                // Node is idle, but check for disqualifying flags.
+                // Node is idle, but check for disqualifying flags
                 !flags.iter().any(|flag| flag == "MAINT" || flag == "DOWN" || flag == "DRAIN" || flag == "INVALID_REG")
             } else {
                 false
@@ -44,7 +44,7 @@ fn is_node_available(state: &NodeState) -> bool {
     }
 }
 
-/// Builds a hierarchical tree report from a flat list of Slurm nodes.
+/// Builds a hierarchical tree report from a flat list of Slurm nodes
 pub fn build_tree_report(
     nodes: &[&Node],
     jobs: &SlurmJobs,
@@ -64,7 +64,7 @@ pub fn build_tree_report(
         };
         let is_available = is_node_available(&node.state);
 
-        // --- Update Grand Total Stats ---
+        // Update Grand Total Stats
         root.stats.total_nodes += 1;
         root.stats.total_cpus += node.cpus as u32;
         root.stats.alloc_cpus += alloc_cpus_for_node;
@@ -73,9 +73,9 @@ pub fn build_tree_report(
             root.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
         }
 
-        // --- Tree Building Logic ---
+        // Tree Building Logic
         if feature_filter.is_empty() {
-            // --- Default Behavior: Build tree from full feature list ---
+            // Default Behavior: Build tree from full feature list
             let mut current_level = &mut root;
             for feature in &node.features {
                 current_level = current_level.children.entry(feature.clone()).or_default();
@@ -90,7 +90,7 @@ pub fn build_tree_report(
                 }
             }
         } else {
-            // --- Filtered Behavior: Make filtered features the top level ---
+            // Filtered Behavior: Make filtered features the top level
             for filter in feature_filter {
                 if node.features.contains(filter) {
                     let mut current_level = root.children.entry(filter.clone()).or_default();
@@ -125,9 +125,8 @@ pub fn build_tree_report(
 }
 
 
-// --- Display Logic ---
+// Display Logic
 
-/// NEW: A struct to hold the calculated maximum widths for the numeric columns.
 #[derive(Default)]
 struct ColumnWidths {
     max_idle_nodes: usize,
@@ -136,8 +135,6 @@ struct ColumnWidths {
     max_total_cpus: usize,
 }
 
-/// NEW: Recursively calculates the maximum width needed for each stats column
-/// by traversing the entire tree before printing.
 fn calculate_column_widths(tree_node: &TreeNode) -> ColumnWidths {
     let mut widths = ColumnWidths {
         max_idle_nodes: tree_node.stats.idle_nodes.to_string().len(),
@@ -157,8 +154,7 @@ fn calculate_column_widths(tree_node: &TreeNode) -> ColumnWidths {
     widths
 }
 
-/// NEW: Formats a statistics column (e.g., "5 / 100") with perfect alignment
-/// based on the pre-calculated maximum widths.
+/// based on the pre-calculated maximum widths
 fn format_tree_stat_column(current: u32, total: u32, max_current_width: usize, max_total_width: usize) -> String {
     format!(
         "{:>current_w$}/{:>total_w$} ",
@@ -172,7 +168,7 @@ fn format_tree_stat_column(current: u32, total: u32, max_current_width: usize, m
 /// Creates a colored bar string for available resources (nodes or CPUs)
 fn create_avail_bar(current: u32, total: u32, width: usize, color: Color, no_color: bool) -> String {
     if total == 0 {
-        // To avoid division by zero and provide clear output for empty categories.
+        // To avoid division by zero and provide clear output for empty categories
         let bar_content = " ".repeat(width);
         return format!("|{}|", bar_content);
     }
@@ -185,7 +181,7 @@ fn create_avail_bar(current: u32, total: u32, width: usize, color: Color, no_col
     format!("|{}{}|", filled, empty)
 }
 
-/// Recursively calculates the maximum width needed for the feature name column.
+/// Recursively calculates the maximum width needed for the feature name column
 fn calculate_max_width(tree_node: &TreeNode, prefix_len: usize) -> usize {
     let mut path_parts = vec![tree_node.name.as_str()];
     let mut current_node = tree_node;
@@ -206,18 +202,15 @@ fn calculate_max_width(tree_node: &TreeNode, prefix_len: usize) -> usize {
         .max(current_width)
 }
 
-
 pub fn print_tree_report(root: &TreeReportData, no_color: bool) {
 
     let max_width = calculate_max_width(root, 0) + 2;
     let bar_width = 20;
     
-    // UPDATED: Calculate all column widths before printing anything.
     let col_widths = calculate_column_widths(root);
     let nodes_col_width = col_widths.max_idle_nodes + col_widths.max_total_nodes + 3; // +3 for " / "
     let cpus_col_width = col_widths.max_idle_cpus + col_widths.max_total_cpus + 3;  // +3 for " / "
 
-    // UPDATED: Use dynamic widths to align headers correctly.
     println!(
         "{:<width$} {:>nodes_w$} {:>cpus_w$} {:<bar_w$} {:<bar_w$}",
         "FEATURE".bold(),
@@ -232,7 +225,6 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool) {
     );
     println!("{}", "-".repeat(max_width + nodes_col_width + cpus_col_width + (bar_width + 2) * 2 + 2));
 
-    // UPDATED: Use the new formatting function for the TOTAL line.
     let node_text = format_tree_stat_column(root.stats.idle_nodes, root.stats.total_nodes, col_widths.max_idle_nodes, col_widths.max_total_nodes);
     let cpu_text = format_tree_stat_column(root.stats.idle_cpus, root.stats.total_cpus, col_widths.max_idle_cpus, col_widths.max_total_cpus);
     let node_bar = create_avail_bar(root.stats.idle_nodes, root.stats.total_nodes, bar_width, Color::Green, no_color);
@@ -248,13 +240,11 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool) {
     sorted_children.sort_by(|a, b| a.name.cmp(&b.name));
     for (i, child) in sorted_children.iter().enumerate() {
         let is_last = i == sorted_children.len() - 1;
-        // UPDATED: Pass the calculated column widths to the recursive function.
         print_node_recursive(child, "", is_last, no_color, max_width, bar_width, &col_widths);
     }
 }
 
-/// Recursively prints a node and its children to form the tree structure.
-/// UPDATED: Now takes ColumnWidths to format numbers correctly.
+/// Recursively prints a node and its children to form the tree structure
 fn print_node_recursive(tree_node: &TreeNode, prefix: &str, is_last: bool, no_color: bool, max_width: usize, bar_width: usize, col_widths: &ColumnWidths) {
     let mut path_parts = vec![tree_node.name.as_str()];
     let mut current_node = tree_node;
@@ -269,7 +259,6 @@ fn print_node_recursive(tree_node: &TreeNode, prefix: &str, is_last: bool, no_co
     let connector = if is_last { "└──" } else { "├──" };
     let display_name = format!("{}{}{}", prefix, connector, collapsed_name);
 
-    // UPDATED: Use the new formatting function for every line in the tree.
     let node_text = format_tree_stat_column(current_node.stats.idle_nodes, current_node.stats.total_nodes, col_widths.max_idle_nodes, col_widths.max_total_nodes);
     let cpu_text = format_tree_stat_column(current_node.stats.idle_cpus, current_node.stats.total_cpus, col_widths.max_idle_cpus, col_widths.max_total_cpus);
     let node_bar = create_avail_bar(current_node.stats.idle_nodes, current_node.stats.total_nodes, bar_width, Color::Green, no_color);
@@ -291,302 +280,7 @@ fn print_node_recursive(tree_node: &TreeNode, prefix: &str, is_last: bool, no_co
 
     for (i, child) in sorted_children.iter().enumerate() {
         let is_child_last = i == sorted_children.len() - 1;
-        // UPDATED: Pass the column widths down in the recursive call.
         print_node_recursive(child, &full_child_prefix, is_child_last, no_color, max_width, bar_width, col_widths);
     }
 }
 
-
-
-//use crate::jobs::SlurmJobs;
-//use crate::nodes::{Node, NodeState};
-//use colored::*;
-//use std::collections::HashMap;
-//
-//// Data Structures for the Tree Report
-//
-///// Represents a single node in the feature hierarchy tree.
-//#[derive(Default, Debug, Clone)]
-//pub struct TreeNode {
-//    pub name: String,
-//    pub stats: ReportLine,
-//    pub children: HashMap<String, TreeNode>,
-//}
-//
-///// A simplified version of the ReportLine from the detailed report.
-//#[derive(Default, Debug, Clone)]
-//pub struct ReportLine {
-//    pub total_nodes: u32,
-//    pub idle_nodes: u32, // New: For tracking available nodes
-//    pub total_cpus: u32,
-//    pub idle_cpus: u32, // New: For tracking available CPUs
-//    pub alloc_cpus: u32,
-//}
-//
-//pub type TreeReportData = TreeNode;
-//
-//
-//// Aggregation Logic
-//
-///// Helper function to determine if a node is available for new work.
-//fn is_node_available(state: &NodeState) -> bool {
-//    match state {
-//        NodeState::Idle => true,
-//        NodeState::Compound { base, flags } => {
-//            if **base == NodeState::Idle {
-//                // Node is idle, but check for disqualifying flags.
-//                !flags.iter().any(|flag| flag == "MAINT" || flag == "DOWN" || flag == "DRAIN" || flag == "INVALID_REG")
-//            } else {
-//                false
-//            }
-//        }
-//        _ => false,
-//    }
-//}
-//
-///// Builds a hierarchical tree report from a flat list of Slurm nodes.
-//pub fn build_tree_report(
-//    nodes: &[&Node],
-//    jobs: &SlurmJobs,
-//    node_to_job_map: &HashMap<String, Vec<u32>>,
-//    feature_filter: &[String],
-//) -> TreeReportData {
-//    let mut root = TreeNode {
-//        name: "TOTAL".to_string(),
-//        ..Default::default()
-//    };
-//
-//    for &node in nodes {
-//        let alloc_cpus_for_node: u32 = if let Some(job_ids) = node_to_job_map.get(&node.name) {
-//            job_ids.iter().filter_map(|id| jobs.jobs.get(id)).map(|j| j.num_cpus / j.num_nodes.max(1)).sum()
-//        } else {
-//            0
-//        };
-//        let is_available = is_node_available(&node.state);
-//
-//        // --- Update Grand Total Stats ---
-//        root.stats.total_nodes += 1;
-//        root.stats.total_cpus += node.cpus as u32;
-//        root.stats.alloc_cpus += alloc_cpus_for_node;
-//        if is_available {
-//            root.stats.idle_nodes += 1;
-//            root.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
-//        }
-//
-//        // --- Tree Building Logic ---
-//        if feature_filter.is_empty() {
-//            // --- Default Behavior: Build tree from full feature list ---
-//            let mut current_level = &mut root;
-//            for feature in &node.features {
-//                current_level = current_level.children.entry(feature.clone()).or_default();
-//                current_level.name = feature.clone();
-//                // Add stats to this branch
-//                current_level.stats.total_nodes += 1;
-//                current_level.stats.total_cpus += node.cpus as u32;
-//                current_level.stats.alloc_cpus += alloc_cpus_for_node;
-//                if is_available {
-//                    current_level.stats.idle_nodes += 1;
-//                    current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
-//                }
-//            }
-//        } else {
-//            // --- Filtered Behavior: Make filtered features the top level ---
-//            for filter in feature_filter {
-//                if node.features.contains(filter) {
-//                    let mut current_level = root.children.entry(filter.clone()).or_default();
-//                    current_level.name = filter.clone();
-//                    // Add stats to this top-level branch
-//                    current_level.stats.total_nodes += 1;
-//                    current_level.stats.total_cpus += node.cpus as u32;
-//                    current_level.stats.alloc_cpus += alloc_cpus_for_node;
-//                    if is_available {
-//                       current_level.stats.idle_nodes += 1;
-//                       current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
-//                    }
-//
-//                    // Build the sub-branch from the *remaining* features
-//                    for feature in node.features.iter().filter(|f| *f != filter) {
-//                         current_level = current_level.children.entry(feature.clone()).or_default();
-//                         current_level.name = feature.clone();
-//                         // Add stats to the sub-branch
-//                         current_level.stats.total_nodes += 1;
-//                         current_level.stats.total_cpus += node.cpus as u32;
-//                         current_level.stats.alloc_cpus += alloc_cpus_for_node;
-//                         if is_available {
-//                            current_level.stats.idle_nodes += 1;
-//                            current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
-//                         }
-//                    }
-//                }
-//            }
-//        }
-//    }
-//    root
-//}
-//
-//
-//// Display Logic
-//
-//
-////#[derive(Default)]
-////struct ColumnWidths {
-////    max_idle_nodes: usize,
-////    max_total_nodes: usize,
-////    max_idle_cpus: usize,
-////    max_total_cpus: usize,
-////}
-////
-/////// Recursively calculates the maximum width needed for each stats column.
-////fn calculate_column_widths(tree_node: &TreeNode) -> ColumnWidths {
-////    let mut widths = ColumnWidths {
-////        max_idle_nodes: tree_node.stats.idle_nodes.to_string().len(),
-////        max_total_nodes: tree_node.stats.total_nodes.to_string().len(),
-////        max_idle_cpus: tree_node.stats.idle_cpus.to_string().len(),
-////        max_total_cpus: tree_node.stats.total_cpus.to_string().len(),
-////    };
-////
-////    for child in tree_node.children.values() {
-////        let child_widths = calculate_column_widths(child);
-////        widths.max_idle_nodes = widths.max_idle_nodes.max(child_widths.max_idle_nodes);
-////        widths.max_total_nodes = widths.max_total_nodes.max(child_widths.max_total_nodes);
-////        widths.max_idle_cpus = widths.max_idle_cpus.max(child_widths.max_idle_cpus);
-////        widths.max_total_cpus = widths.max_total_cpus.max(child_widths.max_total_cpus);
-////    }
-////
-////    widths
-////}
-//
-/////// Formats a statistics column (e.g., "5 / 100") with perfect alignment.
-////fn format_tree_stat_column(current: u32, total: u32, max_current_width: usize, max_total_width: usize) -> String {
-////    format!(
-////        "{:>current_w$} / {:>total_w$}",
-////        current,
-////        total,
-////        current_w = max_current_width,
-////        total_w = max_total_width
-////    )
-////}
-//
-///// Creates a colored bar string for available resources (nodes or CPUs)
-//fn create_avail_bar(current: u32, total: u32, width: usize, color: Color, no_color: bool) -> String {
-//    if total == 0 {
-//        return "N/A".dimmed().to_string();
-//    }
-//    let percentage = current as f64 / total as f64;
-//    let filled_len = (width as f64 * percentage).round() as usize;
-//
-//    let filled = "■".repeat(filled_len).color(if no_color { Color::White} else { color });
-//    let empty = " ".repeat(width.saturating_sub(filled_len));
-//
-//    format!("|{}{}|", filled, empty)
-//}
-//
-///// Recursively calculates the maximum width needed for the feature name column.
-//fn calculate_max_width(tree_node: &TreeNode, prefix_len: usize) -> usize {
-//    let mut path_parts = vec![tree_node.name.as_str()];
-//    let mut current_node = tree_node;
-//    while current_node.children.len() == 1 {
-//        let single_child = current_node.children.values().next().unwrap();
-//        path_parts.push(single_child.name.as_str());
-//        current_node = single_child;
-//    }
-//    let collapsed_name = path_parts.join(", ");
-//    let current_width = prefix_len + collapsed_name.len() + 4; // +4 for "└── "
-//
-//    current_node
-//        .children
-//        .values()
-//        .map(|child| calculate_max_width(child, prefix_len + 4))
-//        .max()
-//        .unwrap_or(0)
-//        .max(current_width)
-//}
-//
-//
-//pub fn print_tree_report(root: &TreeReportData, no_color: bool) {
-//
-//    let max_width = calculate_max_width(root, 0) + 2;
-//    let bar_width = 20;
-//
-//    println!(
-//        "{:<width$} {:>18} {:>18} {:<bar_w$} {:<bar_w$}",
-//        "FEATURE".bold(), "NODES (Avail/Total)".bold(), "PROCESSORS (Avail/Total)".bold(), "NODE AVAIL.".bold(), "CPU AVAIL.".bold(),
-//        width = max_width,
-//        bar_w = bar_width + 2 // +2 for brackets
-//    );
-//    println!("{}", "-".repeat(max_width + 40 + (bar_width + 2) * 2));
-//
-//    let node_text = format!("{}/{}", root.stats.idle_nodes, root.stats.total_nodes);
-//    let cpu_text = format!("{}/{}", root.stats.idle_cpus, root.stats.total_cpus);
-//    let node_bar = create_avail_bar(root.stats.idle_nodes, root.stats.total_nodes, bar_width, Color::Green, no_color);
-//    let cpu_bar = create_avail_bar(root.stats.idle_cpus, root.stats.total_cpus, bar_width, Color::Cyan, no_color);
-//
-//    println!(
-//        "{:<width$} {:>18} {:>18} {} {}",
-//        root.name.bold(), node_text, cpu_text, node_bar, cpu_bar,
-//        width = max_width
-//    );
-//
-//    let mut sorted_children: Vec<_> = root.children.values().collect();
-//    sorted_children.sort_by(|a, b| a.name.cmp(&b.name));
-//    for (i, child) in sorted_children.iter().enumerate() {
-//        let is_last = i == sorted_children.len() - 1;
-//        print_node_recursive(child, "", is_last, no_color, max_width, bar_width);
-//    }
-//}
-//
-///// Recursively prints a node and its children to form the tree structure.
-//fn print_node_recursive(tree_node: &TreeNode, prefix: &str, is_last: bool, no_color: bool, max_width: usize, bar_width: usize) {
-//    let mut path_parts = vec![tree_node.name.as_str()];
-//    let mut current_node = tree_node;
-//
-//    while current_node.children.len() == 1 {
-//        let single_child = current_node.children.values().next().unwrap();
-//        path_parts.push(single_child.name.as_str());
-//        current_node = single_child;
-//    }
-//
-//    let collapsed_name = path_parts.join(", ");
-//    let connector = if is_last { "└──" } else { "├──" };
-//    let display_name = format!("{}{}{}", prefix, connector, collapsed_name);
-//
-//    let node_text = format!("{}/{}", current_node.stats.idle_nodes, current_node.stats.total_nodes);
-//    let cpu_text = format!("{}/{}", current_node.stats.idle_cpus, current_node.stats.total_cpus);
-//    let node_bar = create_avail_bar(current_node.stats.idle_nodes, current_node.stats.total_nodes, bar_width, Color::Green, no_color);
-//    let cpu_bar = create_avail_bar(current_node.stats.idle_cpus, current_node.stats.total_cpus, bar_width, Color::Cyan, no_color);
-//
-//    println!(
-//        "{:<width$} {:>18} {:>18} {} {}",
-//        display_name.bold(),
-//        node_text,
-//        cpu_text,
-//        node_bar,
-//        cpu_bar,
-//        width = max_width
-//    );
-//
-//    let full_child_prefix = format!("{}{}", prefix, if is_last { "    " } else { "│   " });
-//    let mut sorted_children: Vec<_> = current_node.children.values().collect();
-//    sorted_children.sort_by(|a, b| a.name.cmp(&b.name));
-//
-//    for (i, child) in sorted_children.iter().enumerate() {
-//        let is_child_last = i == sorted_children.len() - 1;
-//        print_node_recursive(child, &full_child_prefix, is_child_last, no_color, max_width, bar_width);
-//    }
-//}
-//
-////fn format_stat_column(
-////    alloc: u64,
-////    total: u64,
-////    max_alloc_width: usize,
-////    max_total_width: usize,
-////) -> String {
-////    format!(
-////        "{:>alloc_w$}/{:>total_w$}",
-////        alloc,
-////        total,
-////        alloc_w = max_alloc_width,
-////        total_w = max_total_width -1
-////    )
-////}
-//
