@@ -128,6 +128,45 @@ pub fn build_tree_report(
 // Display Logic
 
 
+#[derive(Default)]
+struct ColumnWidths {
+    max_idle_nodes: usize,
+    max_total_nodes: usize,
+    max_idle_cpus: usize,
+    max_total_cpus: usize,
+}
+
+/// Recursively calculates the maximum width needed for each stats column.
+fn calculate_column_widths(tree_node: &TreeNode) -> ColumnWidths {
+    let mut widths = ColumnWidths {
+        max_idle_nodes: tree_node.stats.idle_nodes.to_string().len(),
+        max_total_nodes: tree_node.stats.total_nodes.to_string().len(),
+        max_idle_cpus: tree_node.stats.idle_cpus.to_string().len(),
+        max_total_cpus: tree_node.stats.total_cpus.to_string().len(),
+    };
+
+    for child in tree_node.children.values() {
+        let child_widths = calculate_column_widths(child);
+        widths.max_idle_nodes = widths.max_idle_nodes.max(child_widths.max_idle_nodes);
+        widths.max_total_nodes = widths.max_total_nodes.max(child_widths.max_total_nodes);
+        widths.max_idle_cpus = widths.max_idle_cpus.max(child_widths.max_idle_cpus);
+        widths.max_total_cpus = widths.max_total_cpus.max(child_widths.max_total_cpus);
+    }
+
+    widths
+}
+
+/// Formats a statistics column (e.g., "5 / 100") with perfect alignment.
+fn format_tree_stat_column(current: u32, total: u32, max_current_width: usize, max_total_width: usize) -> String {
+    format!(
+        "{:>current_w$} / {:>total_w$}",
+        current,
+        total,
+        current_w = max_current_width,
+        total_w = max_total_width
+    )
+}
+
 /// Creates a colored bar string for available resources (nodes or CPUs)
 fn create_avail_bar(current: u32, total: u32, width: usize, color: Color, no_color: bool) -> String {
     if total == 0 {
@@ -164,7 +203,6 @@ fn calculate_max_width(tree_node: &TreeNode, prefix_len: usize) -> usize {
 }
 
 
-/// The public entry point for printing the tree report.
 pub fn print_tree_report(root: &TreeReportData, no_color: bool) {
 
     let max_width = calculate_max_width(root, 0) + 2;
@@ -226,11 +264,11 @@ fn print_node_recursive(tree_node: &TreeNode, prefix: &str, is_last: bool, no_co
         cpu_bar,
         width = max_width
     );
-    
+
     let full_child_prefix = format!("{}{}", prefix, if is_last { "    " } else { "│   " });
     let mut sorted_children: Vec<_> = current_node.children.values().collect();
     sorted_children.sort_by(|a, b| a.name.cmp(&b.name));
-    
+
     for (i, child) in sorted_children.iter().enumerate() {
         let is_child_last = i == sorted_children.len() - 1;
         print_node_recursive(child, &full_child_prefix, is_child_last, no_color, max_width, bar_width);
