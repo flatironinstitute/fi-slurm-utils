@@ -243,6 +243,23 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool) {
     let cpus_final_width = cpus_data_width.max(HEADER_CPUS.len());
     let bar_final_width = (bar_width + 2).max(HEADER_NODE_AVAIL.len()); // +2 for "||"
 
+    // --- Determine what to print as the top level ---
+    let (top_level_node, children_to_iterate) = if root.single_filter {
+        if let Some(single_child) = root.children.values().next() {
+            (single_child, &single_child.children)
+        } else {
+            (root, &root.children)
+        }
+    } else {
+        (root, &root.children)
+    };
+
+    // --- Print the determined top-level line with Right Alignment for data ---
+    let node_text = format_tree_stat_column(top_level_node.stats.idle_nodes, top_level_node.stats.total_nodes, col_widths.max_idle_nodes, col_widths.max_total_nodes);
+    let cpu_text = format_tree_stat_column(top_level_node.stats.idle_cpus, top_level_node.stats.total_cpus, col_widths.max_idle_cpus, col_widths.max_total_cpus);
+    let node_bar = create_avail_bar(top_level_node.stats.idle_nodes, top_level_node.stats.total_nodes, bar_width, Color::Green, no_color);
+    let cpu_bar = create_avail_bar(top_level_node.stats.idle_cpus, top_level_node.stats.total_cpus, bar_width, Color::Cyan, no_color);
+
     // --- Print Headers with Centered Alignment ---
     println!(
         "{:<feature_w$} {:^nodes_w$} {:^cpus_w$} {:^bar_w$} {:^bar_w$}",
@@ -260,23 +277,6 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool) {
     // --- Print Separator Line ---
     let total_width = max_feature_width + nodes_final_width + cpus_final_width + bar_final_width * 2 + 6; // +4 for spaces between columns
     println!("{}", "-".repeat(total_width));
-
-    // --- Determine what to print as the top level ---
-    let (top_level_node, children_to_iterate) = if root.single_filter {
-        if let Some(single_child) = root.children.values().next() {
-            (single_child, &single_child.children)
-        } else {
-            (root, &root.children)
-        }
-    } else {
-        (root, &root.children)
-    };
-
-    // --- Print the determined top-level line with Right Alignment for data ---
-    let node_text = format_tree_stat_column(top_level_node.stats.idle_nodes, top_level_node.stats.total_nodes, col_widths.max_idle_nodes, col_widths.max_total_nodes);
-    let cpu_text = format_tree_stat_column(top_level_node.stats.idle_cpus, top_level_node.stats.total_cpus, col_widths.max_idle_cpus, col_widths.max_total_cpus);
-    let node_bar = create_avail_bar(top_level_node.stats.idle_nodes, top_level_node.stats.total_nodes, bar_width, Color::Green, no_color);
-    let cpu_bar = create_avail_bar(top_level_node.stats.idle_cpus, top_level_node.stats.total_cpus, bar_width, Color::Cyan, no_color);
 
     println!(
         "{:<feature_w$} {:>nodes_w$} {:>cpus_w$} {} {}",
