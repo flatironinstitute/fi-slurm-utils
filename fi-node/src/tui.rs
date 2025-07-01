@@ -1,4 +1,4 @@
-use fi_slurm::prometheus::{Cluster, Resource, Grouping};
+use fi_slurm::prometheus::{Cluster, Grouping, Resource};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
@@ -9,9 +9,8 @@ use ratatui::{
     backend::{Backend, CrosstermBackend},
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    symbols,
     text::Span,
-    widgets::{Axis, Block, Borders, Chart, Dataset, LegendPosition},
+    widgets::{Bar, BarChart, BarGroup, Block, Borders},
     Frame, Terminal,
 };
 use std::collections::HashMap;
@@ -34,15 +33,14 @@ enum AppView {
     GpuByType,
 }
 
-// FIX: ChartData now owns the source data directly.
 struct ChartData<'a> {
-    title: &'a str,
+    _title: &'a str,
     source_data: HashMap<String, Vec<u64>>,
-    y_axis_bounds: [f64; 2],
-    y_axis_title: &'a str,
+    _y_axis_bounds: [f64; 2],
+    _y_axis_title: &'a str,
 }
 
-// --- Main Application Logic ---
+// Main Application Logic
 
 pub fn tui_execute() -> Result<(), Box<dyn std::error::Error>> {
     enable_raw_mode()?;
@@ -92,12 +90,13 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
 // --- UI Drawing ---
 
 fn ui(f: &mut Frame, app: &App) {
-    let chunks = Layout::default()
+    // Main layout with a top tab bar and a main content area
+    let main_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Length(3), Constraint::Min(0)].as_ref())
         .split(f.area());
 
-    draw_tabs(f, chunks[0], app.current_view);
+    draw_tabs(f, main_chunks[0], app.current_view);
     
     let chart_data = match app.current_view {
         AppView::CpuByAccount => &app.cpu_by_account,
@@ -105,7 +104,8 @@ fn ui(f: &mut Frame, app: &App) {
         AppView::GpuByType => &app.gpu_by_type,
     };
     
-    draw_chart(f, chunks[1], chart_data);
+    // Pass the main content area to the chart drawing function
+    draw_charts(f, main_chunks[1], chart_data);
 }
 
 fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView) {
@@ -133,73 +133,62 @@ fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView) {
     f.render_widget(tabs, area);
 }
 
-fn draw_chart(f: &mut Frame, area: Rect, data: &ChartData) {
+fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData) {
     let colors = [
         Color::Red, Color::Green, Color::Yellow, Color::Blue, Color::Magenta,
         Color::Cyan, Color::Gray, Color::LightRed, Color::LightGreen, Color::LightYellow,
         Color::LightBlue,
     ];
+    let time_labels = ["-7d", "-6d", "-5d", "-4d", "-3d", "-2d", "-1d", "Today"];
 
-    let all_series_data: Vec<(&String, Vec<(f64, f64)>)>  = data.source_data.iter().map(|(name, values)| {
-        let data_points: Vec<(f64, f64)> = values
+    let mut sorted_series: Vec<_> = data.source_data.iter().collect();
+    sorted_series.sort_by_key(|(name, _)| *name);
+
+    // Create a dynamic layout for the bar charts
+    // Each chart will get a fixed height of 5 rows
+    let chart_constraints: Vec<Constraint> = sorted_series.iter().map(|_| Constraint::Length(5)).collect();
+    let chart_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(chart_constraints)
+        .split(area);
+
+    // Iterate and draw each bar chart
+    for (i, (name, values)) in sorted_series.iter().enumerate() {
+        // Ensure we don't try to draw more charts than we have space for
+        if i >= chart_layout.len() {
+            break;
+        }
+
+        let bar_data: Vec<Bar> = values
             .iter()
             .enumerate()
-            .map(|(day_index, &value)| (day_index as f64, value as f64))
+            .map(|(j, &val)| {
+                Bar::default()
+                    .value(val)
+                    .label(time_labels[j % time_labels.len()].into())
+                    .style(Style::default().fg(colors[i % colors.len()]))
+            })
             .collect();
-        (name, data_points)
-    }).collect();
 
-    let datasets: Vec<Dataset> = all_series_data.iter().enumerate().map(| (i, (name, data_points))| {
-        Dataset::default()
-            .name((*name).to_string())
-            .marker(symbols::Marker::Dot)
-            .style(Style::default().fg(colors[i % colors.len()]))
-            .data(data_points)
-    }).collect();
+        let bar_group = BarGroup::default().bars(&bar_data);
+
+        let barchart = BarChart::default()
+            .block(Block::default().title(Span::from(*name).bold()).borders(Borders::ALL))
+            .data(bar_group)
+            .bar_width(5)
+            .bar_gap(2);
+            // .y_axis(
+            //     Axis::default()
+            //         .bounds([0.0, data.y_axis_bounds[1]]) // Use max bound from data
+            //         .style(Style::default().fg(Color::DarkGray)),
+            // );
         
-    let x_axis = Axis::default()
-        .title(Span::from("Time (Days Ago)"))
-        .style(Style::default().fg(Color::Gray))
-        .bounds([0.0, 7.0])
-        .labels(
-            ["-7d", "-6d", "-5d", "-4d", "-3d", "-2d", "-1d", "Today"]
-                .iter()
-                .cloned()
-                .map(Span::from)
-                .collect::<Vec<Span>>(),
-        );
-
-    let y_axis = Axis::default()
-        .title(Span::from(data.y_axis_title))
-        .style(Style::default().fg(Color::Gray))
-        .bounds(data.y_axis_bounds)
-        .labels(
-            [
-                data.y_axis_bounds[0],
-                (data.y_axis_bounds[0] + data.y_axis_bounds[1]) / 2.0,
-                data.y_axis_bounds[1],
-            ]
-            .iter()
-            .map(|&v| Span::from(format!("{:.0}", v)))
-            .collect::<Vec<Span>>(),
-        );
-
-    let chart = Chart::new(datasets)
-        .block(
-            Block::default()
-                .title(Span::from(data.title).bold())
-                .borders(Borders::ALL),
-        )
-        .x_axis(x_axis)
-        .y_axis(y_axis)
-        .legend_position(Some(LegendPosition::TopRight))
-        .style(Style::default());
-
-    f.render_widget(chart, area);
+        f.render_widget(barchart, chart_layout[i]);
+    }
 }
 
 
-// --- App State and Data Loading ---
+// App State and Data Loading
 
 impl<'a> App<'a> {
     fn new() -> App<'a> {
@@ -233,21 +222,19 @@ impl<'a> App<'a> {
     }
 }
 
-
-// --- Hardcoded Sample Data ---
+// Prometheus interface 
 
 fn get_cpu_by_account_data<'a>() -> ChartData<'a> {
     let data = fi_slurm::prometheus::get_usage_by(Cluster::Rusty, Grouping::Account, Resource::Cpus, 7, "1d").unwrap();
 
     let binding = data.clone();
-    let max = binding.values().max().unwrap().iter().max().unwrap();
-    // got to be a better way to get the max value from a hashmap of vectors of numbers
+    let max = binding.values().map(|vec| vec.iter().sum::<u64>()).max().unwrap_or(0);
     
     ChartData {
-        title: "CPU Usage by Account (8 Days)",
+        _title: "CPU Usage by Account (8 Days)",
         source_data: data,
-        y_axis_bounds: [0.0, *max as f64 * 1.2],
-        y_axis_title: "CPU Cores",
+        _y_axis_bounds: [0.0, max as f64],
+        _y_axis_title: "CPU Cores",
     }
 }
 
@@ -255,13 +242,13 @@ fn get_cpu_by_node_data<'a>() -> ChartData<'a> {
     let data = fi_slurm::prometheus::get_usage_by(Cluster::Rusty, Grouping::Nodes, Resource::Cpus, 7, "1d").unwrap();
     
     let binding = data.clone();
-    let max = binding.values().max().unwrap().iter().max().unwrap();
+    let max = binding.values().map(|vec| vec.iter().sum::<u64>()).max().unwrap_or(0);
 
     ChartData {
-        title: "CPU Usage by Node Type (8 Days)",
+        _title: "CPU Usage by Node Type (8 Days)",
         source_data: data,
-        y_axis_bounds: [0.0, *max as f64 * 1.2],
-        y_axis_title: "CPU Cores",
+        _y_axis_bounds: [0.0, max as f64],
+        _y_axis_title: "CPU Cores",
     }
 }
 
@@ -269,12 +256,12 @@ fn get_gpu_by_type_data<'a>() -> ChartData<'a> {
     let data = fi_slurm::prometheus::get_usage_by(Cluster::Rusty, Grouping::GpuType, Resource::Gpus, 7, "1d").unwrap();
     
     let binding = data.clone();
-    let max = binding.values().max().unwrap().iter().max().unwrap();
+    let max = binding.values().map(|vec| vec.iter().sum::<u64>()).max().unwrap_or(0);
 
     ChartData {
-        title: "GPU Usage by Type (8 Days)",
+        _title: "GPU Usage by Type (8 Days)",
         source_data: data,
-        y_axis_bounds: [0.0, *max as f64 * 1.2],
-        y_axis_title: "GPUs",
+        _y_axis_bounds: [0.0, max as f64],
+        _y_axis_title: "GPUs",
     }
 }
