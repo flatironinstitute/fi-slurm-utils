@@ -1,7 +1,7 @@
 use crate::jobs::SlurmJobs;
 use crate::nodes::{Node, NodeState};
 use colored::*;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 // Data Structures for the Tree Report
 
@@ -51,6 +51,7 @@ pub fn build_tree_report(
     jobs: &SlurmJobs,
     node_to_job_map: &HashMap<String, Vec<u32>>,
     feature_filter: &[String],
+    show_hidden_features: bool,
 ) -> TreeReportData {
     let mut root = TreeNode {
         name: "TOTAL".to_string(),
@@ -58,6 +59,11 @@ pub fn build_tree_report(
     };
 
     if feature_filter.len() == 1 {root.single_filter = true};
+
+    let hidden_features: HashSet<&str> = [
+        "rocky8", "rocky9", "sxm", "sxm2", "sxm4", "sxm5", "nvlink", "ib",
+        "ib-a100", "ib-h100p", "ib-genoa", "ib-icelake", "ib-rome", "a100", "h100", "v100"
+    ].iter().cloned().collect();
 
     for &node in nodes {
         let alloc_cpus_for_node: u32 = if let Some(job_ids) = node_to_job_map.get(&node.name) {
@@ -76,13 +82,20 @@ pub fn build_tree_report(
             root.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
         }
 
-        // Tree Building Logic
+        // NEW: Determine which features to use for building the tree based on the flag.
+        let features_for_tree: Vec<_> = if show_hidden_features {
+            node.features.iter().collect()
+        } else {
+            node.features.iter().filter(|f| !hidden_features.contains(f.as_str())).collect()
+        };
+        
+        // --- Tree Building Logic ---
         if feature_filter.is_empty() {
-            // Default Behavior: Build tree from full feature list
+            // --- Default Behavior: Build tree from the (potentially filtered) feature list ---
             let mut current_level = &mut root;
-            for feature in &node.features {
-                current_level = current_level.children.entry(feature.clone()).or_default();
-                current_level.name = feature.clone();
+            for feature in &features_for_tree {
+                current_level = current_level.children.entry(feature.to_string()).or_default();
+                current_level.name = feature.to_string();
                 // Add stats to this branch
                 current_level.stats.total_nodes += 1;
                 current_level.stats.total_cpus += node.cpus as u32;
@@ -93,8 +106,10 @@ pub fn build_tree_report(
                 }
             }
         } else {
-            // Filtered Behavior: Make filtered features the top level
+            // --- Filtered Behavior: Make filtered features the top level ---
             for filter in feature_filter {
+                // IMPORTANT: The check to see if a node belongs under a filter
+                // must use the ORIGINAL, unfiltered features.
                 if node.features.contains(filter) {
                     let mut current_level = root.children.entry(filter.clone()).or_default();
                     current_level.name = filter.clone();
@@ -107,10 +122,11 @@ pub fn build_tree_report(
                         current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                     }
 
-                    // Build the sub-branch from the *remaining* features
-                    for feature in node.features.iter().filter(|f| *f != filter) {
-                        current_level = current_level.children.entry(feature.clone()).or_default();
-                        current_level.name = feature.clone();
+                    // Build the sub-branch from the *remaining* features,
+                    // respecting the show_hidden_features flag.
+                    for feature in features_for_tree.iter().filter(|f| f.as_str() != filter) {
+                        current_level = current_level.children.entry(feature.to_string()).or_default();
+                        current_level.name = feature.to_string();
                         // Add stats to the sub-branch
                         current_level.stats.total_nodes += 1;
                         current_level.stats.total_cpus += node.cpus as u32;
