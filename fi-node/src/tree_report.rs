@@ -128,44 +128,44 @@ pub fn build_tree_report(
 // Display Logic
 
 
-#[derive(Default)]
-struct ColumnWidths {
-    max_idle_nodes: usize,
-    max_total_nodes: usize,
-    max_idle_cpus: usize,
-    max_total_cpus: usize,
-}
+//#[derive(Default)]
+//struct ColumnWidths {
+//    max_idle_nodes: usize,
+//    max_total_nodes: usize,
+//    max_idle_cpus: usize,
+//    max_total_cpus: usize,
+//}
+//
+///// Recursively calculates the maximum width needed for each stats column.
+//fn calculate_column_widths(tree_node: &TreeNode) -> ColumnWidths {
+//    let mut widths = ColumnWidths {
+//        max_idle_nodes: tree_node.stats.idle_nodes.to_string().len(),
+//        max_total_nodes: tree_node.stats.total_nodes.to_string().len(),
+//        max_idle_cpus: tree_node.stats.idle_cpus.to_string().len(),
+//        max_total_cpus: tree_node.stats.total_cpus.to_string().len(),
+//    };
+//
+//    for child in tree_node.children.values() {
+//        let child_widths = calculate_column_widths(child);
+//        widths.max_idle_nodes = widths.max_idle_nodes.max(child_widths.max_idle_nodes);
+//        widths.max_total_nodes = widths.max_total_nodes.max(child_widths.max_total_nodes);
+//        widths.max_idle_cpus = widths.max_idle_cpus.max(child_widths.max_idle_cpus);
+//        widths.max_total_cpus = widths.max_total_cpus.max(child_widths.max_total_cpus);
+//    }
+//
+//    widths
+//}
 
-/// Recursively calculates the maximum width needed for each stats column.
-fn calculate_column_widths(tree_node: &TreeNode) -> ColumnWidths {
-    let mut widths = ColumnWidths {
-        max_idle_nodes: tree_node.stats.idle_nodes.to_string().len(),
-        max_total_nodes: tree_node.stats.total_nodes.to_string().len(),
-        max_idle_cpus: tree_node.stats.idle_cpus.to_string().len(),
-        max_total_cpus: tree_node.stats.total_cpus.to_string().len(),
-    };
-
-    for child in tree_node.children.values() {
-        let child_widths = calculate_column_widths(child);
-        widths.max_idle_nodes = widths.max_idle_nodes.max(child_widths.max_idle_nodes);
-        widths.max_total_nodes = widths.max_total_nodes.max(child_widths.max_total_nodes);
-        widths.max_idle_cpus = widths.max_idle_cpus.max(child_widths.max_idle_cpus);
-        widths.max_total_cpus = widths.max_total_cpus.max(child_widths.max_total_cpus);
-    }
-
-    widths
-}
-
-/// Formats a statistics column (e.g., "5 / 100") with perfect alignment.
-fn format_tree_stat_column(current: u32, total: u32, max_current_width: usize, max_total_width: usize) -> String {
-    format!(
-        "{:>current_w$} / {:>total_w$}",
-        current,
-        total,
-        current_w = max_current_width,
-        total_w = max_total_width
-    )
-}
+///// Formats a statistics column (e.g., "5 / 100") with perfect alignment.
+//fn format_tree_stat_column(current: u32, total: u32, max_current_width: usize, max_total_width: usize) -> String {
+//    format!(
+//        "{:>current_w$} / {:>total_w$}",
+//        current,
+//        total,
+//        current_w = max_current_width,
+//        total_w = max_total_width
+//    )
+//}
 
 /// Creates a colored bar string for available resources (nodes or CPUs)
 fn create_avail_bar(current: u32, total: u32, width: usize, color: Color, no_color: bool) -> String {
@@ -275,4 +275,18 @@ fn print_node_recursive(tree_node: &TreeNode, prefix: &str, is_last: bool, no_co
     }
 }
 
+//fn format_stat_column(
+//    alloc: u64,
+//    total: u64,
+//    max_alloc_width: usize,
+//    max_total_width: usize,
+//) -> String {
+//    format!(
+//        "{:>alloc_w$}/{:>total_w$}",
+//        alloc,
+//        total,
+//        alloc_w = max_alloc_width,
+//        total_w = max_total_width -1
+//    )
+//}
 
