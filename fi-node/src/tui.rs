@@ -1,4 +1,4 @@
-use fi_slurm::prometheus::{Cluster, Grouping, Resource};
+use fi_prometheus::{Cluster, Resource, Grouping};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,

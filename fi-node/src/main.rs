@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use fi_slurm::jobs::SlurmJobs;
 use fi_slurm::{jobs, nodes, parser::parse_slurm_hostlist, utils::{SlurmConfig, initialize_slurm}};
 use fi_slurm::filter::{self, gather_all_features};
-use fi_slurm::prometheus::{get_max_resource, get_usage_by, Cluster, Grouping, Resource};
+use fi_prometheus::{get_max_resource, get_usage_by, Cluster, Grouping, Resource};
 use crate::tui::tui_execute;
 
 
