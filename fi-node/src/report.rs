@@ -217,7 +217,7 @@ pub fn print_report(report_data: &ReportData, no_color: bool) {
     println!("{}", "-".repeat(max_state_width + cpu_col_width + gpu_col_width + 7));
 
     // Generate and Print Report Body
-    let total_line = generate_report_body(report_data, sorted_states, max_state_width, max_alloc_cpu_width, max_total_cpu_width, max_alloc_gpu_width, max_total_gpu_width, no_color);
+    let total_line = generate_report_body(report_data, sorted_states, max_state_width, (max_alloc_cpu_width, max_total_cpu_width, max_alloc_gpu_width, max_total_gpu_width), no_color);
 
     // Print Totals and Utilization Bars
     println!("{}", "-".repeat(max_state_width + cpu_col_width + gpu_col_width + 7));
@@ -297,7 +297,18 @@ fn print_utilization(utilization_percent: f64, bar_width: usize, bar_color: BarC
         println!("Overall {} Utilization: \n [{}{}] {:.1}%", name, filled_bar, empty_bar, utilization_percent);
 }
 
-fn generate_report_body(report_data: &HashMap<NodeState, ReportGroup>, sorted_states: Vec<&NodeState>, max_state_width: usize, max_alloc_cpu_width: usize, max_total_cpu_width: usize, max_alloc_gpu_width: usize, max_total_gpu_width: usize, no_color: bool) -> ReportLine {
+fn generate_report_body(report_data: &HashMap<NodeState, ReportGroup>, 
+    sorted_states: Vec<&NodeState>, 
+    max_state_width: usize, 
+    widths: (usize, usize, usize, usize),
+    no_color: bool) -> ReportLine {
+    
+    let max_alloc_cpu_width = widths.0;
+    let max_total_cpu_width = widths.1;
+    let max_alloc_gpu_width = widths.2;
+    let max_total_gpu_width = widths.3;
+
+
     let mut total_line = ReportLine::default();
     for state in sorted_states {
         if let Some(group) = report_data.get(state) {
