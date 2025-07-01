@@ -230,7 +230,7 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool) {
     const HEADER_CPU_AVAIL: &str = "PROCESSORS AVAIL.";
 
     // Calculate Column Widths
-    let max_feature_width = calculate_max_width(root, 0).max(HEADER_FEATURE.len()) + 2;
+    let max_feature_width = calculate_max_width(root, 0).max(HEADER_FEATURE.len()) - 4;
     let bar_width = 20;
     
     let col_widths = calculate_column_widths(root);
