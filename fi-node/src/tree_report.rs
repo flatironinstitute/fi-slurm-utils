@@ -61,8 +61,7 @@ pub fn build_tree_report(
     if feature_filter.len() == 1 {root.single_filter = true};
 
     let hidden_features: HashSet<&str> = [
-        "rocky8", "rocky9", "sxm", "sxm2", "sxm4", "sxm5", "nvlink", "ib",
-        "ib-a100", "ib-h100p", "ib-genoa", "ib-icelake", "ib-rome", "a100", "h100", "v100"
+        "rocky8", "rocky9", "sxm", "sxm2", "sxm4", "sxm5", "nvlink", "a100", "h100", "v100"
     ].iter().cloned().collect();
 
     for &node in nodes {
