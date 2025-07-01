@@ -8,6 +8,5 @@ pub mod filter;
 pub mod nodes;
 pub mod jobs;
 pub mod parser;
-pub mod prometheus;
 pub mod states;
 pub mod utils;

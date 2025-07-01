@@ -1,4 +1,4 @@
 [workspace]
 resolver = "2"
 
-members = [ "rust_bind", "fi-node", "prometheus", "fi_slurm"]
+members = [ "rust_bind", "fi-node", "fi_prometheus", "fi_slurm"]

@@ -1,4 +1,4 @@
-use fi_prometheus::{Cluster, Resource, Grouping};
+use fi_prometheus::{Cluster, Resource, Grouping, get_usage_by};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
@@ -225,7 +225,7 @@ impl<'a> App<'a> {
 // Prometheus interface 
 
 fn get_cpu_by_account_data<'a>() -> ChartData<'a> {
-    let data = fi_slurm::prometheus::get_usage_by(Cluster::Rusty, Grouping::Account, Resource::Cpus, 7, "1d").unwrap();
+    let data = get_usage_by(Cluster::Rusty, Grouping::Account, Resource::Cpus, 7, "1d").unwrap();
 
     let binding = data.clone();
     let max = binding.values().map(|vec| vec.iter().sum::<u64>()).max().unwrap_or(0);
@@ -239,7 +239,7 @@ fn get_cpu_by_account_data<'a>() -> ChartData<'a> {
 }
 
 fn get_cpu_by_node_data<'a>() -> ChartData<'a> {
-    let data = fi_slurm::prometheus::get_usage_by(Cluster::Rusty, Grouping::Nodes, Resource::Cpus, 7, "1d").unwrap();
+    let data = get_usage_by(Cluster::Rusty, Grouping::Nodes, Resource::Cpus, 7, "1d").unwrap();
     
     let binding = data.clone();
     let max = binding.values().map(|vec| vec.iter().sum::<u64>()).max().unwrap_or(0);
@@ -253,7 +253,7 @@ fn get_cpu_by_node_data<'a>() -> ChartData<'a> {
 }
 
 fn get_gpu_by_type_data<'a>() -> ChartData<'a> {
-    let data = fi_slurm::prometheus::get_usage_by(Cluster::Rusty, Grouping::GpuType, Resource::Gpus, 7, "1d").unwrap();
+    let data = get_usage_by(Cluster::Rusty, Grouping::GpuType, Resource::Gpus, 7, "1d").unwrap();
     
     let binding = data.clone();
     let max = binding.values().map(|vec| vec.iter().sum::<u64>()).max().unwrap_or(0);
