@@ -220,59 +220,74 @@ fn calculate_max_width(tree_node: &TreeNode, prefix_len: usize) -> usize {
         .max(current_width)
 }
 
-pub fn print_tree_report(root: &TreeReportData, no_color: bool) {
 
-    let max_width = calculate_max_width(root, 0) + 2;
+pub fn print_tree_report(root: &TreeReportData, no_color: bool) {
+    // --- Define Headers ---
+    const HEADER_FEATURE: &str = "FEATURE (Avail/Total)";
+    const HEADER_NODES: &str = "NODES";
+    const HEADER_CPUS: &str = "PROCESSORS";
+    const HEADER_NODE_AVAIL: &str = "NODES AVAIL.";
+    const HEADER_CPU_AVAIL: &str = "PROCESSORS AVAIL.";
+
+    // --- Calculate Column Widths ---
+    let max_feature_width = calculate_max_width(root, 0).max(HEADER_FEATURE.len()) + 2;
     let bar_width = 20;
     
     let col_widths = calculate_column_widths(root);
-    let nodes_col_width = col_widths.max_idle_nodes + col_widths.max_total_nodes + 3; // +3 for " / "
-    let cpus_col_width = col_widths.max_idle_cpus + col_widths.max_total_cpus + 3;  // +3 for " / "
+    // Correctly calculate the width of the data string (e.g., "123/4567")
+    let nodes_data_width = col_widths.max_idle_nodes + col_widths.max_total_nodes + 1; // +1 for "/"
+    let cpus_data_width = col_widths.max_idle_cpus + col_widths.max_total_cpus + 1;
 
+    // The final column width is the larger of the header or the data
+    let nodes_final_width = nodes_data_width.max(HEADER_NODES.len());
+    let cpus_final_width = cpus_data_width.max(HEADER_CPUS.len());
+    let bar_final_width = (bar_width + 2).max(HEADER_NODE_AVAIL.len()); // +2 for "||"
+
+    // --- Print Headers with Centered Alignment ---
     println!(
-        "{:<width$} {:>nodes_w$} {:>cpus_w$} {:<bar_w$} {:<bar_w$}",
-        "FEATURE".bold(),
-        "NODES (Avail/Total)".bold(),
-        "PROCESSORS (Avail/Total)".bold(),
-        "NODE AVAIL.".bold(),
-        "CPU AVAIL.".bold(),
-        width = max_width,
-        nodes_w = nodes_col_width,
-        cpus_w = cpus_col_width,
-        bar_w = bar_width + 2 // +2 for brackets
+        "{:<feature_w$} {:^nodes_w$} {:^cpus_w$} {:^bar_w$} {:^bar_w$}",
+        HEADER_FEATURE.bold(),
+        HEADER_NODES.bold(),
+        HEADER_CPUS.bold(),
+        HEADER_NODE_AVAIL.bold(),
+        HEADER_CPU_AVAIL.bold(),
+        feature_w = max_feature_width,
+        nodes_w = nodes_final_width,
+        cpus_w = cpus_final_width,
+        bar_w = bar_final_width
     );
-    println!("{}", "-".repeat(max_width + nodes_col_width + cpus_col_width + (bar_width + 2) * 2 + 2));
 
-    // --- UPDATED: Determine what to print as the top level ---
+    // --- Print Separator Line ---
+    let total_width = max_feature_width + nodes_final_width + cpus_final_width + bar_final_width * 2 + 6; // +4 for spaces between columns
+    println!("{}", "-".repeat(total_width));
+
+    // --- Determine what to print as the top level ---
     let (top_level_node, children_to_iterate) = if root.single_filter {
-        // If filtering on one feature, we skip the "TOTAL" line.
-        // The new top-level is the single child of the root.
         if let Some(single_child) = root.children.values().next() {
             (single_child, &single_child.children)
         } else {
-            // Fallback in case there are no nodes matching the single filter.
-            // Print the "TOTAL" line which will show all zeros.
             (root, &root.children)
         }
     } else {
-        // Default behavior: "TOTAL" is the top-level.
         (root, &root.children)
     };
 
-    // --- Print the determined top-level line ---
+    // --- Print the determined top-level line with Right Alignment for data ---
     let node_text = format_tree_stat_column(top_level_node.stats.idle_nodes, top_level_node.stats.total_nodes, col_widths.max_idle_nodes, col_widths.max_total_nodes);
     let cpu_text = format_tree_stat_column(top_level_node.stats.idle_cpus, top_level_node.stats.total_cpus, col_widths.max_idle_cpus, col_widths.max_total_cpus);
     let node_bar = create_avail_bar(top_level_node.stats.idle_nodes, top_level_node.stats.total_nodes, bar_width, Color::Green, no_color);
     let cpu_bar = create_avail_bar(top_level_node.stats.idle_cpus, top_level_node.stats.total_cpus, bar_width, Color::Cyan, no_color);
 
     println!(
-        "{:<width$} {} {} {} {}",
+        "{:<feature_w$} {:>nodes_w$} {:>cpus_w$} {} {}",
         top_level_node.name.bold(),
         node_text,
         cpu_text,
         node_bar,
         cpu_bar,
-        width = max_width
+        feature_w = max_feature_width,
+        nodes_w = nodes_final_width,
+        cpus_w = cpus_final_width
     );
 
     // --- Print the children recursively ---
@@ -280,33 +295,26 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool) {
     sorted_children.sort_by(|a, b| a.name.cmp(&b.name));
     for (i, child) in sorted_children.iter().enumerate() {
         let is_last = i == sorted_children.len() - 1;
-        // The first recursive call has an empty prefix, starting the tree structure.
-        print_node_recursive(child, "", is_last, no_color, max_width, bar_width, &col_widths);
+        print_node_recursive(child, "", is_last, no_color, (max_feature_width, bar_width, nodes_final_width, cpus_final_width), &col_widths);
     }
 }
-//    let node_text = format_tree_stat_column(root.stats.idle_nodes, root.stats.total_nodes, col_widths.max_idle_nodes, col_widths.max_total_nodes);
-//    let cpu_text = format_tree_stat_column(root.stats.idle_cpus, root.stats.total_cpus, col_widths.max_idle_cpus, col_widths.max_total_cpus);
-//    let node_bar = create_avail_bar(root.stats.idle_nodes, root.stats.total_nodes, bar_width, Color::Green, no_color);
-//    let cpu_bar = create_avail_bar(root.stats.idle_cpus, root.stats.total_cpus, bar_width, Color::Cyan, no_color);
-//
-//    println!(
-//        "{:<width$} {} {} {} {}",
-//        root.name.bold(), node_text, cpu_text, node_bar, cpu_bar,
-//        width = max_width
-//    );
-//
-//    let mut sorted_children: Vec<_> = root.children.values().collect();
-//    sorted_children.sort_by(|a, b| a.name.cmp(&b.name));
-//    for (i, child) in sorted_children.iter().enumerate() {
-//        let is_last = i == sorted_children.len() - 1;
-//        print_node_recursive(child, "", is_last, no_color, max_width, bar_width, &col_widths);
-//    }
-//}
 
 /// Recursively prints a node and its children to form the tree structure
-fn print_node_recursive(tree_node: &TreeNode, prefix: &str, is_last: bool, no_color: bool, max_width: usize, bar_width: usize, col_widths: &ColumnWidths) {
+fn print_node_recursive(
+    tree_node: &TreeNode, 
+    prefix: &str, 
+    is_last: bool, 
+    no_color: bool, 
+    widths: (usize, usize, usize, usize),
+    col_widths: &ColumnWidths,
+) {
     let mut path_parts = vec![tree_node.name.as_str()];
     let mut current_node = tree_node;
+    
+    let max_width = widths.0;
+    let bar_width = widths.1;
+    let nodes_final_width = widths.2;
+    let cpus_final_width = widths.3;
 
     while current_node.children.len() == 1 {
         let single_child = current_node.children.values().next().unwrap();
@@ -324,13 +332,15 @@ fn print_node_recursive(tree_node: &TreeNode, prefix: &str, is_last: bool, no_co
     let cpu_bar = create_avail_bar(current_node.stats.idle_cpus, current_node.stats.total_cpus, bar_width, Color::Cyan, no_color);
 
     println!(
-        "{:<width$} {} {} {} {}",
+        "{:<feature_w$} {:>nodes_w$} {:>cpus_w$} {} {}",
         display_name.bold(),
         node_text,
         cpu_text,
         node_bar,
         cpu_bar,
-        width = max_width
+        feature_w = max_width,
+        nodes_w = nodes_final_width,
+        cpus_w = cpus_final_width
     );
 
     let full_child_prefix = format!("{}{}", prefix, if is_last { "   " } else { "│  " });
@@ -339,7 +349,7 @@ fn print_node_recursive(tree_node: &TreeNode, prefix: &str, is_last: bool, no_co
 
     for (i, child) in sorted_children.iter().enumerate() {
         let is_child_last = i == sorted_children.len() - 1;
-        print_node_recursive(child, &full_child_prefix, is_child_last, no_color, max_width, bar_width, col_widths);
+        print_node_recursive(child, &full_child_prefix, is_child_last, no_color, (max_width, bar_width, nodes_final_width, cpus_final_width), col_widths);
     }
 }
 
