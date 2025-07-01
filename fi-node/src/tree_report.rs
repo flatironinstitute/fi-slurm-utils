@@ -11,6 +11,7 @@ pub struct TreeNode {
     pub name: String,
     pub stats: ReportLine,
     pub children: HashMap<String, TreeNode>,
+    pub single_filter: bool, // used to determine whether we are filtering on a single item
 }
 
 /// A simplified version of the ReportLine from the detailed report
@@ -55,6 +56,8 @@ pub fn build_tree_report(
         name: "TOTAL".to_string(),
         ..Default::default()
     };
+
+    if feature_filter.len() == 1 {root.single_filter = true};
 
     for &node in nodes {
         let alloc_cpus_for_node: u32 = if let Some(job_ids) = node_to_job_map.get(&node.name) {
@@ -225,24 +228,65 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool) {
     );
     println!("{}", "-".repeat(max_width + nodes_col_width + cpus_col_width + (bar_width + 2) * 2 + 2));
 
-    let node_text = format_tree_stat_column(root.stats.idle_nodes, root.stats.total_nodes, col_widths.max_idle_nodes, col_widths.max_total_nodes);
-    let cpu_text = format_tree_stat_column(root.stats.idle_cpus, root.stats.total_cpus, col_widths.max_idle_cpus, col_widths.max_total_cpus);
-    let node_bar = create_avail_bar(root.stats.idle_nodes, root.stats.total_nodes, bar_width, Color::Green, no_color);
-    let cpu_bar = create_avail_bar(root.stats.idle_cpus, root.stats.total_cpus, bar_width, Color::Cyan, no_color);
+    // --- UPDATED: Determine what to print as the top level ---
+    let (top_level_node, children_to_iterate) = if root.single_filter {
+        // If filtering on one feature, we skip the "TOTAL" line.
+        // The new top-level is the single child of the root.
+        if let Some(single_child) = root.children.values().next() {
+            (single_child, &single_child.children)
+        } else {
+            // Fallback in case there are no nodes matching the single filter.
+            // Print the "TOTAL" line which will show all zeros.
+            (root, &root.children)
+        }
+    } else {
+        // Default behavior: "TOTAL" is the top-level.
+        (root, &root.children)
+    };
+
+    // --- Print the determined top-level line ---
+    let node_text = format_tree_stat_column(top_level_node.stats.idle_nodes, top_level_node.stats.total_nodes, col_widths.max_idle_nodes, col_widths.max_total_nodes);
+    let cpu_text = format_tree_stat_column(top_level_node.stats.idle_cpus, top_level_node.stats.total_cpus, col_widths.max_idle_cpus, col_widths.max_total_cpus);
+    let node_bar = create_avail_bar(top_level_node.stats.idle_nodes, top_level_node.stats.total_nodes, bar_width, Color::Green, no_color);
+    let cpu_bar = create_avail_bar(top_level_node.stats.idle_cpus, top_level_node.stats.total_cpus, bar_width, Color::Cyan, no_color);
 
     println!(
         "{:<width$} {} {} {} {}",
-        root.name.bold(), node_text, cpu_text, node_bar, cpu_bar,
+        top_level_node.name.bold(),
+        node_text,
+        cpu_text,
+        node_bar,
+        cpu_bar,
         width = max_width
     );
 
-    let mut sorted_children: Vec<_> = root.children.values().collect();
+    // --- Print the children recursively ---
+    let mut sorted_children: Vec<_> = children_to_iterate.values().collect();
     sorted_children.sort_by(|a, b| a.name.cmp(&b.name));
     for (i, child) in sorted_children.iter().enumerate() {
         let is_last = i == sorted_children.len() - 1;
+        // The first recursive call has an empty prefix, starting the tree structure.
         print_node_recursive(child, "", is_last, no_color, max_width, bar_width, &col_widths);
     }
 }
+//    let node_text = format_tree_stat_column(root.stats.idle_nodes, root.stats.total_nodes, col_widths.max_idle_nodes, col_widths.max_total_nodes);
+//    let cpu_text = format_tree_stat_column(root.stats.idle_cpus, root.stats.total_cpus, col_widths.max_idle_cpus, col_widths.max_total_cpus);
+//    let node_bar = create_avail_bar(root.stats.idle_nodes, root.stats.total_nodes, bar_width, Color::Green, no_color);
+//    let cpu_bar = create_avail_bar(root.stats.idle_cpus, root.stats.total_cpus, bar_width, Color::Cyan, no_color);
+//
+//    println!(
+//        "{:<width$} {} {} {} {}",
+//        root.name.bold(), node_text, cpu_text, node_bar, cpu_bar,
+//        width = max_width
+//    );
+//
+//    let mut sorted_children: Vec<_> = root.children.values().collect();
+//    sorted_children.sort_by(|a, b| a.name.cmp(&b.name));
+//    for (i, child) in sorted_children.iter().enumerate() {
+//        let is_last = i == sorted_children.len() - 1;
+//        print_node_recursive(child, "", is_last, no_color, max_width, bar_width, &col_widths);
+//    }
+//}
 
 /// Recursively prints a node and its children to form the tree structure
 fn print_node_recursive(tree_node: &TreeNode, prefix: &str, is_last: bool, no_color: bool, max_width: usize, bar_width: usize, col_widths: &ColumnWidths) {
