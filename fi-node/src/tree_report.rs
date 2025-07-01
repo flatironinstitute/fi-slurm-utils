@@ -139,7 +139,7 @@ fn create_avail_bar(current: u32, total: u32, width: usize, color: Color, no_col
     let filled = "■".repeat(filled_len).color(if no_color { Color::White} else { color });
     let empty = " ".repeat(width.saturating_sub(filled_len));
 
-    format!("[{}{}]", filled, empty)
+    format!("|{}{}|", filled, empty)
 }
 
 /// Recursively calculates the maximum width needed for the feature name column.
@@ -163,45 +163,6 @@ fn calculate_max_width(tree_node: &TreeNode, prefix_len: usize) -> usize {
         .max(current_width)
 }
 
-// /// The public entry point for printing the tree report
-// pub fn print_tree_report(root: &TreeReportData, no_color: bool) {
-//     let node_bar = create_avail_bar(root.stats.idle_nodes, root.stats.total_nodes, 30, 
-//         if no_color {Color::White} else {Color::Green});
-//     let cpu_bar = create_avail_bar(root.stats.idle_cpus, root.stats.total_cpus, 30, 
-//         if no_color {Color::White} else {Color::Cyan});
-//
-//     // Calculate padding for alignment
-//     let node_text = format!("Nodes: {}/{} Avail", root.stats.idle_nodes, root.stats.total_nodes);
-//     let cpu_text = format!("Processors:  {}/{} Avail", root.stats.idle_cpus, root.stats.total_cpus);
-//     let max_text_width = node_text.len().max(cpu_text.len());
-//
-//     let node_padding = " ".repeat(max_text_width - node_text.len());
-//     let cpu_padding = " ".repeat(max_text_width - cpu_text.len());
-//
-//     println!(
-//         "{}: {}{} {}",
-//         root.name.bold(),
-//         node_text,
-//         node_padding,
-//         node_bar
-//     );
-//      println!(
-//         "{}  {}{} {}",
-//         " ".repeat(root.name.len()),
-//         cpu_text,
-//         cpu_padding,
-//         cpu_bar
-//     );
-//     println!(" ");
-//
-//     let mut sorted_children: Vec<_> = root.children.values().collect();
-//     sorted_children.sort_by(|a, b| a.name.cmp(&b.name));
-//
-//     for (i, child) in sorted_children.iter().enumerate() {
-//         let is_last = i == sorted_children.len() - 1;
-//         print_node_recursive(child, "", is_last, no_color);
-//     }
-// }
 
 /// The public entry point for printing the tree report.
 pub fn print_tree_report(root: &TreeReportData, no_color: bool) {
@@ -235,65 +196,6 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool) {
         print_node_recursive(child, "", is_last, no_color, max_width, bar_width);
     }
 }
-
-
-// /// Recursively prints a node and its children to form the tree structure
-// fn print_node_recursive(tree_node: &TreeNode, prefix: &str, is_last: bool, no_color: bool) {
-//     let mut path_parts = vec![tree_node.name.as_str()];
-//     let mut current_node = tree_node;
-//
-//     while current_node.children.len() == 1 {
-//         let single_child = current_node.children.values().next().unwrap();
-//         path_parts.push(single_child.name.as_str());
-//         current_node = single_child;
-//     }
-//
-//     let collapsed_name = path_parts.join(", ");
-//     let connector = if is_last { "└──" } else { "├──" };
-//
-//     // FIX: Print the feature name line *without* a leading newline.
-//     // The separation is now handled by the parent before the recursive call.
-//     println!("{}{}{}", prefix, connector, collapsed_name.bold());
-//
-//     let child_prefix = if is_last { "    " } else { "│   " };
-//
-//     let node_text = format!("Nodes: {}/{}", current_node.stats.idle_nodes, current_node.stats.total_nodes);
-//     let cpu_text = format!("Processors:  {}/{}", current_node.stats.idle_cpus, current_node.stats.total_cpus);
-//     let max_text_width = node_text.len().max(cpu_text.len()) + " Avail".len();
-//
-//     let node_padding = " ".repeat(max_text_width - (node_text.len() + " Avail".len()));
-//     let cpu_padding = " ".repeat(max_text_width - (cpu_text.len() + " Avail".len()));
-//
-//     let node_bar = create_avail_bar(current_node.stats.idle_nodes, current_node.stats.total_nodes, 30, 
-//         if no_color {Color::White} else {Color::Green});
-//     let cpu_bar = create_avail_bar(current_node.stats.idle_cpus, current_node.stats.total_cpus, 30, 
-//         if no_color {Color::White} else {Color::Cyan});
-//
-//     println!(
-//         "{}{} {} {} {}",
-//         prefix, child_prefix, node_text, node_padding, node_bar
-//     );
-//     println!(
-//         "{}{} {} {} {}",
-//         prefix, child_prefix, cpu_text, cpu_padding, cpu_bar
-//     );   
-//
-//     let mut sorted_children: Vec<_> = current_node.children.values().collect();
-//     sorted_children.sort_by(|a, b| a.name.cmp(&b.name));
-//
-//     // FIX: Before iterating through children, print the connecting pipe if needed.
-//     //if !sorted_children.is_empty() {
-//     //    println!("{}{}", prefix, child_prefix);
-//     //}
-//
-//     println!("{}{}", prefix, child_prefix);
-//
-//     let full_child_prefix = format!("{}{}", prefix, child_prefix);
-//     for (i, child) in sorted_children.iter().enumerate() {
-//         let is_child_last = i == sorted_children.len() - 1;
-//         print_node_recursive(child, &full_child_prefix, is_child_last, no_color);
-//     }
-// }
 
 /// Recursively prints a node and its children to form the tree structure.
 fn print_node_recursive(tree_node: &TreeNode, prefix: &str, is_last: bool, no_color: bool, max_width: usize, bar_width: usize) {
