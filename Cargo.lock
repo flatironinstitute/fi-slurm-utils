@@ -528,8 +528,19 @@ dependencies = [
  "color-eyre",
  "colored",
  "crossterm 0.29.0",
+ "fi_prometheus",
  "fi_slurm",
  "ratatui",
+]
+
+[[package]]
+name = "fi_prometheus"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "reqwest",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -539,10 +550,7 @@ dependencies = [
  "bitflags",
  "chrono",
  "regex",
- "reqwest",
  "rust_bind",
- "serde",
- "serde_json",
 ]
 
 [[package]]
