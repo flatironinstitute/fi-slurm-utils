@@ -1,0 +1,10 @@
+[package]
+name = "fi_prometheus"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+chrono = "0.4.41"
+reqwest = { version = "0.12.20", features = ["blocking"] }
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
