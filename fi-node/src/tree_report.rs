@@ -49,7 +49,7 @@ fn is_node_available(state: &NodeState) -> bool {
 pub fn build_tree_report(
     nodes: &[&Node],
     jobs: &SlurmJobs,
-    node_to_job_map: &HashMap<String, Vec<u32>>,
+    node_to_job_map: &HashMap<usize, Vec<u32>>,
     feature_filter: &[String],
     show_hidden_features: bool,
 ) -> TreeReportData {
@@ -65,7 +65,7 @@ pub fn build_tree_report(
     ].iter().cloned().collect();
 
     for &node in nodes {
-        let alloc_cpus_for_node: u32 = if let Some(job_ids) = node_to_job_map.get(&node.name) {
+        let alloc_cpus_for_node: u32 = if let Some(job_ids) = node_to_job_map.get(&node.id) {
             job_ids.iter().filter_map(|id| jobs.jobs.get(id)).map(|j| j.num_cpus / j.num_nodes.max(1)).sum()
         } else {
             0

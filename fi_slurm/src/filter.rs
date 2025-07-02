@@ -26,13 +26,13 @@ pub fn filter_nodes_by_feature<'a>(
         // --- Optimized Path: No filters provided ---
         // Simply collect references to all nodes. This is a very cheap operation
         // with no cloning of Node data.
-        all_nodes.nodes
+        all_nodes.nodes.iter().collect()
     } else {
         // --- Filtering Path: Filters were provided ---
         // Iterate through all nodes and collect references to only those that match.
         all_nodes
             .nodes
-            . iter()
+            .iter()
             .filter(|node| {
                 // The `any` closure returns true if the node should be included.
                 feature_filter.iter().any(|required_feat| {
@@ -66,7 +66,7 @@ pub fn filter_nodes_by_feature<'a>(
 /// A `HashSet<String>` containing all unique feature names.
 pub fn gather_all_features(all_nodes: &SlurmNodes) -> HashSet<String> {
     let mut all_features = HashSet::new();
-    for node in all_nodes.nodes {
+    for node in all_nodes.nodes.iter() {
         for feature in &node.features {
             all_features.insert(feature.clone());
         }

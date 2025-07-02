@@ -182,7 +182,7 @@ fn main() -> Result<(), String> {
 
 /// Builds a map where keys are node hostnames and values are a list of job IDs
 /// running on that node
-fn build_node_to_job_map(slurm_nodes: &SlurmNodes, slurm_jobs: &SlurmJobs) -> HashMap<String, Vec<u32>> {
+fn build_node_to_job_map(slurm_nodes: &SlurmNodes, slurm_jobs: &SlurmJobs) -> HashMap<usize, Vec<u32>> {
     let mut node_to_job_map: HashMap<usize, Vec<u32>> = HashMap::new();
 
     for job in slurm_jobs.jobs.values() {
