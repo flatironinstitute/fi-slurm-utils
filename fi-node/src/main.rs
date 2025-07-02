@@ -6,6 +6,7 @@ pub mod tui;
 use clap::Parser;
 use std::collections::HashMap;
 use fi_slurm::jobs::SlurmJobs;
+use fi_slurm::nodes::SlurmNodes;
 use fi_slurm::{jobs, nodes, parser::parse_slurm_hostlist, utils::{SlurmConfig, initialize_slurm}};
 use fi_slurm::filter::{self, gather_all_features};
 use fi_prometheus::{get_max_resource, get_usage_by, Cluster, Grouping, Resource};
@@ -140,7 +141,7 @@ fn main() -> Result<(), String> {
 
     // Build Cross-Reference Map 
     if args.debug { println!("Started building node to job map: {:?}", start.elapsed()); }
-    let node_to_job_map = build_node_to_job_map(&jobs_collection);
+    let node_to_job_map = build_node_to_job_map(&nodes_collection, &jobs_collection);
     if args.debug { 
         println!(
             "Built map cross-referencing {} nodes with active jobs.",
@@ -181,29 +182,27 @@ fn main() -> Result<(), String> {
 
 /// Builds a map where keys are node hostnames and values are a list of job IDs
 /// running on that node
-fn build_node_to_job_map(jobs: &SlurmJobs) -> HashMap<String, Vec<u32>> {
-    let mut node_map: HashMap<String, Vec<u32>> = HashMap::new();
+fn build_node_to_job_map(slurm_nodes: &SlurmNodes, slurm_jobs: &SlurmJobs) -> HashMap<String, Vec<u32>> {
+    let mut node_to_job_map: HashMap<usize, Vec<u32>> = HashMap::new();
 
-    // Iterate through every job in the collection
-    for job in jobs.jobs.values() {
-        // We only care about jobs that are actually running and have nodes assigned
+    for job in slurm_jobs.jobs.values() {
+
         if job.job_state != crate::jobs::JobState::Running || job.nodes.is_empty() {
             continue;
         }
 
-        // Expand the Slurm hostlist string
         let expanded_nodes = parse_slurm_hostlist(&job.nodes);
 
-        // For each individual node name, add the current job's ID to the map
-        for node_name in expanded_nodes {
-            node_map
-                .entry(node_name)
-                .or_default() // If the node isn't in the map yet, insert an empty Vec
-                .push(job.job_id); // Push the job ID onto the Vec for that node
+        for node_name in expanded_nodes { // Assuming job.nodes is a Vec<String>
+            // 1. Fast lookup to get the node's ID
+            if let Some(&node_id) = slurm_nodes.name_to_id.get(&node_name) {
+                // 2. Insert into the map using the integer ID
+                node_to_job_map.entry(node_id).or_default().push(job.job_id);
+            }
         }
     }
 
-    node_map
+    node_to_job_map
 }
 
 /// A clap argument to print the current documentation and arguments
