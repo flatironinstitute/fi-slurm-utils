@@ -9,11 +9,11 @@ use crate::utils::{c_str_to_string, time_t_to_datetime};
 ///
 /// This function is the primary entry point for accessing job data. It handles
 /// all unsafe FFI calls, data conversion, and memory management internally
-pub fn get_jobs(name_to_id: &HashMap<String, usize>) -> Result<SlurmJobs, String> {
+pub fn get_jobs() -> Result<SlurmJobs, String> {
     // We load the raw C data into memory,
     // convert into safe, Rust-native structs, 
     // and then consume the wrapper to drop the original C memory
-    RawSlurmJobInfo::load(0)?.into_slurm_jobs(name_to_id)
+    RawSlurmJobInfo::load(0)?.into_slurm_jobs()
 }
 
 /// We use this struct to manage the C-allocatd memory,
@@ -97,13 +97,13 @@ impl RawSlurmJobInfo {
     //    }
     //}
     /// Consumes the wrapper to transform the raw C data into a safe, owned `SlurmJobs` collection
-    pub fn into_slurm_jobs(self, name_to_id: &HashMap<String, usize>) -> Result<SlurmJobs, String> {
+    pub fn into_slurm_jobs(self) -> Result<SlurmJobs, String> {
         let raw_jobs_slice = self.as_slice();
 
         let jobs_map = raw_jobs_slice
             .iter()
             .try_fold(HashMap::new(), |mut map, raw_job| {
-                let safe_job = Job::from_raw_binding(raw_job, name_to_id)?;
+                let safe_job = Job::from_raw_binding(raw_job)?;
                 map.insert(safe_job.job_id, safe_job);
                 Ok::<HashMap<u32, Job>, String>(map)
             })?;
@@ -215,6 +215,7 @@ pub struct Job {
     pub num_nodes: u32,
     pub num_cpus: u32,
     pub num_tasks: u32,
+    pub raw_hostlist: String,
     pub node_ids: Vec<usize>,
     pub allocated_gres: HashMap<String, u64>,
 
@@ -226,38 +227,39 @@ pub struct Job {
 
 impl Job {
     /// Creates a safe, owned Rust `Job` from a raw C `job_info` struct
-    pub fn from_raw_binding(raw_job: &job_info, name_to_id: &HashMap<String, usize>) -> Result<Self, String> {
+    pub fn from_raw_binding(raw_job: &job_info) -> Result<Self, String> {
 
-        let hostlist_str = unsafe {c_str_to_string(raw_job.nodes)};
-
-        let expanded_nodes = crate::parser::parse_slurm_hostlist(&hostlist_str);
-
-        let node_ids: Vec<usize> = expanded_nodes.iter().filter_map(|node_name| name_to_id.get(node_name).copied()).collect();
+        //let hostlist_str = ;
+        //
+        //let expanded_nodes = crate::parser::parse_slurm_hostlist(&hostlist_str);
+        //
+        //let node_ids: Vec<usize> = expanded_nodes.iter().filter_map(|node_name| name_to_id.get(node_name).copied()).collect();
 
         Ok(Job {
-             job_id: raw_job.job_id,
-             array_job_id: raw_job.array_job_id,
-             array_task_id: raw_job.array_task_id,
-             name: unsafe {c_str_to_string(raw_job.name)},
-             user_id: raw_job.user_id,
-             user_name: unsafe {c_str_to_string(raw_job.user_name)},
-             group_id: raw_job.group_id,
-             partition: unsafe {c_str_to_string(raw_job.partition)},
-             account: unsafe {c_str_to_string(raw_job.account)},
-             job_state: JobState::from(raw_job.job_state),
-             state_description: unsafe {c_str_to_string(raw_job.state_desc)},
-             submit_time: time_t_to_datetime(raw_job.submit_time),
-             start_time: time_t_to_datetime(raw_job.start_time),
-             end_time: time_t_to_datetime(raw_job.end_time),
-             time_limit_minutes: raw_job.time_limit,
-             num_nodes: raw_job.num_nodes,
-             num_cpus: raw_job.num_cpus,
-             num_tasks: raw_job.num_tasks,
-             node_ids,
-             allocated_gres: unsafe {parse_tres_str(raw_job.tres_alloc_str)},
-             work_dir: unsafe {c_str_to_string(raw_job.work_dir)},
-             command: unsafe {c_str_to_string(raw_job.command)},
-             exit_code: raw_job.exit_code,
+            job_id: raw_job.job_id,
+            array_job_id: raw_job.array_job_id,
+            array_task_id: raw_job.array_task_id,
+            name: unsafe {c_str_to_string(raw_job.name)},
+            user_id: raw_job.user_id,
+            user_name: unsafe {c_str_to_string(raw_job.user_name)},
+            group_id: raw_job.group_id,
+            partition: unsafe {c_str_to_string(raw_job.partition)},
+            account: unsafe {c_str_to_string(raw_job.account)},
+            job_state: JobState::from(raw_job.job_state),
+            state_description: unsafe {c_str_to_string(raw_job.state_desc)},
+            submit_time: time_t_to_datetime(raw_job.submit_time),
+            start_time: time_t_to_datetime(raw_job.start_time),
+            end_time: time_t_to_datetime(raw_job.end_time),
+            time_limit_minutes: raw_job.time_limit,
+            num_nodes: raw_job.num_nodes,
+            num_cpus: raw_job.num_cpus,
+            num_tasks: raw_job.num_tasks,
+            raw_hostlist: unsafe {c_str_to_string(raw_job.nodes)},
+            node_ids: Vec::new(),
+            allocated_gres: unsafe {parse_tres_str(raw_job.tres_alloc_str)},
+            work_dir: unsafe {c_str_to_string(raw_job.work_dir)},
+            command: unsafe {c_str_to_string(raw_job.command)},
+            exit_code: raw_job.exit_code,
         })
     }
 }
@@ -270,4 +272,34 @@ pub struct SlurmJobs {
     pub last_update: DateTime<Utc>,
     /// Timestamp of the last backfill cycle, if available
     pub last_backfill: DateTime<Utc>,
+}
+
+/// Iterates through all loaded jobs and populates their `node_ids` vector.
+/// This is a bulk operation designed for cache efficiency.
+pub fn enrich_jobs_with_node_ids(
+    slurm_jobs: &mut SlurmJobs, // Needs to be mutable to modify the jobs
+    name_to_id: &HashMap<String, usize>,
+) {
+    // We iterate mutably over the jobs vector
+    for job in &mut slurm_jobs.jobs.values_mut() {
+        if job.raw_hostlist.is_empty() {
+            continue;
+        }
+
+        // 1. Parse the hostlist string
+        let expanded_nodes = crate::parser::parse_slurm_hostlist(&job.raw_hostlist);
+
+        // 2. Convert names to IDs and populate the job's node_ids vector
+        //    Pre-allocating capacity is a small extra optimization.
+        job.node_ids.reserve(expanded_nodes.len());
+        for node_name in expanded_nodes {
+            if let Some(&id) = name_to_id.get(&node_name) {
+                job.node_ids.push(id);
+            }
+        }
+
+        // 3. (Optional) Free the memory from the raw string if it's no longer needed.
+        job.raw_hostlist.clear();
+        job.raw_hostlist.shrink_to_fit();
+    }
 }
