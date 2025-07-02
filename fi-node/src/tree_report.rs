@@ -22,6 +22,7 @@ pub struct ReportLine {
     pub total_cpus: u32,
     pub idle_cpus: u32,
     pub alloc_cpus: u32,
+    pub node_names: Vec<String>,
 }
 
 pub type TreeReportData = TreeNode;
@@ -52,6 +53,7 @@ pub fn build_tree_report(
     node_to_job_map: &HashMap<usize, Vec<u32>>,
     feature_filter: &[String],
     show_hidden_features: bool,
+    show_node_names: bool,
 ) -> TreeReportData {
     let mut root = TreeNode {
         name: "TOTAL".to_string(),
@@ -79,6 +81,9 @@ pub fn build_tree_report(
         if is_available {
             root.stats.idle_nodes += 1;
             root.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
+        }
+        if show_node_names {
+            root.stats.node_names.push(node.name);
         }
 
         // NEW: Determine which features to use for building the tree based on the flag.
@@ -330,9 +335,10 @@ fn print_node_recursive(
     let cpu_text = format_tree_stat_column(current_node.stats.idle_cpus, current_node.stats.total_cpus, col_widths.max_idle_cpus, col_widths.max_total_cpus);
     let node_bar = create_avail_bar(current_node.stats.idle_nodes, current_node.stats.total_nodes, bar_width, Color::Green, no_color);
     let cpu_bar = create_avail_bar(current_node.stats.idle_cpus, current_node.stats.total_cpus, bar_width, Color::Cyan, no_color);
+    let node_names = current_node.stats.node_names;
 
     println!(
-        "{:<feature_w$} {:>nodes_w$} {:>cpus_w$} {} {}",
+        "{:<feature_w$} {:>nodes_w$} {:>cpus_w$} {} {}: {}",
         display_name.bold(),
         node_text,
         cpu_text,
@@ -340,7 +346,8 @@ fn print_node_recursive(
         cpu_bar,
         feature_w = max_width,
         nodes_w = nodes_final_width,
-        cpus_w = cpus_final_width
+        cpus_w = cpus_final_width,
+        node_names,
     );
 
     let full_child_prefix = format!("{}{}", prefix, if is_last { "   " } else { "│  " });
