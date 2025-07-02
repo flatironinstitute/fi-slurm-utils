@@ -78,19 +78,27 @@ fn main() -> Result<(), String> {
     // This MUST be the very first Slurm function called 
     // We pass a null pointer to let Slurm find its config file automatically
     if args.debug { println!("Initializing Slurm library...");  
-        println!("Time to initialize Slurm: {:?}", start.elapsed()); }
+        println!("Started initializing Slurm: {:?}", start.elapsed()); 
+    }
     // has no output, only passes a null pointer to Slurm directly in order to initialize
     // non-trivial functions of the Slurm API
     initialize_slurm();
 
+    if args.debug { println!("Initializing Slurm library...");  
+        println!("Finished initializing Slurm: {:?}", start.elapsed()); }
+
     // After initializing, we load the conf to get a handle that we can
     // manage for proper cleanup
-    if args.debug { println!("Loading Slurm configuration..."); }
+    if args.debug { println!("Loading Slurm configuration..."); 
+        println!("Finished loading Slurm config: {:?}", start.elapsed()); 
+    }
 
     // We don't need to actually use this variable, but we store it anyway in order to
     // automatically invoke its Drop implementation when it goes out of scope at the end of main()
     let _slurm_config = SlurmConfig::load()?;
-    if args.debug { println!("Slurm configuration loaded successfully."); }
+    if args.debug { println!("Slurm configuration loaded successfully."); 
+        println!("Finished loading Slurm config: {:?}", start.elapsed()); 
+    }
 
     // Load Data 
     if args.debug { println!("Loading data from Slurm..."); 
@@ -131,6 +139,7 @@ fn main() -> Result<(), String> {
     }
 
     // Build Cross-Reference Map 
+    if args.debug { println!("Started building node to job map: {:?}", start.elapsed()); }
     let node_to_job_map = build_node_to_job_map(&jobs_collection);
     if args.debug { 
         println!(
@@ -140,13 +149,16 @@ fn main() -> Result<(), String> {
         println!("Finished building node to job map: {:?}", start.elapsed()); 
     }
     if args.detailed {
+        if args.debug { println!("Started building report: {:?}", start.elapsed()); }
         //  Aggregate Data into Report
         let report = report::build_report(&filtered_nodes, &jobs_collection, &node_to_job_map);
-        if args.debug { println!("Aggregated data into {} state groups.", report.len()); }
+        if args.debug { println!("Aggregated data into {} state groups.", report.len()); 
+            println!("Finished building report: {:?}", start.elapsed()); 
+        }
 
         // Print Report 
-        if args.debug { println!("\n--- Slurm Node Feature Report ---"); }
         report::print_report(&report, args.no_color);
+        if args.debug { println!("Finished printing report: {:?}", start.elapsed()); }
 
         return Ok(())
     } else if args.summary {
@@ -180,7 +192,6 @@ fn build_node_to_job_map(jobs: &SlurmJobs) -> HashMap<String, Vec<u32>> {
         }
 
         // Expand the Slurm hostlist string
-        // TODO: consider using Slurm's built-in parser instead
         let expanded_nodes = parse_slurm_hostlist(&job.nodes);
 
         // For each individual node name, add the current job's ID to the map
