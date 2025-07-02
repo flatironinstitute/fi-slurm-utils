@@ -5,7 +5,7 @@ pub mod tui;
 
 use clap::Parser;
 use std::collections::HashMap;
-use fi_slurm::jobs::SlurmJobs;
+use fi_slurm::jobs::{SlurmJobs, enrich_jobs_with_node_ids};
 use fi_slurm::{jobs, nodes, utils::{SlurmConfig, initialize_slurm}};
 use fi_slurm::filter::{self, gather_all_features};
 use fi_prometheus::{get_max_resource, get_usage_by, Cluster, Grouping, Resource};
@@ -108,9 +108,11 @@ fn main() -> Result<(), String> {
     if args.debug { println!("Loaded node data"); 
         println!("Finished loading node data from Slurm: {:?}", start.elapsed()); }
 
-    let jobs_collection = jobs::get_jobs(&nodes_collection.name_to_id)?;
+    let mut jobs_collection = jobs::get_jobs()?;
     if args.debug { println!("Loaded job data"); 
         println!("Finished loading job data from Slurm: {:?}", start.elapsed()); }
+
+    enrich_jobs_with_node_ids(&mut jobs_collection, &nodes_collection.name_to_id);
 
     let filtered_nodes = filter::filter_nodes_by_feature(&nodes_collection, &args.feature, args.exact);
     if args.debug && !args.feature.is_empty() { println!("Filtered nodes by feature"); 
