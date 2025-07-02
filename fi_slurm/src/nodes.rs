@@ -291,19 +291,19 @@ pub struct Node {
     //CPU Information
     pub cpus: u16,
     pub cores: u16,
-    // pub core_spec_count: u16,
-    // pub cpu_bind: u32,
-    // pub cpu_load: u32,
-    // pub cpus_effective: u16,
-    // pub cpu_spec_list: String,
+    pub core_spec_count: u16,
+    pub cpu_bind: u32,
+    pub cpu_load: u32,
+    pub cpus_effective: u16,
+    pub cpu_spec_list: String,
 
-    // // Memory information (in MB)
-    // pub real_memory: u64,
-    // pub free_memory: u64,
-    // pub mem_spec_limit: u64,
+    // Memory information (in MB)
+    pub real_memory: u64,
+    pub free_memory: u64,
+    pub mem_spec_limit: u64,
 
     // Energy information
-    // _energy: Option<AcctGatherEnergy>,
+    _energy: Option<AcctGatherEnergy>,
 
     // Slurm Features 
     pub features: Vec<String>,
@@ -319,40 +319,40 @@ pub struct Node {
     pub res_cores_per_gpu: u16,
     pub gpu_spec: String,
 
-    // // Time information
-    // pub boot_time: DateTime<Utc>, // converted from a C i64 time_t
-    // pub last_busy: DateTime<Utc>,
-    // pub slurmd_start_time: DateTime<Utc>,
+    // Time information
+    pub boot_time: DateTime<Utc>, // converted from a C i64 time_t
+    pub last_busy: DateTime<Utc>,
+    pub slurmd_start_time: DateTime<Utc>,
 
-    // // Other
-    // pub architecture: String,
-    // pub operating_system: String,
-    // pub reason: String,
-    // pub broadcast_address: String,
-    // pub boards: u16,
-    // pub cluster_name: String,
-    // pub extra: String,
-    // pub instance_id: String,
-    // pub instance_type: String,
-    // pub mcs_label: String,
-    // pub os: String,
-    // pub owner: u32,
-    // pub partitions: String,
-    // pub port: u16,
-    // pub comment: String,
-    // pub reason_time: DateTime<Utc>,
-    // pub reason_uid: u32,
-    // pub resume_after: DateTime<Utc>,
-    // pub resv_name: String,
-    // // pub select_nodeinfo: *mut bindings::dynamic_plugin_data, // replace with safe, owned version
-    // // null-initialized pointer to dynamic plugin data. Leaving commented for the moment unless we
-    // // turn out to need it
-    // pub sockets: u16,
-    // pub threads: u16,
-    // pub tmp_disk: u32,
-    // pub weight: u32,
-    // pub tres_fmt_str: String,
-    // pub version: String,
+    // Other
+    pub architecture: String,
+    pub operating_system: String,
+    pub reason: String,
+    pub broadcast_address: String,
+    pub boards: u16,
+    pub cluster_name: String,
+    pub extra: String,
+    pub instance_id: String,
+    pub instance_type: String,
+    pub mcs_label: String,
+    pub os: String,
+    pub owner: u32,
+    pub partitions: String,
+    pub port: u16,
+    pub comment: String,
+    pub reason_time: DateTime<Utc>,
+    pub reason_uid: u32,
+    pub resume_after: DateTime<Utc>,
+    pub resv_name: String,
+    // pub select_nodeinfo: *mut bindings::dynamic_plugin_data, // replace with safe, owned version
+    // null-initialized pointer to dynamic plugin data. Leaving commented for the moment unless we
+    // turn out to need it
+    pub sockets: u16,
+    pub threads: u16,
+    pub tmp_disk: u32,
+    pub weight: u32,
+    pub tres_fmt_str: String,
+    pub version: String,
 }
 
 impl Node {
@@ -401,18 +401,18 @@ impl Node {
             // CPU Information
             cpus: raw_node.cpus,
             cores: raw_node.cores,
-            // core_spec_count: raw_node.core_spec_cnt,
-            // cpu_bind: raw_node.cpu_bind,
-            // cpu_load: raw_node.cpu_load,
-            // cpus_effective: raw_node.cpus_efctv,
-            // cpu_spec_list: "TODO: Implement cpu_spec_list parsing".to_string(), // Placeholder
+            core_spec_count: raw_node.core_spec_cnt,
+            cpu_bind: raw_node.cpu_bind,
+            cpu_load: raw_node.cpu_load,
+            cpus_effective: raw_node.cpus_efctv,
+            cpu_spec_list: "TODO: Implement cpu_spec_list parsing".to_string(), // Placeholder
 
-            // // Memory information (in MB)
-            // real_memory: raw_node.real_memory,
-            // free_memory: raw_node.free_mem, 
-            // mem_spec_limit: raw_node.mem_spec_limit,
+            // Memory information (in MB)
+            real_memory: raw_node.real_memory,
+            free_memory: raw_node.free_mem, 
+            mem_spec_limit: raw_node.mem_spec_limit,
 
-            // _energy: energy,
+            _energy: energy,
 
             // Slurm Features
             features: c_str_to_vec(raw_node.features),
@@ -427,44 +427,44 @@ impl Node {
             res_cores_per_gpu: raw_node.res_cores_per_gpu,
             gpu_spec: "TODO: Implement gpu_spec parsing".to_string(), // Placeholder
 
-            // // Time information
-            // boot_time: time_t_to_datetime(raw_node.boot_time),
-            // last_busy: time_t_to_datetime(raw_node.last_busy),
-            // slurmd_start_time: time_t_to_datetime(raw_node.slurmd_start_time),
-            // reason_time: time_t_to_datetime(raw_node.reason_time),
-            // resume_after: time_t_to_datetime(raw_node.resume_after),
-            //
-            // // Other
-            // architecture: unsafe {c_str_to_string(raw_node.arch)},
-            // operating_system: unsafe {c_str_to_string(raw_node.os)},
-            // reason: unsafe {c_str_to_string(raw_node.reason)},
-            // broadcast_address: unsafe {c_str_to_string(raw_node.bcast_address)},
-            // boards: raw_node.boards,
-            // cluster_name: unsafe {c_str_to_string(raw_node.cluster_name)},
-            // extra: unsafe {c_str_to_string(raw_node.extra)},
-            // comment: unsafe {c_str_to_string(raw_node.comment)},
-            // instance_id: "TODO".to_string(),  // These fields may not have direct mappings
-            // instance_type: "TODO".to_string(),
-            // mcs_label: unsafe {c_str_to_string(raw_node.mcs_label)},
-            // os: unsafe {c_str_to_string(raw_node.os)}, // Duplicate of operating_system? Included for completeness.
-            // owner: raw_node.owner,
-            // partitions: unsafe {c_str_to_string(raw_node.partitions)},
-            // port: raw_node.port,
-            // reason_uid: raw_node.reason_uid,
-            // resv_name: unsafe {c_str_to_string(raw_node.resv_name)},
-            //
-            // // TODO: `select_nodeinfo` is a void pointer to plugin-specific data
-            // // Handling this requires knowing which select plugin is active and how
-            // // to interpret its data structure
-            // // For now, we will ignore it
-            // // select_nodeinfo: ...,
-            //
-            // sockets: raw_node.sockets,
-            // threads: raw_node.threads,
-            // tmp_disk: raw_node.tmp_disk,
-            // weight: raw_node.weight,
-            // tres_fmt_str: "TODO: Parse TRES format string".to_string(), // Placeholder
-            // version: unsafe {c_str_to_string(raw_node.version)},
+            // Time information
+            boot_time: time_t_to_datetime(raw_node.boot_time),
+            last_busy: time_t_to_datetime(raw_node.last_busy),
+            slurmd_start_time: time_t_to_datetime(raw_node.slurmd_start_time),
+            reason_time: time_t_to_datetime(raw_node.reason_time),
+            resume_after: time_t_to_datetime(raw_node.resume_after),
+
+            // Other
+            architecture: unsafe {c_str_to_string(raw_node.arch)},
+            operating_system: unsafe {c_str_to_string(raw_node.os)},
+            reason: unsafe {c_str_to_string(raw_node.reason)},
+            broadcast_address: unsafe {c_str_to_string(raw_node.bcast_address)},
+            boards: raw_node.boards,
+            cluster_name: unsafe {c_str_to_string(raw_node.cluster_name)},
+            extra: unsafe {c_str_to_string(raw_node.extra)},
+            comment: unsafe {c_str_to_string(raw_node.comment)},
+            instance_id: "TODO".to_string(),  // These fields may not have direct mappings
+            instance_type: "TODO".to_string(),
+            mcs_label: unsafe {c_str_to_string(raw_node.mcs_label)},
+            os: unsafe {c_str_to_string(raw_node.os)}, // Duplicate of operating_system? Included for completeness.
+            owner: raw_node.owner,
+            partitions: unsafe {c_str_to_string(raw_node.partitions)},
+            port: raw_node.port,
+            reason_uid: raw_node.reason_uid,
+            resv_name: unsafe {c_str_to_string(raw_node.resv_name)},
+
+            // TODO: `select_nodeinfo` is a void pointer to plugin-specific data
+            // Handling this requires knowing which select plugin is active and how
+            // to interpret its data structure
+            // For now, we will ignore it
+            // select_nodeinfo: ...,
+            
+            sockets: raw_node.sockets,
+            threads: raw_node.threads,
+            tmp_disk: raw_node.tmp_disk,
+            weight: raw_node.weight,
+            tres_fmt_str: "TODO: Parse TRES format string".to_string(), // Placeholder
+            version: unsafe {c_str_to_string(raw_node.version)},
         })
     }
 }
