@@ -163,7 +163,7 @@ fn main() -> Result<(), String> {
         return Ok(())
     } else {
         // Aggregate data into the tree report 
-        let tree_report = tree_report::build_tree_report(&filtered_nodes, &jobs_collection, &node_to_job_map, &args.feature, args.verbose);
+        let tree_report = tree_report::build_tree_report(&filtered_nodes, &jobs_collection, &node_to_job_map, &args.feature, args.verbose, args.names);
         tree_report::print_tree_report(&tree_report, args.no_color);
 
         if args.debug { println!("Finished building tree report: {:?}", start.elapsed()); }
@@ -230,6 +230,8 @@ struct Args {
     terminal: bool,
     #[arg(short, long)]
     verbose: bool,
+    #[arg(long)]
+    names: bool,
     #[arg(short, long)]
     help: bool,
 }
