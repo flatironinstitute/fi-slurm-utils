@@ -6,8 +6,7 @@ pub mod tui;
 use clap::Parser;
 use std::collections::HashMap;
 use fi_slurm::jobs::SlurmJobs;
-use fi_slurm::nodes::SlurmNodes;
-use fi_slurm::{jobs, nodes, parser::parse_slurm_hostlist, utils::{SlurmConfig, initialize_slurm}};
+use fi_slurm::{jobs, nodes, utils::{SlurmConfig, initialize_slurm}};
 use fi_slurm::filter::{self, gather_all_features};
 use fi_prometheus::{get_max_resource, get_usage_by, Cluster, Grouping, Resource};
 use crate::tui::tui_execute;
@@ -109,7 +108,7 @@ fn main() -> Result<(), String> {
     if args.debug { println!("Loaded node data"); 
         println!("Finished loading node data from Slurm: {:?}", start.elapsed()); }
 
-    let jobs_collection = jobs::get_jobs()?;
+    let jobs_collection = jobs::get_jobs(&nodes_collection.name_to_id)?;
     if args.debug { println!("Loaded job data"); 
         println!("Finished loading job data from Slurm: {:?}", start.elapsed()); }
 
@@ -141,7 +140,7 @@ fn main() -> Result<(), String> {
 
     // Build Cross-Reference Map 
     if args.debug { println!("Started building node to job map: {:?}", start.elapsed()); }
-    let node_to_job_map = build_node_to_job_map(&nodes_collection, &jobs_collection);
+    let node_to_job_map = build_node_to_job_map(&jobs_collection);
     if args.debug { 
         println!(
             "Built map cross-referencing {} nodes with active jobs.",
@@ -182,26 +181,17 @@ fn main() -> Result<(), String> {
 
 /// Builds a map where keys are node hostnames and values are a list of job IDs
 /// running on that node
-fn build_node_to_job_map(slurm_nodes: &SlurmNodes, slurm_jobs: &SlurmJobs) -> HashMap<usize, Vec<u32>> {
+fn build_node_to_job_map(slurm_jobs: &SlurmJobs) -> HashMap<usize, Vec<u32>> {
     let mut node_to_job_map: HashMap<usize, Vec<u32>> = HashMap::new();
 
     for job in slurm_jobs.jobs.values() {
-
-        if job.job_state != crate::jobs::JobState::Running || job.nodes.is_empty() {
+        if job.job_state != crate::jobs::JobState::Running || job.node_ids.is_empty() {
             continue;
         }
-
-        let expanded_nodes = parse_slurm_hostlist(&job.nodes);
-
-        for node_name in expanded_nodes { // Assuming job.nodes is a Vec<String>
-            // 1. Fast lookup to get the node's ID
-            if let Some(&node_id) = slurm_nodes.name_to_id.get(&node_name) {
-                // 2. Insert into the map using the integer ID
-                node_to_job_map.entry(node_id).or_default().push(job.job_id);
-            }
+        for &node_id in &job.node_ids {
+            node_to_job_map.entry(node_id).or_default().push(job.job_id);
         }
     }
-
     node_to_job_map
 }
 

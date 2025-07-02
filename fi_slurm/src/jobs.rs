@@ -9,11 +9,11 @@ use crate::utils::{c_str_to_string, time_t_to_datetime};
 ///
 /// This function is the primary entry point for accessing job data. It handles
 /// all unsafe FFI calls, data conversion, and memory management internally
-pub fn get_jobs() -> Result<SlurmJobs, String> {
+pub fn get_jobs(name_to_id: &HashMap<String, usize>) -> Result<SlurmJobs, String> {
     // We load the raw C data into memory,
     // convert into safe, Rust-native structs, 
     // and then consume the wrapper to drop the original C memory
-    RawSlurmJobInfo::load(0)?.into_slurm_jobs()
+    RawSlurmJobInfo::load(0)?.into_slurm_jobs(name_to_id)
 }
 
 /// We use this struct to manage the C-allocatd memory,
@@ -97,13 +97,13 @@ impl RawSlurmJobInfo {
     //    }
     //}
     /// Consumes the wrapper to transform the raw C data into a safe, owned `SlurmJobs` collection
-    pub fn into_slurm_jobs(self) -> Result<SlurmJobs, String> {
+    pub fn into_slurm_jobs(self, name_to_id: &HashMap<String, usize>) -> Result<SlurmJobs, String> {
         let raw_jobs_slice = self.as_slice();
 
         let jobs_map = raw_jobs_slice
             .iter()
             .try_fold(HashMap::new(), |mut map, raw_job| {
-                let safe_job = Job::from_raw_binding(raw_job)?;
+                let safe_job = Job::from_raw_binding(raw_job, name_to_id)?;
                 map.insert(safe_job.job_id, safe_job);
                 Ok::<HashMap<u32, Job>, String>(map)
             })?;
@@ -215,7 +215,7 @@ pub struct Job {
     pub num_nodes: u32,
     pub num_cpus: u32,
     pub num_tasks: u32,
-    pub nodes: String,
+    pub node_ids: Vec<usize>,
     pub allocated_gres: HashMap<String, u64>,
 
     // Other Information 
@@ -226,7 +226,13 @@ pub struct Job {
 
 impl Job {
     /// Creates a safe, owned Rust `Job` from a raw C `job_info` struct
-    pub fn from_raw_binding(raw_job: &job_info) -> Result<Self, String> {
+    pub fn from_raw_binding(raw_job: &job_info, name_to_id: &HashMap<String, usize>) -> Result<Self, String> {
+
+        let hostlist_str = unsafe {c_str_to_string(raw_job.nodes)};
+
+        let expanded_nodes = crate::parser::parse_slurm_hostlist(&hostlist_str);
+
+        let node_ids: Vec<usize> = expanded_nodes.iter().filter_map(|node_name| name_to_id.get(node_name).copied()).collect();
 
         Ok(Job {
              job_id: raw_job.job_id,
@@ -247,7 +253,7 @@ impl Job {
              num_nodes: raw_job.num_nodes,
              num_cpus: raw_job.num_cpus,
              num_tasks: raw_job.num_tasks,
-             nodes: unsafe {c_str_to_string(raw_job.nodes)},
+             node_ids,
              allocated_gres: unsafe {parse_tres_str(raw_job.tres_alloc_str)},
              work_dir: unsafe {c_str_to_string(raw_job.work_dir)},
              command: unsafe {c_str_to_string(raw_job.command)},
