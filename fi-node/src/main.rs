@@ -23,7 +23,7 @@ use std::time::Instant;
 /// 4. Print the final, formatted report to the console
 fn main() -> Result<(), String> {
 
-    let mut start = Instant::now();
+    let start = Instant::now();
 
     let args = Args::parse();
 
@@ -99,6 +99,7 @@ fn main() -> Result<(), String> {
     let nodes_collection = nodes::get_nodes()?;
     if args.debug { println!("Loaded node data"); 
         println!("Finished loading node data from Slurm: {:?}", start.elapsed()); }
+
     let jobs_collection = jobs::get_jobs()?;
     if args.debug { println!("Loaded job data"); 
         println!("Finished loading job data from Slurm: {:?}", start.elapsed()); }
