@@ -76,28 +76,37 @@ pub fn build_report(
 ) -> ReportData {
     let mut report_data = ReportData::new();
 
-    // Iterate through every node we loaded from Slurm
-    // for node in nodes.nodes.values() 
-    for &node in nodes {
-        // Sum the CPUs from all jobs running on this node
-        let alloc_cpus_for_node: u32 = if let Some(job_ids) = node_to_job_map.get(&node.name) {
-            job_ids
-                .iter()
-                .filter_map(|job_id| jobs.jobs.get(job_id)) // Look up each job by its ID
-                .map(|job| {
-                    // Correctly distribute the job's total CPUs across its nodes
-                    if job.num_nodes > 0 {
-                        // This prevents division by zero and correctly handles single-node job.
-                        job.num_cpus / job.num_nodes
-                    } else {
-                        job.num_cpus
-                    }
-                })
-                .sum()
-        } else {
-            0 // No jobs on this node, so 0 allocated CPUs
-        };
+    // * trying to optimize
 
+    // This creates a new Vec<u32> where each element corresponds to a node in the input `n` slice
+    let alloc_cpus_per_node: Vec<u32> = nodes
+        .iter()
+        .map(|&node| {
+            // For each node, look up its job IDs, returning an option
+            node_to_job_map
+                .get(&node.name)
+                // If the Option is Some(job_ids), we map over it to perform the calculation
+                .map(|job_ids| {
+                    job_ids
+                        .iter()
+                        // For each job_id, look up the job details. filter_map unwraps the Some results
+                        .filter_map(|job_id| jobs.jobs.get(job_id))
+                        // For each valid job, calculate the CPUs allocated to this specific node
+                        .map(|job| {
+                            if job.num_nodes > 0 {
+                                job.num_cpus / job.num_nodes
+                            } else {
+                                job.num_cpus // Should not happen, but handles malformed job data
+                            }
+                        })
+                        .sum() // Sum the CPUs for all jobs on this node
+                })
+                // If the initial .get() returned None (no jobs on the node), default to 0
+                .unwrap_or(0)
+        })
+        .collect(); // Collect all the results into our vector
+
+    for (node, &alloc_cpus_for_node) in nodes.iter().zip(alloc_cpus_per_node.iter()) {
         // Slurm does not mark nodes as mixed by default, so we have to do it
         let derived_state = if alloc_cpus_for_node > 0 && alloc_cpus_for_node < node.cpus as u32 {
             NodeState::Mixed
@@ -140,9 +149,83 @@ pub fn build_report(
             subgroup_line.total_cpus += node.cpus as u32;
             subgroup_line.alloc_cpus += alloc_cpus_for_node;
         }
-    }
+    };
     report_data
 }
+    // // *
+    //
+    // // Iterate through every node we loaded from Slurm
+    // // for node in nodes.nodes.values() 
+    // for &node in nodes {
+    //     // Sum the CPUs from all jobs running on this node
+    //
+        //can we optimize this a bit better?
+        // right now we're iterating through nodes in a for loop, getting each vec of job ids
+        // running on that cpu by key access, then getting the job information by job id, then
+        // getting the number of cpus used in that job
+        // the vec of job ids likely isn't very large
+
+        // let alloc_cpus_for_node: u32 = if let Some(job_ids) = node_to_job_map.get(&node.name) {
+        //     job_ids
+        //         .iter()
+        //         .filter_map(|job_id| jobs.jobs.get(job_id)) // Look up each job by its ID
+        //         .map(|job| {
+        //             // Correctly distribute the job's total CPUs across its nodes
+        //             if job.num_nodes > 0 {
+        //                 // This prevents division by zero and correctly handles single-node job.
+        //                 job.num_cpus / job.num_nodes
+        //             } else {
+        //                 job.num_cpus
+        //             }
+        //         })
+        //         .sum()
+        // } else {
+        //     0 // No jobs on this node, so 0 allocated CPUs
+        // };
+
+    //     // Slurm does not mark nodes as mixed by default, so we have to do it
+    //     let derived_state = if alloc_cpus_for_node > 0 && alloc_cpus_for_node < node.cpus as u32 {
+    //         NodeState::Mixed
+    //     } else {
+    //         // Otherwise, we trust the state reported by Slurm
+    //         node.state.clone()
+    //     };
+    //
+    //     // Get the report group for the node's derived state
+    //     let group = report_data.entry(derived_state).or_default();
+    //
+    //     // Update the Main Summary Line for the Group 
+    //     group.summary.node_count += 1;
+    //     group.summary.total_cpus += node.cpus as u32;
+    //     group.summary.alloc_cpus += alloc_cpus_for_node;
+    //
+    //     // Check if the node has GPU info
+    //     if let Some(gpu) = &node.gpu_info {
+    //         // The subgroup is identified by the specific GPU name
+    //         group.summary.total_gpus += gpu.total_gpus;
+    //         group.summary.alloc_gpus += gpu.allocated_gpus;
+    //
+    //         let subgroup_line = group.subgroups.entry(gpu.name.clone()).or_default();
+    //
+    //         // Add ALL stats for this node to this one subgroup
+    //         subgroup_line.node_count += 1;
+    //         subgroup_line.total_cpus += node.cpus as u32;
+    //         subgroup_line.alloc_cpus += alloc_cpus_for_node;
+    //         subgroup_line.total_gpus += gpu.total_gpus;
+    //         subgroup_line.alloc_gpus += gpu.allocated_gpus;
+    //     }
+    //
+    //     // This is a CPU-only Node
+    //     // Fall back to using the first feature as its identity
+    //     if let Some(feature) = node.features.first() {
+    //         let subgroup_line = group.subgroups.entry(feature.clone()).or_default();
+    //
+    //         // Add its stats. GPU counts will naturally be zero
+    //         subgroup_line.node_count += 1;
+    //         subgroup_line.total_cpus += node.cpus as u32;
+    //         subgroup_line.alloc_cpus += alloc_cpus_for_node;
+    //     }
+    // }
 
 /// Formats and prints the aggregated report data to the console
 pub fn print_report(report_data: &ReportData, no_color: bool) {
