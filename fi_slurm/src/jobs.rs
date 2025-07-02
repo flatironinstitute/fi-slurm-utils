@@ -194,22 +194,22 @@ type JobId = u32;
 pub struct Job {
     // Core Identification 
     pub job_id: JobId,
-    // pub array_job_id: u32,
-    // pub array_task_id: u32,
+    pub array_job_id: u32,
+    pub array_task_id: u32,
     pub name: String,
-    // pub user_id: u32,
-    // pub user_name: String,
-    // pub group_id: u32,
+    pub user_id: u32,
+    pub user_name: String,
+    pub group_id: u32,
     pub partition: String,
     pub account: String,
 
     // State and Time 
     pub job_state: JobState,
-    // pub state_description: String,
-    // pub submit_time: DateTime<Utc>,
-    // pub start_time: DateTime<Utc>,
-    // pub end_time: DateTime<Utc>,
-    // pub time_limit_minutes: u32,
+    pub state_description: String,
+    pub submit_time: DateTime<Utc>,
+    pub start_time: DateTime<Utc>,
+    pub end_time: DateTime<Utc>,
+    pub time_limit_minutes: u32,
 
     // Resource Allocation 
     pub num_nodes: u32,
@@ -220,9 +220,9 @@ pub struct Job {
     pub allocated_gres: HashMap<String, u64>,
 
     // Other Information 
-    // pub work_dir: String,
-    // pub command: String,
-    // pub exit_code: u32,
+    pub work_dir: String,
+    pub command: String,
+    pub exit_code: u32,
 }
 
 impl Job {
@@ -237,29 +237,29 @@ impl Job {
 
         Ok(Job {
             job_id: raw_job.job_id,
-            // array_job_id: raw_job.array_job_id,
-            // array_task_id: raw_job.array_task_id,
+            array_job_id: raw_job.array_job_id,
+            array_task_id: raw_job.array_task_id,
             name: unsafe {c_str_to_string(raw_job.name)},
-            // user_id: raw_job.user_id,
-            // user_name: unsafe {c_str_to_string(raw_job.user_name)},
-            // group_id: raw_job.group_id,
+            user_id: raw_job.user_id,
+            user_name: unsafe {c_str_to_string(raw_job.user_name)},
+            group_id: raw_job.group_id,
             partition: unsafe {c_str_to_string(raw_job.partition)},
             account: unsafe {c_str_to_string(raw_job.account)},
             job_state: JobState::from(raw_job.job_state),
-            // state_description: unsafe {c_str_to_string(raw_job.state_desc)},
-            // submit_time: time_t_to_datetime(raw_job.submit_time),
-            // start_time: time_t_to_datetime(raw_job.start_time),
-            // end_time: time_t_to_datetime(raw_job.end_time),
-            // time_limit_minutes: raw_job.time_limit,
+            state_description: unsafe {c_str_to_string(raw_job.state_desc)},
+            submit_time: time_t_to_datetime(raw_job.submit_time),
+            start_time: time_t_to_datetime(raw_job.start_time),
+            end_time: time_t_to_datetime(raw_job.end_time),
+            time_limit_minutes: raw_job.time_limit,
             num_nodes: raw_job.num_nodes,
             num_cpus: raw_job.num_cpus,
             num_tasks: raw_job.num_tasks,
             raw_hostlist: unsafe {c_str_to_string(raw_job.nodes)},
             node_ids: Vec::new(),
             allocated_gres: unsafe {parse_tres_str(raw_job.tres_alloc_str)},
-            // work_dir: unsafe {c_str_to_string(raw_job.work_dir)},
-            // command: unsafe {c_str_to_string(raw_job.command)},
-            // exit_code: raw_job.exit_code,
+            work_dir: unsafe {c_str_to_string(raw_job.work_dir)},
+            command: unsafe {c_str_to_string(raw_job.command)},
+            exit_code: raw_job.exit_code,
         })
     }
 }
