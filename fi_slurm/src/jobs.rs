@@ -229,12 +229,6 @@ impl Job {
     /// Creates a safe, owned Rust `Job` from a raw C `job_info` struct
     pub fn from_raw_binding(raw_job: &job_info) -> Result<Self, String> {
 
-        //let hostlist_str = ;
-        //
-        //let expanded_nodes = crate::parser::parse_slurm_hostlist(&hostlist_str);
-        //
-        //let node_ids: Vec<usize> = expanded_nodes.iter().filter_map(|node_name| name_to_id.get(node_name).copied()).collect();
-
         Ok(Job {
             job_id: raw_job.job_id,
             array_job_id: raw_job.array_job_id,
