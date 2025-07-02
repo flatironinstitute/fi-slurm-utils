@@ -11,6 +11,8 @@ use fi_slurm::filter::{self, gather_all_features};
 use fi_prometheus::{get_max_resource, get_usage_by, Cluster, Grouping, Resource};
 use crate::tui::tui_execute;
 
+use std::time::{SystemTime, UNIX_EPOCH};
+
 
 /// The main entry point for the `fi-node`
 ///
@@ -20,6 +22,8 @@ use crate::tui::tui_execute;
 /// 3. Aggregate all data into a structured report format
 /// 4. Print the final, formatted report to the console
 fn main() -> Result<(), String> {
+
+    let start = SystemTime::now();
 
     let args = Args::parse();
 
@@ -34,6 +38,11 @@ fn main() -> Result<(), String> {
     }
 
     if args.prometheus {
+        let since_the_epoch = start
+            .duration_since(UNIX_EPOCH)
+            .expect("time should go forward");
+        println!("Time to start Prometheus calls: {:?}", since_the_epoch);
+
         let acct_rusty = get_usage_by(Cluster::Rusty, Grouping::Account, Resource::Cpus, 7, "1d");
         let nodes_rusty = get_usage_by(Cluster::Rusty, Grouping::Nodes, Resource::Cpus, 7, "1d");
         let max_resource_rusty = get_max_resource(Cluster::Rusty, None, Resource::Cpus, None, None);
@@ -44,6 +53,10 @@ fn main() -> Result<(), String> {
         let acct_popeye = get_usage_by(Cluster::Popeye, Grouping::Account, Resource::Cpus, 7, "1d");
         let nodes_popeye = get_usage_by(Cluster::Popeye, Grouping::Nodes, Resource::Cpus, 7, "1d");
         let max_resource_popeye = get_max_resource(Cluster::Popeye, None, Resource::Cpus, None, None);
+
+        let since_the_epoch = start
+            .duration_since(UNIX_EPOCH)
+            .expect("time should go forward");
 
         println!("Rusty CPUs");
         println!("By Account: {:?}", acct_rusty);
@@ -60,6 +73,8 @@ fn main() -> Result<(), String> {
         println!("By Node Type: {:?}", nodes_popeye);
         println!("Max CPU Use: {:?}", max_resource_popeye);
 
+        println!("Time to finish Prometheus calls: {:?}", since_the_epoch);
+
         return Ok(())
     }
 
@@ -69,7 +84,11 @@ fn main() -> Result<(), String> {
 
     // This MUST be the very first Slurm function called 
     // We pass a null pointer to let Slurm find its config file automatically
-    if args.debug { println!("Initializing Slurm library..."); } 
+    if args.debug { println!("Initializing Slurm library...");  
+        let since_the_epoch = start
+            .duration_since(UNIX_EPOCH)
+            .expect("time should go forward");
+        println!("Time to initialize Slurm: {:?}", since_the_epoch); }
     // has no output, only passes a null pointer to Slurm directly in order to initialize
     // non-trivial functions of the Slurm API
     initialize_slurm();
@@ -84,14 +103,31 @@ fn main() -> Result<(), String> {
     if args.debug { println!("Slurm configuration loaded successfully."); }
 
     // Load Data 
-    if args.debug { println!("Loading data from Slurm..."); }
+    if args.debug { println!("Loading data from Slurm..."); 
+        let since_the_epoch = start
+            .duration_since(UNIX_EPOCH)
+            .expect("time should go forward");
+        println!("Starting to Load data from Slurm: {:?}", since_the_epoch); }
+
     let nodes_collection = nodes::get_nodes()?;
-    if args.debug { println!("Loaded node data"); }
+    if args.debug { println!("Loaded node data"); 
+        let since_the_epoch = start
+            .duration_since(UNIX_EPOCH)
+            .expect("time should go forward");
+        println!("Finished loading node data from Slurm: {:?}", since_the_epoch); }
     let jobs_collection = jobs::get_jobs()?;
-    if args.debug { println!("Loaded job data"); }
+    if args.debug { println!("Loaded job data"); 
+        let since_the_epoch = start
+            .duration_since(UNIX_EPOCH)
+            .expect("time should go forward");
+        println!("Finished loading job data from Slurm: {:?}", since_the_epoch); }
 
     let filtered_nodes = filter::filter_nodes_by_feature(&nodes_collection, &args.feature, args.exact);
-    if args.debug && !args.feature.is_empty() { println!("Filtered nodes by feature")}
+    if args.debug && !args.feature.is_empty() { println!("Filtered nodes by feature"); 
+        let since_the_epoch = start
+            .duration_since(UNIX_EPOCH)
+            .expect("time should go forward");
+        println!("Finished filtering data: {:?}", since_the_epoch); }
 
     // validating input
     if !args.feature.is_empty() && filtered_nodes.is_empty() {
@@ -122,6 +158,10 @@ fn main() -> Result<(), String> {
             "Built map cross-referencing {} nodes with active jobs.",
             node_to_job_map.len()
         ); 
+        let since_the_epoch = start
+            .duration_since(UNIX_EPOCH)
+            .expect("time should go forward");
+        println!("Finished building node to job map: {:?}", since_the_epoch); 
     }
     if args.detailed {
         //  Aggregate Data into Report
