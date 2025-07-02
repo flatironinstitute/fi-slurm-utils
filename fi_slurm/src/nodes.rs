@@ -81,20 +81,30 @@ impl RawSlurmNodeInfo {
     //
     //}
 
+    // In your slurm_data.rs or equivalent file
+
+
     pub fn into_slurm_nodes(self) -> Result<SlurmNodes, String> {
         let raw_nodes_slice = self.as_slice();
 
-        let nodes_map = raw_nodes_slice.iter().try_fold(HashMap::new(), |mut map, raw_node| {
-            let safe_node = Node::from_raw_binding(raw_node)?;
-            map.insert(safe_node.name.clone(), safe_node);
-            Ok::<HashMap<String, Node>, String>(map)
-        })?;
+        let num_nodes = raw_nodes_slice.len();
+        let mut nodes_vec = Vec::with_capacity(num_nodes);
+        let mut name_to_id_map = HashMap::with_capacity(num_nodes);
+
+        for (id, raw_node) in raw_nodes_slice.iter().enumerate() {
+            let safe_node = Node::from_raw_binding(id, raw_node)?;
+
+            name_to_id_map.insert(safe_node.name.clone(), id);
+
+            nodes_vec.push(safe_node);
+        }
 
         let last_update_timestamp = unsafe { (*self.ptr).last_update };
-        let last_update = chrono::DateTime::from_timestamp(last_update_timestamp, 0).unwrap_or_default();
+        let last_update = DateTime::from_timestamp(last_update_timestamp, 0).unwrap_or_default();
 
         Ok(SlurmNodes {
-            nodes: nodes_map,
+            nodes: nodes_vec,
+            name_to_id: name_to_id_map,
             last_update,
         })
     }
@@ -271,6 +281,7 @@ type NodeName = String;
 // pub struct Node, a safe counterpart to node_info_t
 #[derive(Debug, Clone)]
 pub struct Node {
+    pub id: usize,
     pub name: NodeName,
     pub state: NodeState,
     pub next_state: NodeState,
@@ -351,7 +362,7 @@ impl Node {
     ///
     /// The caller must ensure that the `raw_node` contains valid pointers
     /// for all string fields, as provided by a trusted Slurm API call
-    pub fn from_raw_binding(raw_node: &node_info_t) -> Result<Self, String> {
+    pub fn from_raw_binding(id: usize, raw_node: &node_info_t) -> Result<Self, String> {
 
         // Helper to convert comma-separated C string to a Vec<String>
         let c_str_to_vec = |ptr: *const i8| -> Vec<String> {
@@ -379,6 +390,7 @@ impl Node {
 
 
         Ok(Node {
+            id,
             // Basic identification
             name: unsafe {c_str_to_string(raw_node.name)},
             state: NodeState::from(raw_node.node_state), // Directly convert the u32 state
@@ -460,6 +472,9 @@ impl Node {
 
 #[derive(Debug, Clone)]
 pub struct SlurmNodes {
-    pub nodes: std::collections::HashMap<String, Node>,
-    pub last_update: DateTime<Utc>,
+    // The primary data store: a contiguous vector of nodes.
+    pub nodes: Vec<Node>, 
+    // The lookup map: maps a node name to its index in the `nodes` vector.
+    pub name_to_id: HashMap<String, usize>, 
+    pub last_update: DateTime<chrono::Utc>,
 }
