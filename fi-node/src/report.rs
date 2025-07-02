@@ -72,7 +72,7 @@ pub type ReportData = HashMap<NodeState, ReportGroup>;
 pub fn build_report(
     nodes: &[&Node],
     jobs: &SlurmJobs,
-    node_to_job_map: &HashMap<String, Vec<u32>>,
+    node_to_job_map: &HashMap<usize, Vec<u32>>,
 ) -> ReportData {
     let mut report_data = ReportData::new();
 
@@ -84,7 +84,7 @@ pub fn build_report(
         .map(|&node| {
             // For each node, look up its job IDs, returning an option
             node_to_job_map
-                .get(&node.name)
+                .get(&node.id)
                 // If the Option is Some(job_ids), we map over it to perform the calculation
                 .map(|job_ids| {
                     job_ids
