@@ -16,22 +16,7 @@ pub struct ReportLine {
     pub alloc_cpus: u32,
     pub total_gpus: u64,
     pub alloc_gpus: u64,
-}
-
-impl ReportLine {
-    /// A helper method to add the stats from a single `Node` to this line
-    pub fn add_node_stats(&mut self, node: &crate::nodes::Node) {
-        self.node_count += 1;
-        self.total_cpus += node.cpus as u32;
-        // In older Slurm versions, allocated CPUs might not be directly available
-        // and may need to be calculated from jobs. For now, we assume a placeholder.
-        // self.alloc_cpus += node.allocated_cpus as u32; 
-
-        if let Some(gpu) = &node.gpu_info {
-            self.total_gpus += gpu.total_gpus;
-            self.alloc_gpus += gpu.allocated_gpus;
-        }
-    }
+    pub node_names: Vec<String>,
 }
 
 
@@ -72,32 +57,40 @@ pub type ReportData = HashMap<NodeState, ReportGroup>;
 pub fn build_report(
     nodes: &[&Node],
     jobs: &SlurmJobs,
-    node_to_job_map: &HashMap<String, Vec<u32>>,
+    node_to_job_map: &HashMap<usize, Vec<u32>>,
+    show_node_names: bool,
 ) -> ReportData {
     let mut report_data = ReportData::new();
 
-    // Iterate through every node we loaded from Slurm
-    // for node in nodes.nodes.values() 
-    for &node in nodes {
-        // Sum the CPUs from all jobs running on this node
-        let alloc_cpus_for_node: u32 = if let Some(job_ids) = node_to_job_map.get(&node.name) {
-            job_ids
-                .iter()
-                .filter_map(|job_id| jobs.jobs.get(job_id)) // Look up each job by its ID
-                .map(|job| {
-                    // Correctly distribute the job's total CPUs across its nodes
-                    if job.num_nodes > 0 {
-                        // This prevents division by zero and correctly handles single-node job.
-                        job.num_cpus / job.num_nodes
-                    } else {
-                        job.num_cpus
-                    }
+    // This creates a new Vec<u32> where each element corresponds to a node in the input `n` slice
+    let alloc_cpus_per_node: Vec<u32> = nodes
+        .iter()
+        .map(|&node| {
+            // For each node, look up its job IDs, returning an option
+            node_to_job_map
+                .get(&node.id)
+                // If the Option is Some(job_ids), we map over it to perform the calculation
+                .map(|job_ids| {
+                    job_ids
+                        .iter()
+                        // For each job_id, look up the job details. filter_map unwraps the Some results
+                        .filter_map(|job_id| jobs.jobs.get(job_id))
+                        // For each valid job, calculate the CPUs allocated to this specific node
+                        .map(|job| {
+                            if job.num_nodes > 0 {
+                                job.num_cpus / job.num_nodes
+                            } else {
+                                job.num_cpus // Should not happen, but handles malformed job data
+                            }
+                        })
+                        .sum() // Sum the CPUs for all jobs on this node
                 })
-                .sum()
-        } else {
-            0 // No jobs on this node, so 0 allocated CPUs
-        };
+                // If the initial .get() returned None (no jobs on the node), default to 0
+                .unwrap_or(0)
+        })
+        .collect(); // Collect all the results into our vector
 
+    for (node, &alloc_cpus_for_node) in nodes.iter().zip(alloc_cpus_per_node.iter()) {
         // Slurm does not mark nodes as mixed by default, so we have to do it
         let derived_state = if alloc_cpus_for_node > 0 && alloc_cpus_for_node < node.cpus as u32 {
             NodeState::Mixed
@@ -113,6 +106,7 @@ pub fn build_report(
         group.summary.node_count += 1;
         group.summary.total_cpus += node.cpus as u32;
         group.summary.alloc_cpus += alloc_cpus_for_node;
+        if show_node_names { group.summary.node_names.push(node.name.clone()); }
 
         // Check if the node has GPU info
         if let Some(gpu) = &node.gpu_info {
@@ -128,6 +122,7 @@ pub fn build_report(
             subgroup_line.alloc_cpus += alloc_cpus_for_node;
             subgroup_line.total_gpus += gpu.total_gpus;
             subgroup_line.alloc_gpus += gpu.allocated_gpus;
+            if show_node_names { subgroup_line.node_names.push(node.name.clone()); }
         }
 
         // This is a CPU-only Node
@@ -139,13 +134,14 @@ pub fn build_report(
             subgroup_line.node_count += 1;
             subgroup_line.total_cpus += node.cpus as u32;
             subgroup_line.alloc_cpus += alloc_cpus_for_node;
+            if show_node_names { subgroup_line.node_names.push(node.name.clone()); }
         }
-    }
+    };
     report_data
 }
 
 /// Formats and prints the aggregated report data to the console
-pub fn print_report(report_data: &ReportData, no_color: bool) {
+pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: bool,) {
     // Pre-calculate all column widths
     let mut max_state_width = "STATE".len();
     let mut max_alloc_cpu_width = 0;
@@ -217,7 +213,7 @@ pub fn print_report(report_data: &ReportData, no_color: bool) {
     println!("{}", "-".repeat(max_state_width + cpu_col_width + gpu_col_width + 7));
 
     // Generate and Print Report Body
-    let total_line = generate_report_body(report_data, sorted_states, max_state_width, (max_alloc_cpu_width, max_total_cpu_width, max_alloc_gpu_width, max_total_gpu_width), no_color);
+    let total_line = generate_report_body(report_data, sorted_states, max_state_width, (max_alloc_cpu_width, max_total_cpu_width, max_alloc_gpu_width, max_total_gpu_width), no_color, show_node_names);
 
     // Print Totals and Utilization Bars
     println!("{}", "-".repeat(max_state_width + cpu_col_width + gpu_col_width + 7));
@@ -300,7 +296,9 @@ fn generate_report_body(report_data: &HashMap<NodeState, ReportGroup>,
     sorted_states: Vec<&NodeState>, 
     max_state_width: usize, 
     widths: (usize, usize, usize, usize),
-    no_color: bool) -> ReportLine {
+    no_color: bool,
+    show_node_names: bool,
+) -> ReportLine {
     
     let max_alloc_cpu_width = widths.0;
     let max_total_cpu_width = widths.1;
@@ -345,13 +343,19 @@ fn generate_report_body(report_data: &HashMap<NodeState, ReportGroup>,
             let gpu_str = if group.summary.total_gpus > 0 {
                 format_stat_column(group.summary.alloc_gpus, group.summary.total_gpus, max_alloc_gpu_width, max_total_gpu_width)
             } else {
-                let total_width = max_alloc_gpu_width + max_total_gpu_width + 3;
-                format!("{:^width$}", "-", width = total_width)
+                let total_width = max_alloc_gpu_width + max_total_gpu_width;
+                format!("{:^width$}", " -  ", width = total_width)
             };
             
             // Use a two-step print to ensure alignment with colored text.
             print!("{}{}", colored_str, padding);
-            println!("{:>5} {} {}", group.summary.node_count, cpu_str, gpu_str);
+
+            if show_node_names {
+                println!("{:>5} {} {}: {}", group.summary.node_count, cpu_str, gpu_str, fi_slurm::parser::compress_hostlist(&group.summary.node_names));
+            } else {
+                println!("{:>5} {} {}", group.summary.node_count, cpu_str, gpu_str);
+            }
+
 
             let mut sorted_subgroups: Vec<&String> = group.subgroups.keys().collect();
             sorted_subgroups.sort();
@@ -362,15 +366,20 @@ fn generate_report_body(report_data: &HashMap<NodeState, ReportGroup>,
                     let sub_gpu_str = if subgroup_line.total_gpus > 0 {
                         format_stat_column(subgroup_line.alloc_gpus, subgroup_line.total_gpus, max_alloc_gpu_width, max_total_gpu_width)
                     } else {
-                        let total_width = max_alloc_gpu_width + max_total_gpu_width + 3;
-                        format!("{:^width$}", "-", width = total_width)
+                        let total_width = max_alloc_gpu_width + max_total_gpu_width;
+                        format!("{:^width$}", " -  ", width = total_width)
                     };
                     
                     let indented_name = format!("  {}", subgroup_name);
                     let sub_padding = " ".repeat(max_state_width.saturating_sub(indented_name.len()));
 
                     print!("{}{}", indented_name, sub_padding);
-                    println!("{:>5} {} {}", subgroup_line.node_count, sub_cpu_str, sub_gpu_str);
+    
+                    if show_node_names {
+                        println!("{:>5} {} {}: {}", subgroup_line.node_count, sub_cpu_str, sub_gpu_str, fi_slurm::parser::compress_hostlist(&subgroup_line.node_names));
+                    } else {
+                        println!("{:>5} {} {}", subgroup_line.node_count, sub_cpu_str, sub_gpu_str);
+                    }
                 }
             }
         }

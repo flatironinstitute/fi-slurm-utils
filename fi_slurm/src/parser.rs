@@ -100,6 +100,127 @@ pub fn parse_slurm_hostlist(hostlist_str: &str) -> Vec<String> {
     expanded_nodes
 }
 
+
+
+/// Compresses a vector of hostnames into a compact Slurm hostlist string.
+/// This is the reverse operation of `parse_slurm_hostlist`.
+pub fn compress_hostlist(nodes: &[String]) -> String {
+    // Regex to parse a node name into three parts:
+    // 1. A non-digit prefix (e.g., "node-")
+    // 2. A numeric middle part (e.g., "007")
+    // 3. A non-digit suffix (e.g., "-ib")
+    static RE: OnceLock<Regex> = OnceLock::new();
+    let re = RE.get_or_init(|| {
+        Regex::new(r"^(\D*)(\d+)(\D*)$").expect("Failed to compile compression regex")
+    });
+
+    // A map to group nodes by their (prefix, suffix) pair.
+    // The key is (prefix, suffix).
+    // The value is a vector of (number, padding_width) tuples.
+    let mut groups: HashMap<(String, String), Vec<(u32, usize)>> = HashMap::new();
+    // A list to hold node names that don't fit the numeric pattern (e.g., "login").
+    let mut standalone_nodes: Vec<String> = Vec::new();
+
+    for node_name in nodes {
+        if let Some(caps) = re.captures(node_name) {
+            let prefix = caps.get(1).map_or("", |m| m.as_str()).to_string();
+            let number_str = caps.get(2).map_or("", |m| m.as_str());
+            let suffix = caps.get(3).map_or("", |m| m.as_str()).to_string();
+
+            if let Ok(number) = number_str.parse::<u32>() {
+                let padding = number_str.len();
+                groups.entry((prefix, suffix)).or_default().push((number, padding));
+            } else {
+                standalone_nodes.push(node_name.clone());
+            }
+        } else {
+            standalone_nodes.push(node_name.clone());
+        }
+    }
+
+    // --- FIX: Re-classify single-node groups as standalone nodes ---
+    // This prevents a single node like "login01" from being formatted as "login[01]".
+    // We collect the keys of groups to modify first to avoid borrowing issues with the map.
+    let single_node_group_keys: Vec<_> = groups
+        .iter()
+        .filter(|(_, numbers)| numbers.len() == 1)
+        .map(|(key, _)| key.clone())
+        .collect();
+
+    for key in single_node_group_keys {
+        if let Some(numbers) = groups.remove(&key) {
+            let (prefix, suffix) = key;
+            let (number, padding) = numbers[0];
+            // Reconstruct the original node name and add it to the standalone list.
+            // THIS LINE IS FIXED: Added `suffix` to the format arguments.
+            let original_name = format!("{}{:0width$}{}", prefix, number, suffix, width = padding);
+            standalone_nodes.push(original_name);
+        }
+    }
+    // --- End of FIX ---
+
+    let mut compressed_parts: Vec<String> = standalone_nodes;
+
+    for ((prefix, suffix), mut numbers) in groups {
+        // Sort numbers to make finding consecutive ranges easy.
+        numbers.sort();
+
+        if numbers.is_empty() {
+            continue;
+        }
+
+        let mut ranges: Vec<String> = Vec::new();
+        let mut current_start_num = numbers[0].0;
+        let mut current_end_num = numbers[0].0;
+        let mut current_padding = numbers[0].1;
+
+        for &(num, padding) in &numbers[1..] {
+            // A new range starts if the number is not consecutive OR if the padding changes.
+            if num == current_end_num + 1 && padding == current_padding {
+                current_end_num = num;
+            } else {
+                // Finalize the previous range
+                if current_start_num == current_end_num {
+                    ranges.push(format!("{:0width$}", current_start_num, width = current_padding));
+                } else {
+                    ranges.push(format!(
+                        "{:0width$}-{:0width$}",
+                        current_start_num,
+                        current_end_num,
+                        width = current_padding
+                    ));
+                }
+                // Start a new range
+                current_start_num = num;
+                current_end_num = num;
+                current_padding = padding;
+            }
+        }
+        // Add the very last range
+        if current_start_num == current_end_num {
+            ranges.push(format!("{:0width$}", current_start_num, width = current_padding));
+        } else {
+            ranges.push(format!(
+                "{:0width$}-{:0width$}",
+                current_start_num,
+                current_end_num,
+                width = current_padding
+            ));
+        }
+
+        // Only add brackets if there is something to put in them.
+        if !ranges.is_empty() {
+            compressed_parts.push(format!("{}[{}]{}", prefix, ranges.join(","), suffix));
+        }
+    }
+
+    // Sort the final parts for a deterministic output order.
+    compressed_parts.sort();
+    compressed_parts.join(",")
+}
+
+
+
 /// Parses a comma-separated TRES string (e.g., "cpu=4,mem=8G,gres/gpu=1")
 /// from a job's resource allocation into a HashMap.
 ///
@@ -227,6 +348,54 @@ mod tests {
             parse_slurm_hostlist("login01,node[01-02],gpu01"),
             vec!["login01", "node01", "node02", "gpu01"]
         );
+    }
+
+
+    #[test]
+    fn test_compress_simple_consecutive() {
+        let nodes = vec!["n01".to_string(), "n02".to_string(), "n03".to_string()];
+        assert_eq!(compress_hostlist(&nodes), "n[01-03]");
+    }
+
+    #[test]
+    fn test_compress_single_node() {
+        let nodes = vec!["login01".to_string()];
+        assert_eq!(compress_hostlist(&nodes), "login01");
+    }
+
+    #[test]
+    fn test_compress_multiple_groups() {
+        let nodes = vec![
+            "n001".to_string(), "n002".to_string(), "n003".to_string(),
+            "gpu07".to_string(), "gpu08".to_string(), "gpu09".to_string(),
+        ];
+        // Note: The output is sorted alphabetically by group for consistency.
+        assert_eq!(compress_hostlist(&nodes), "gpu[07-09],n[001-003]");
+    }
+
+    #[test]
+    fn test_compress_non_consecutive() {
+        let nodes = vec!["c1".to_string(), "c3".to_string(), "c4".to_string(), "c5".to_string(), "c10".to_string()];
+        assert_eq!(compress_hostlist(&nodes), "c[1,3-5,10]");
+    }
+
+    #[test]
+    fn test_compress_with_standalone_nodes() {
+        let nodes = vec!["n01".to_string(), "login".to_string(), "n02".to_string()];
+        assert_eq!(compress_hostlist(&nodes), "login,n[01-02]");
+    }
+
+    #[test]
+    fn test_compress_prefix_and_suffix() {
+        let nodes = vec!["node-08-ib".to_string(), "node-09-ib".to_string(), "node-10-ib".to_string()];
+        assert_eq!(compress_hostlist(&nodes), "node-[08-10]-ib");
+    }
+
+    #[test]
+    fn test_compress_mixed_padding() {
+        let nodes = vec!["n1".to_string(), "n2".to_string(), "n03".to_string(), "n04".to_string()];
+        // The change in padding forces a new range.
+        assert_eq!(compress_hostlist(&nodes), "n[1-2,03-04]");
     }
 
 

@@ -22,6 +22,7 @@ pub struct ReportLine {
     pub total_cpus: u32,
     pub idle_cpus: u32,
     pub alloc_cpus: u32,
+    pub node_names: Vec<String>,
 }
 
 pub type TreeReportData = TreeNode;
@@ -49,9 +50,10 @@ fn is_node_available(state: &NodeState) -> bool {
 pub fn build_tree_report(
     nodes: &[&Node],
     jobs: &SlurmJobs,
-    node_to_job_map: &HashMap<String, Vec<u32>>,
+    node_to_job_map: &HashMap<usize, Vec<u32>>,
     feature_filter: &[String],
     show_hidden_features: bool,
+    show_node_names: bool,
 ) -> TreeReportData {
     let mut root = TreeNode {
         name: "TOTAL".to_string(),
@@ -65,7 +67,7 @@ pub fn build_tree_report(
     ].iter().cloned().collect();
 
     for &node in nodes {
-        let alloc_cpus_for_node: u32 = if let Some(job_ids) = node_to_job_map.get(&node.name) {
+        let alloc_cpus_for_node: u32 = if let Some(job_ids) = node_to_job_map.get(&node.id) {
             job_ids.iter().filter_map(|id| jobs.jobs.get(id)).map(|j| j.num_cpus / j.num_nodes.max(1)).sum()
         } else {
             0
@@ -103,6 +105,10 @@ pub fn build_tree_report(
                     current_level.stats.idle_nodes += 1;
                     current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                 }
+
+                if show_node_names {
+                    current_level.stats.node_names.push(node.name.clone());
+                }
             }
         } else {
             // --- Filtered Behavior: Make filtered features the top level ---
@@ -133,6 +139,10 @@ pub fn build_tree_report(
                         if is_available {
                             current_level.stats.idle_nodes += 1;
                             current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
+                        }
+
+                        if show_node_names {
+                            current_level.stats.node_names.push(node.name.clone());
                         }
                     }
                 }
@@ -221,7 +231,7 @@ fn calculate_max_width(tree_node: &TreeNode, prefix_len: usize) -> usize {
 }
 
 
-pub fn print_tree_report(root: &TreeReportData, no_color: bool) {
+pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names: bool) {
     // --- Define Headers ---
     const HEADER_FEATURE: &str = "FEATURE (Avail/Total)";
     const HEADER_NODES: &str = "NODES";
@@ -295,7 +305,7 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool) {
     sorted_children.sort_by(|a, b| a.name.cmp(&b.name));
     for (i, child) in sorted_children.iter().enumerate() {
         let is_last = i == sorted_children.len() - 1;
-        print_node_recursive(child, "", is_last, no_color, (max_feature_width, bar_width, nodes_final_width, cpus_final_width), &col_widths);
+        print_node_recursive(child, "", is_last, no_color, (max_feature_width, bar_width, nodes_final_width, cpus_final_width), &col_widths, show_node_names);
     }
 }
 
@@ -307,6 +317,7 @@ fn print_node_recursive(
     no_color: bool, 
     widths: (usize, usize, usize, usize),
     col_widths: &ColumnWidths,
+    show_node_names: bool,
 ) {
     let mut path_parts = vec![tree_node.name.as_str()];
     let mut current_node = tree_node;
@@ -330,18 +341,34 @@ fn print_node_recursive(
     let cpu_text = format_tree_stat_column(current_node.stats.idle_cpus, current_node.stats.total_cpus, col_widths.max_idle_cpus, col_widths.max_total_cpus);
     let node_bar = create_avail_bar(current_node.stats.idle_nodes, current_node.stats.total_nodes, bar_width, Color::Green, no_color);
     let cpu_bar = create_avail_bar(current_node.stats.idle_cpus, current_node.stats.total_cpus, bar_width, Color::Cyan, no_color);
+    let node_names = &current_node.stats.node_names.clone();
 
-    println!(
-        "{:<feature_w$} {:>nodes_w$} {:>cpus_w$} {} {}",
-        display_name.bold(),
-        node_text,
-        cpu_text,
-        node_bar,
-        cpu_bar,
-        feature_w = max_width,
-        nodes_w = nodes_final_width,
-        cpus_w = cpus_final_width
-    );
+    if show_node_names {
+        println!(
+            "{:<feature_w$} {:>nodes_w$} {:>cpus_w$} {} {}: {}",
+            display_name.bold(),
+            node_text,
+            cpu_text,
+            node_bar,
+            cpu_bar,
+            fi_slurm::parser::compress_hostlist(node_names),
+            feature_w = max_width,
+            nodes_w = nodes_final_width,
+            cpus_w = cpus_final_width,
+        );
+    } else {
+        println!(
+            "{:<feature_w$} {:>nodes_w$} {:>cpus_w$} {} {}",
+            display_name.bold(),
+            node_text,
+            cpu_text,
+            node_bar,
+            cpu_bar,
+            feature_w = max_width,
+            nodes_w = nodes_final_width,
+            cpus_w = cpus_final_width,
+        );
+    }
 
     let full_child_prefix = format!("{}{}", prefix, if is_last { "   " } else { "│  " });
     let mut sorted_children: Vec<_> = current_node.children.values().collect();
@@ -349,7 +376,7 @@ fn print_node_recursive(
 
     for (i, child) in sorted_children.iter().enumerate() {
         let is_child_last = i == sorted_children.len() - 1;
-        print_node_recursive(child, &full_child_prefix, is_child_last, no_color, (max_width, bar_width, nodes_final_width, cpus_final_width), col_widths);
+        print_node_recursive(child, &full_child_prefix, is_child_last, no_color, (max_width, bar_width, nodes_final_width, cpus_final_width), col_widths, show_node_names);
     }
 }
 
