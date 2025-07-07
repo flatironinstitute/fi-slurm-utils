@@ -11,7 +11,7 @@ use ratatui::{
     style::{Color, Modifier, Style, Stylize},
     symbols::border,
     text::{Line, Span},
-    widgets::{Bar, BarChart, BarGroup, Block, Borders, Tabs},
+    widgets::{Bar, BarChart, BarGroup, Block, Borders, Paragraph, Tabs},
     Frame, Terminal,
 };
 use std::collections::HashMap;
@@ -142,7 +142,9 @@ fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView) {
 fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData) {
     // --- Layout Constants ---
     const DESIRED_CHART_WIDTH: u16 = 50;
-    const CHART_HEIGHT: u16 = 10; // Increased height for better look
+    const CHART_HEIGHT: u16 = 10;
+    const BAR_WIDTH: u16 = 4;
+    const BAR_GAP: u16 = 1;
 
     // --- Data Preparation ---
     let colors = [
@@ -171,6 +173,7 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData) {
     // --- Iterate and Draw Each Chart in a Grid ---
     let mut chart_iter = sorted_series.iter();
     for i in 0..num_rows {
+        if i >= row_chunks.len() { break; }
         let row_area = row_chunks[i];
         
         // --- Create Column Layouts for the current row ---
@@ -181,40 +184,66 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData) {
             .split(row_area);
 
         for j in 0..num_cols {
+            if j >= col_chunks.len() { break; }
             if let Some((name, values)) = chart_iter.next() {
                 let cell_area = col_chunks[j];
+
+                // --- NEW: Split the cell into a top area for labels and a bottom for the chart ---
+                let chart_chunks = Layout::default()
+                    .direction(Direction::Vertical)
+                    .constraints([Constraint::Length(1), Constraint::Min(0)])
+                    .split(cell_area);
+                let labels_area = chart_chunks[0];
+                let chart_area = chart_chunks[1];
+
+                // --- Create Bars (with no text value) ---
                 let bar_data: Vec<Bar> = values
                     .iter()
                     .enumerate()
                     .map(|(k, &val)| {
                         Bar::default()
-                            .value(val)
+                            .value(val) // Set numeric value for scaling
                             .label(time_labels[k % time_labels.len()].into())
                             .style(Style::default().fg(colors[(i * num_cols + j) % colors.len()]))
-                            .value_style(Color::White)
+                            // --- CHANGED: Render an empty string on the bar itself ---
+                            .text_value("".to_string())
                     })
                     .collect();
 
-                let bar_group = BarGroup::default().bars(&bar_data);
+                // --- NEW: Manually render labels in the top area ---
+                let mut label_constraints = Vec::new();
+                for _ in 0..values.len() {
+                    label_constraints.push(Constraint::Length(BAR_WIDTH));
+                    label_constraints.push(Constraint::Length(BAR_GAP));
+                }
+                let label_chunks = Layout::default()
+                    .direction(Direction::Horizontal)
+                    .constraints(label_constraints)
+                    .split(labels_area);
+                
+                for (k, &val) in values.iter().enumerate() {
+                    let label_chunk_index = k * 2;
+                    if label_chunk_index < label_chunks.len() {
+                        let label = Paragraph::new(val.to_string())
+                            .style(Style::default().fg(Color::White))
+                            .alignment(Alignment::Center);
+                        f.render_widget(label, label_chunks[label_chunk_index]);
+                    }
+                }
 
+                // --- Render the BarChart in the bottom area ---
+                let bar_group = BarGroup::default().bars(&bar_data);
                 let barchart = BarChart::default()
                     .block(
                         Block::default()
                             .title(Span::from(*name).bold())
-                            .border_set(border::ROUNDED) // Use rounded borders
+                            .border_set(border::ROUNDED)
                     )
                     .data(bar_group)
-                    .bar_width(4) // Slightly narrower bars
-                    .bar_gap(1);  // Smaller gap
-                    //.y_axis(
-                    //     Axis::default()
-                    //         .title(data.y_axis_title)
-                    //         .bounds([data.y_axis_bounds[0], data.y_axis_bounds[1]])
-                    //         .labels(vec!["0".into(), format!("{}", data.y_axis_bounds[1]).into()])
-                    //         .style(Style::default().fg(Color::DarkGray)),
-                    // );
+                    .bar_width(BAR_WIDTH)
+                    .bar_gap(BAR_GAP);
                 
-                f.render_widget(barchart, cell_area);
+                f.render_widget(barchart, chart_area);
             }
         }
     }
