@@ -208,7 +208,7 @@ fn build_node_to_job_map(slurm_jobs: &SlurmJobs) -> HashMap<usize, Vec<u32>> {
 /// A command-line utility to report the state of a Slurm cluster,
 /// showing a summary of nodes grouped by state and feature
 #[derive(Parser, Debug)]
-#[command(version, about, long_about = None, disable_help_flag = true)]
+#[command(version, about, long_about = None)]
 struct Args {
     /// Enable debug-level logging to print the pipeline steps to terminal
     #[arg(long)]
