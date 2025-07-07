@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use fi_slurm::jobs::{SlurmJobs, enrich_jobs_with_node_ids};
 use fi_slurm::{jobs, nodes, utils::{SlurmConfig, initialize_slurm}};
 use fi_slurm::filter::{self, gather_all_features};
-use fi_prometheus::{get_max_resource, get_usage_by, Cluster, Grouping, Resource};
+//use fi_prometheus::{get_max_resource, get_usage_by, Cluster, Grouping, Resource};
 use crate::tui::tui_execute;
 
 use std::time::Instant;
@@ -32,44 +32,44 @@ fn main() -> Result<(), String> {
         return Ok(())
     }
 
-    if args.help {
-        print_help();
-        return Ok(())
-    }
+    //if args.help {
+    //    print_help();
+    //    return Ok(())
+    //}
 
-    if args.prometheus {
-        println!("Time to start Prometheus calls: {:?}", start.elapsed());
-
-        let acct_rusty = get_usage_by(Cluster::Rusty, Grouping::Account, Resource::Cpus, 7, "1d");
-        let nodes_rusty = get_usage_by(Cluster::Rusty, Grouping::Nodes, Resource::Cpus, 7, "1d");
-        let max_resource_rusty = get_max_resource(Cluster::Rusty, None, Resource::Cpus, None, None);
-
-        let gpu_rusty = get_usage_by(Cluster::Rusty, Grouping::GpuType, Resource::Gpus, 7, "1d");
-        let gpu_max_resource = get_max_resource(Cluster::Rusty, Some(Grouping::GpuType), Resource::Gpus, None, None);
-
-        let acct_popeye = get_usage_by(Cluster::Popeye, Grouping::Account, Resource::Cpus, 7, "1d");
-        let nodes_popeye = get_usage_by(Cluster::Popeye, Grouping::Nodes, Resource::Cpus, 7, "1d");
-        let max_resource_popeye = get_max_resource(Cluster::Popeye, None, Resource::Cpus, None, None);
-
-        println!("Time to finish Prometheus calls: {:?}", start.elapsed());
-
-        println!("Rusty CPUs");
-        println!("By Account: {:?}", acct_rusty);
-        println!("By Node Type: {:?}", nodes_rusty);
-        println!("Max CPU Use: {:?} \n", max_resource_rusty);
-
-        println!("Rusty GPUs");
-
-        println!("By GPU Type: {:?}", gpu_rusty);
-        println!("Max GPU Use{:?} \n", gpu_max_resource);
-
-        println!("Popeye CPUs");
-        println!("By Account: {:?}", acct_popeye);
-        println!("By Node Type: {:?}", nodes_popeye);
-        println!("Max CPU Use: {:?}", max_resource_popeye);
-
-        return Ok(())
-    }
+    //if args.prometheus {
+    //    println!("Time to start Prometheus calls: {:?}", start.elapsed());
+    //
+    //    let acct_rusty = get_usage_by(Cluster::Rusty, Grouping::Account, Resource::Cpus, 7, "1d");
+    //    let nodes_rusty = get_usage_by(Cluster::Rusty, Grouping::Nodes, Resource::Cpus, 7, "1d");
+    //    let max_resource_rusty = get_max_resource(Cluster::Rusty, None, Resource::Cpus, None, None);
+    //
+    //    let gpu_rusty = get_usage_by(Cluster::Rusty, Grouping::GpuType, Resource::Gpus, 7, "1d");
+    //    let gpu_max_resource = get_max_resource(Cluster::Rusty, Some(Grouping::GpuType), Resource::Gpus, None, None);
+    //
+    //    let acct_popeye = get_usage_by(Cluster::Popeye, Grouping::Account, Resource::Cpus, 7, "1d");
+    //    let nodes_popeye = get_usage_by(Cluster::Popeye, Grouping::Nodes, Resource::Cpus, 7, "1d");
+    //    let max_resource_popeye = get_max_resource(Cluster::Popeye, None, Resource::Cpus, None, None);
+    //
+    //    println!("Time to finish Prometheus calls: {:?}", start.elapsed());
+    //
+    //    println!("Rusty CPUs");
+    //    println!("By Account: {:?}", acct_rusty);
+    //    println!("By Node Type: {:?}", nodes_rusty);
+    //    println!("Max CPU Use: {:?} \n", max_resource_rusty);
+    //
+    //    println!("Rusty GPUs");
+    //
+    //    println!("By GPU Type: {:?}", gpu_rusty);
+    //    println!("Max GPU Use{:?} \n", gpu_max_resource);
+    //
+    //    println!("Popeye CPUs");
+    //    println!("By Account: {:?}", acct_popeye);
+    //    println!("By Node Type: {:?}", nodes_popeye);
+    //    println!("Max CPU Use: {:?}", max_resource_popeye);
+    //
+    //    return Ok(())
+    //}
 
     if args.exact && args.feature.is_empty() {
         eprintln!("-e/--exact has no effect without the -f/--feature argument. Did you intend to filter by a feature?")
@@ -188,23 +188,22 @@ fn build_node_to_job_map(slurm_jobs: &SlurmJobs) -> HashMap<usize, Vec<u32>> {
     node_to_job_map
 }
 
-/// A clap argument to print the current documentation and arguments
-fn print_help() {
-    println!("\n
-        Welcome to fi-node! This is a command-line utility for examining the available nodes in the cluster through the Slurm Job Scheduler. \n
-        Usage: fi-node [OPTIONS] \n
-        Options: 
-        -d, --detailed          Prints the detailed, state-by-state report of node availability 
-            --debug             Prints the step-by-step process of querying Slurm 
-        -s  --summary           Prints the top-level summary report for each feature type
-        -f  --feature           Select individual features to filter by. `--feature icelake` would only show information for icelake nodes.
-                                For multiple features, separate them with spaces, such as `--feature genoa gpu skylake`
-        -e  --exact             In combination with --feature, filter only by exact match rather than substrings
-            --no-color          Disable colors in output
-        -h  --help              Prints the options and documentation for the fi-node command-line tool. You are here!
-        "
-    )
-}
+//fn print_help() {
+//    println!("\n
+//        Welcome to fi-node! This is a command-line utility for examining the available nodes in the cluster through the Slurm Job Scheduler. \n
+//        Usage: fi-node [OPTIONS] \n
+//        Options: 
+//        -d, --detailed          Prints the detailed, state-by-state report of node availability 
+//            --debug             Prints the step-by-step process of querying Slurm 
+//        -s  --summary           Prints the top-level summary report for each feature type
+//        -f  --feature           Select individual features to filter by. `--feature icelake` would only show information for icelake nodes.
+//                                For multiple features, separate them with spaces, such as `--feature genoa gpu skylake`
+//        -e  --exact             In combination with --feature, filter only by exact match rather than substrings
+//            --no-color          Disable colors in output
+//        -h  --help              Prints the options and documentation for the fi-node command-line tool. You are here!
+//        "
+//    )
+//}
 
 /// A command-line utility to report the state of a Slurm cluster,
 /// showing a summary of nodes grouped by state and feature
@@ -213,27 +212,32 @@ fn print_help() {
 struct Args {
     /// Enable debug-level logging to print the pipeline steps to terminal
     #[arg(long)]
+    #[arg(help = "Prints the step-by-step process of querying Slurm")]
     debug: bool,
     #[arg(short, long)]
+    #[arg(help = "Prints the detailed, state-by-state report of node availability")]
     detailed: bool,
     #[arg(short, long)]
+    #[arg(help = "Prints the top-level summary report for each feature type")]
     summary: bool,
     #[arg(short, long, num_args = 1..)]
+    #[arg(help = "Select individual features to filter by. `--feature icelake` would only show information for icelake nodes. \n For multiple features, separate them with spaces, such as `--feature genoa gpu skylake`")]
     feature: Vec<String>,
     #[arg(short, long)]
+    #[arg(help = "In combination with --feature, filter only by exact match rather than substrings ")]
     exact: bool,
     #[arg(long)]
+    #[arg(help = "Disable colors in output")]
     no_color: bool,
-    #[arg(short, long)]
-    prometheus: bool,
     #[arg(long)]
+    #[arg(help = "Activates TUI (in development)")]
     terminal: bool,
     #[arg(short, long)]
+    #[arg(help = "Shows redundant nodes traits in tree report")]
     verbose: bool,
     #[arg(short, long)]
+    #[arg(help = "Shows all node names (not yet implemented in summary report)")]
     names: bool,
-    #[arg(short, long)]
-    help: bool,
 }
 
 
