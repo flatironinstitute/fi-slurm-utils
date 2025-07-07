@@ -197,7 +197,7 @@ pub fn print_summary_report(summary_data: &SummaryReportData, no_color: bool) {
         "{:<width$} {:^gauge_w$} {:^gauge_w$}",
         "FEATURE".bold(),
         "IDLE NODES".bold(),
-        "IDLE PROCESSORS".bold(),
+        "IDLE CORES".bold(),
         width = max_feature_width,
         gauge_w = gauge_width
     );
