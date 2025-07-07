@@ -11,7 +11,7 @@ use ratatui::{
     style::{Color, Modifier, Style, Stylize},
     symbols::border,
     text::{Line, Span},
-    widgets::{Bar, BarChart, BarGroup, Block, Borders, Chart, Dataset, Tabs},
+    widgets::{Bar, BarChart, BarGroup, Block, Borders, Tabs},
     Frame, Terminal,
 };
 use std::collections::HashMap;
@@ -149,7 +149,7 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData) {
         Color::Cyan, Color::Magenta, Color::Yellow, Color::Green, Color::Red,
         Color::LightBlue, Color::LightMagenta, Color::LightYellow, Color::LightGreen, Color::LightRed,
     ];
-    let time_labels = ["-7d", "-6d", "-5d", "-4d", "-3d", "-2d", "-1d", "Today"];
+    let time_labels = ["-7d", "-6d", "-5d", "-4d", "-3d", "-2d", "-1d", "Now"];
 
     let mut sorted_series: Vec<_> = data.source_data.iter().collect();
     sorted_series.sort_by_key(|(name, _)| *name);
@@ -191,6 +191,7 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData) {
                             .value(val)
                             .label(time_labels[k % time_labels.len()].into())
                             .style(Style::default().fg(colors[(i * num_cols + j) % colors.len()]))
+                            .value_style(Color::White)
                     })
                     .collect();
 
@@ -220,7 +221,7 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData) {
 }
 
 fn draw_footer(f: &mut Frame, area: Rect) {
-    let footer_text = "Use (q) to quit, (h/l, ←/→, Tab) to switch views.";
+    let footer_text = "Use (q) to quit, (h/l, ←/→, Tab, or numbers) to switch views.";
     let footer = Block::default()
         .style(Style::default().fg(Color::White).bg(Color::DarkGray));
     f.render_widget(footer, area);
