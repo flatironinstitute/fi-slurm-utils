@@ -1,16 +1,17 @@
-use fi_slurm::prometheus::{Cluster, Grouping, Resource};
+use fi_slurm::prometheus::{Cluster, Resource, Grouping, get_usage_by};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use ratatui::{
-    prelude::Stylize,
+    prelude::*,
     backend::{Backend, CrosstermBackend},
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
-    text::Span,
-    widgets::{Bar, BarChart, BarGroup, Block, Borders},
+    style::{Color, Modifier, Style, Stylize},
+    symbols::border,
+    text::{Line, Span},
+    widgets::{Bar, BarChart, BarGroup, Block, Borders, Chart, Dataset, Tabs},
     Frame, Terminal,
 };
 use std::collections::HashMap;
@@ -40,7 +41,6 @@ struct ChartData<'a> {
     _y_axis_title: &'a str,
 }
 
-// Main Application Logic
 
 pub fn tui_execute() -> Result<(), Box<dyn std::error::Error>> {
     enable_raw_mode()?;
@@ -74,8 +74,8 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                     KeyCode::Char('1') => app.current_view = AppView::CpuByAccount,
                     KeyCode::Char('2') => app.current_view = AppView::CpuByNode,
                     KeyCode::Char('3') => app.current_view = AppView::GpuByType,
-                    KeyCode::Right | KeyCode::Char('l')=> app.next_view(),
-                    KeyCode::Left | KeyCode::Char('h')=> app.prev_view(),
+                    KeyCode::Right | KeyCode::Char('l') | KeyCode::Tab => app.next_view(),
+                    KeyCode::Left | KeyCode::Char('h') => app.prev_view(),
                     _ => {}
                 }
             }
@@ -90,10 +90,14 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
 // --- UI Drawing ---
 
 fn ui(f: &mut Frame, app: &App) {
-    // Main layout with a top tab bar and a main content area
+    // Main layout with a top tab bar, a main content area, and a footer
     let main_chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(3), Constraint::Min(0)].as_ref())
+        .constraints([
+            Constraint::Length(3), // For tabs
+            Constraint::Min(0),    // For chart content
+            Constraint::Length(1), // For footer
+        ].as_ref())
         .split(f.area());
 
     draw_tabs(f, main_chunks[0], app.current_view);
@@ -106,12 +110,14 @@ fn ui(f: &mut Frame, app: &App) {
     
     // Pass the main content area to the chart drawing function
     draw_charts(f, main_chunks[1], chart_data);
+
+    draw_footer(f, main_chunks[2]);
 }
 
 fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView) {
-    let titles: Vec<Span> = ["1: CPU by Account", "2: CPU by Node Type", "3: GPU by Type"]
+    let titles: Vec<Line> = ["(1) CPU by Account", "(2) CPU by Node", "(3) GPU by Type"]
         .iter()
-        .map(|t| Span::from(*t))
+        .map(|t| Line::from(t.bold()))
         .collect();
     
     let selected_index = match current_view {
@@ -120,75 +126,108 @@ fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView) {
         AppView::GpuByType => 2,
     };
 
-    let tabs = ratatui::widgets::Tabs::new(titles)
-        .block(Block::default().title("Views").borders(Borders::ALL))
+    let tabs = Tabs::new(titles)
+        .block(Block::default().title("Dashboard Views").borders(Borders::ALL).border_style(Style::default().fg(Color::White)))
         .select(selected_index)
         .style(Style::default().fg(Color::Gray))
         .highlight_style(
             Style::default()
                 .add_modifier(Modifier::BOLD)
-                .bg(Color::DarkGray),
+                .bg(Color::Blue),
         );
 
     f.render_widget(tabs, area);
 }
 
 fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData) {
+    // --- Layout Constants ---
+    const DESIRED_CHART_WIDTH: u16 = 50;
+    const CHART_HEIGHT: u16 = 10; // Increased height for better look
+
+    // --- Data Preparation ---
     let colors = [
-        Color::Red, Color::Green, Color::Yellow, Color::Blue, Color::Magenta,
-        Color::Cyan, Color::Gray, Color::LightRed, Color::LightGreen, Color::LightYellow,
-        Color::LightBlue,
+        Color::Cyan, Color::Magenta, Color::Yellow, Color::Green, Color::Red,
+        Color::LightBlue, Color::LightMagenta, Color::LightYellow, Color::LightGreen, Color::LightRed,
     ];
     let time_labels = ["-7d", "-6d", "-5d", "-4d", "-3d", "-2d", "-1d", "Today"];
 
     let mut sorted_series: Vec<_> = data.source_data.iter().collect();
     sorted_series.sort_by_key(|(name, _)| *name);
 
-    // Create a dynamic layout for the bar charts
-    // Each chart will get a fixed height of 5 rows
-    let chart_constraints: Vec<Constraint> = sorted_series.iter().map(|_| Constraint::Length(5)).collect();
-    let chart_layout = Layout::default()
+    // --- Grid Calculation ---
+    let num_charts = sorted_series.len();
+    if num_charts == 0 { return; }
+
+    let num_cols = (area.width / DESIRED_CHART_WIDTH).max(1) as usize;
+    let num_rows = num_charts.div_ceil(num_cols);
+
+    // --- Create Row Layouts ---
+    let row_constraints = vec![Constraint::Length(CHART_HEIGHT); num_rows];
+    let row_chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints(chart_constraints)
+        .constraints(row_constraints)
         .split(area);
 
-    // Iterate and draw each bar chart
-    for (i, (name, values)) in sorted_series.iter().enumerate() {
-        // Ensure we don't try to draw more charts than we have space for
-        if i >= chart_layout.len() {
-            break;
-        }
-
-        let bar_data: Vec<Bar> = values
-            .iter()
-            .enumerate()
-            .map(|(j, &val)| {
-                Bar::default()
-                    .value(val)
-                    .label(time_labels[j % time_labels.len()].into())
-                    .style(Style::default().fg(colors[i % colors.len()]))
-            })
-            .collect();
-
-        let bar_group = BarGroup::default().bars(&bar_data);
-
-        let barchart = BarChart::default()
-            .block(Block::default().title(Span::from(*name).bold()).borders(Borders::ALL))
-            .data(bar_group)
-            .bar_width(5)
-            .bar_gap(2);
-            // .y_axis(
-            //     Axis::default()
-            //         .bounds([0.0, data.y_axis_bounds[1]]) // Use max bound from data
-            //         .style(Style::default().fg(Color::DarkGray)),
-            // );
+    // --- Iterate and Draw Each Chart in a Grid ---
+    let mut chart_iter = sorted_series.iter();
+    for i in 0..num_rows {
+        let row_area = row_chunks[i];
         
-        f.render_widget(barchart, chart_layout[i]);
+        // --- Create Column Layouts for the current row ---
+        let col_constraints = vec![Constraint::Percentage(100 / num_cols as u16); num_cols];
+        let col_chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints(col_constraints)
+            .split(row_area);
+
+        for j in 0..num_cols {
+            if let Some((name, values)) = chart_iter.next() {
+                let cell_area = col_chunks[j];
+                let bar_data: Vec<Bar> = values
+                    .iter()
+                    .enumerate()
+                    .map(|(k, &val)| {
+                        Bar::default()
+                            .value(val)
+                            .label(time_labels[k % time_labels.len()].into())
+                            .style(Style::default().fg(colors[(i * num_cols + j) % colors.len()]))
+                    })
+                    .collect();
+
+                let bar_group = BarGroup::default().bars(&bar_data);
+
+                let barchart = BarChart::default()
+                    .block(
+                        Block::default()
+                            .title(Span::from(*name).bold())
+                            .border_set(border::ROUNDED) // Use rounded borders
+                    )
+                    .data(bar_group)
+                    .bar_width(4) // Slightly narrower bars
+                    .bar_gap(1);  // Smaller gap
+                    //.y_axis(
+                    //     Axis::default()
+                    //         .title(data.y_axis_title)
+                    //         .bounds([data.y_axis_bounds[0], data.y_axis_bounds[1]])
+                    //         .labels(vec!["0".into(), format!("{}", data.y_axis_bounds[1]).into()])
+                    //         .style(Style::default().fg(Color::DarkGray)),
+                    // );
+                
+                f.render_widget(barchart, cell_area);
+            }
+        }
     }
 }
 
+fn draw_footer(f: &mut Frame, area: Rect) {
+    let footer_text = "Use (q) to quit, (h/l, ←/→, Tab) to switch views.";
+    let footer = Block::default()
+        .style(Style::default().fg(Color::White).bg(Color::DarkGray));
+    f.render_widget(footer, area);
+    f.render_widget(Line::from(footer_text).alignment(Alignment::Center), area);
+}
 
-// App State and Data Loading
+// --- App State and Data Loading ---
 
 impl<'a> App<'a> {
     fn new() -> App<'a> {
@@ -222,10 +261,12 @@ impl<'a> App<'a> {
     }
 }
 
-// Prometheus interface 
+// --- Prometheus interface ---
+
+// Prometheus interface 
 
 fn get_cpu_by_account_data<'a>() -> ChartData<'a> {
-    let data = fi_slurm::prometheus::get_usage_by(Cluster::Rusty, Grouping::Account, Resource::Cpus, 7, "1d").unwrap();
+    let data = get_usage_by(Cluster::Rusty, Grouping::Account, Resource::Cpus, 7, "1d").unwrap();
 
     let binding = data.clone();
     let max = binding.values().map(|vec| vec.iter().sum::<u64>()).max().unwrap_or(0);
@@ -239,7 +280,7 @@ fn get_cpu_by_account_data<'a>() -> ChartData<'a> {
 }
 
 fn get_cpu_by_node_data<'a>() -> ChartData<'a> {
-    let data = fi_slurm::prometheus::get_usage_by(Cluster::Rusty, Grouping::Nodes, Resource::Cpus, 7, "1d").unwrap();
+    let data = get_usage_by(Cluster::Rusty, Grouping::Nodes, Resource::Cpus, 7, "1d").unwrap();
     
     let binding = data.clone();
     let max = binding.values().map(|vec| vec.iter().sum::<u64>()).max().unwrap_or(0);
@@ -253,7 +294,7 @@ fn get_cpu_by_node_data<'a>() -> ChartData<'a> {
 }
 
 fn get_gpu_by_type_data<'a>() -> ChartData<'a> {
-    let data = fi_slurm::prometheus::get_usage_by(Cluster::Rusty, Grouping::GpuType, Resource::Gpus, 7, "1d").unwrap();
+    let data = get_usage_by(Cluster::Rusty, Grouping::GpuType, Resource::Gpus, 7, "1d").unwrap();
     
     let binding = data.clone();
     let max = binding.values().map(|vec| vec.iter().sum::<u64>()).max().unwrap_or(0);
