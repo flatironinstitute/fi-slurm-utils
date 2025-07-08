@@ -1,5 +1,6 @@
 use crate::jobs::SlurmJobs;
 use crate::nodes::{Node, NodeState};
+use fi_slurm::utils::count_blocks;
 use colored::*;
 use std::collections::{HashMap, HashSet};
 
@@ -193,35 +194,6 @@ fn format_tree_stat_column(current: u32, total: u32, max_current_width: usize, m
     )
 }
 
-fn count_blocks(max_blocks: usize, percentage: f64) -> (usize, usize, Option<String>) {
-    // Use floating point numbers for precision and round at the end
-    // to get the closest visual representation
-    let total_segments = max_blocks as f64 * 8.0;
-    let filled_segments = (total_segments * percentage).round() as usize;
-
-    // The number of full blocks is the integer division of filled segments
-    let full_blocks = filled_segments / 8;
-
-    // The remainder determines the partial block character
-    let remainder_segments = filled_segments % 8;
-
-    let partial_block = match remainder_segments {
-        1 => Some("▏".to_string()),
-        2 => Some("▎".to_string()),
-        3 => Some("▍".to_string()),
-        4 => Some("▌".to_string()),
-        5 => Some("▋".to_string()),
-        6 => Some("▊".to_string()),
-        7 => Some("▉".to_string()),
-        _ => None, // This covers the case where remainder_segments is 0
-    };
-
-    // The number of empty blocks is what's left over to reach max_blocks
-    let partial_block_count = if remainder_segments > 0 { 1 } else { 0 };
-    let empty_blocks = max_blocks.saturating_sub(full_blocks + partial_block_count);
-
-    (full_blocks, empty_blocks, partial_block)
-}
 
 /// Creates a colored bar string for available resources (nodes or CPUs)
 fn create_avail_bar(current: u32, total: u32, width: usize, color: Color, no_color: bool) -> String {
@@ -420,23 +392,3 @@ fn print_node_recursive(
 }
 
 
-#[cfg(test)]
-pub mod tests {
-    use super::count_blocks;
-
-    #[test]
-    fn t1() {
-        let result = count_blocks(20, 0.95);
-        assert_eq!(result.0, 19);
-        assert_eq!(result.1, 1);
-        assert_eq!(result.2, None);
-    }
-    #[test]
-    fn t2() {
-        let result = count_blocks(20, 0.92);
-        assert_eq!(result.0, 18);
-        assert_eq!(result.1, 1);
-        assert_eq!(result.2, Some("▍".to_string()));
-    }
-
-}
