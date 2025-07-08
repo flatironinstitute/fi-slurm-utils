@@ -345,7 +345,7 @@ fn print_node_recursive(
 
     if show_node_names {
         println!(
-            "{:<feature_w$} {:>nodes_w$} {:>cpus_w$} {} {}: {}",
+            "{:<feature_w$} {:>nodes_w$} {:>cpus_w$} {} {} {}",
             display_name.bold(),
             node_text,
             cpu_text,
