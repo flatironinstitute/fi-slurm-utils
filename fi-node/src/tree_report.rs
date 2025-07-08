@@ -193,6 +193,37 @@ fn format_tree_stat_column(current: u32, total: u32, max_current_width: usize, m
     )
 }
 
+fn count_blocks(max_blocks: usize, percentage: f64) -> (usize, usize, Option<String>) {
+    let num_segments = 8 * max_blocks;
+
+    // first figure out how many full blocks, then which partial block (there will only be one
+    // at most), and then how many empty blocks
+
+    let proportion = (num_segments as f64 * percentage).floor() as usize;
+
+    let full = proportion / 8; //19
+    let empty = (num_segments - proportion) / 8;
+
+    let remainder_block = if full + empty != num_segments {
+        let remainder = num_segments - (full+empty);
+
+        match remainder {
+            1 => Some("▏".to_string()),
+            2 => Some("▎".to_string()),
+            3 => Some("▍".to_string()),
+            4 => Some("▌".to_string()),
+            5 => Some("▋".to_string()),
+            6 => Some("▊".to_string()),
+            7 => Some("▉".to_string()),
+            _ => None,
+        }
+    } else {
+        None
+    };
+
+    (full, empty, remainder_block)
+}
+
 /// Creates a colored bar string for available resources (nodes or CPUs)
 fn create_avail_bar(current: u32, total: u32, width: usize, color: Color, no_color: bool) -> String {
     if total == 0 {
@@ -200,13 +231,22 @@ fn create_avail_bar(current: u32, total: u32, width: usize, color: Color, no_col
         let bar_content = " ".repeat(width);
         return format!("|{}|", bar_content);
     }
+
     let percentage = current as f64 / total as f64;
-    let filled_len = (width as f64 * percentage).round() as usize;
 
-    let filled = "■".repeat(filled_len).color(if no_color { Color::White} else { color });
-    let empty = " ".repeat(width.saturating_sub(filled_len));
+    let bars = count_blocks(20, percentage);
 
-    format!("|{}{}|", filled, empty)
+    //let filled_len = (width as f64 * percentage).round() as usize;
+
+    //let filled = "■".repeat(filled_len).color(if no_color { Color::White} else { color });
+    let filled = "█".repeat(bars.0).color(if no_color { Color::White} else { color });
+    let empty = " ".repeat(bars.1);
+
+    if let Some(remainder) = bars.2 {
+        format!("|{}{}{}|", filled, remainder, empty)
+    } else {
+        format!("|{}{}|", filled, empty)
+    }
 }
 
 /// Recursively calculates the maximum width needed for the feature name column
@@ -380,3 +420,24 @@ fn print_node_recursive(
     }
 }
 
+
+#[cfg(test)]
+pub mod tests {
+    use super::count_blocks;
+
+    #[test]
+    fn t1() {
+        let result = count_blocks(20, 0.95);
+        assert_eq!(result.0, 19);
+        assert_eq!(result.1, 1);
+        assert_eq!(result.2, None);
+    }
+    #[test]
+    fn t2() {
+        let result = count_blocks(20, 0.92);
+        assert_eq!(result.0, 18);
+        assert_eq!(result.1, 1);
+        assert_eq!(result.2, Some("▍".to_string()));
+    }
+
+}
