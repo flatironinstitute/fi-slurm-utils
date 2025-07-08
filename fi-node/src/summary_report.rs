@@ -41,7 +41,7 @@ pub type SummaryReportData = HashMap<String, FeatureSummary>;
 pub fn build_summary_report(
     nodes: &[&Node],
     jobs: &SlurmJobs,
-    node_to_job_map: &HashMap<String, Vec<u32>>,
+    node_to_job_map: &HashMap<usize, Vec<u32>>,
 ) -> SummaryReportData {
     let mut report = SummaryReportData::new();
 
@@ -49,7 +49,7 @@ pub fn build_summary_report(
     // for node in nodes.nodes.values() {
     for &node in nodes {
         // First, calculate the true number of allocated and idle CPUs for this node
-        let alloc_cpus_for_node: u32 = if let Some(job_ids) = node_to_job_map.get(&node.name) {
+        let alloc_cpus_for_node: u32 = if let Some(job_ids) = node_to_job_map.get(&node.id) {
             job_ids
                 .iter()
                 .filter_map(|job_id| jobs.jobs.get(job_id))
@@ -197,7 +197,7 @@ pub fn print_summary_report(summary_data: &SummaryReportData, no_color: bool) {
         "{:<width$} {:^gauge_w$} {:^gauge_w$}",
         "FEATURE".bold(),
         "IDLE NODES".bold(),
-        "IDLE PROCESSORS".bold(),
+        "IDLE CORES".bold(),
         width = max_feature_width,
         gauge_w = gauge_width
     );

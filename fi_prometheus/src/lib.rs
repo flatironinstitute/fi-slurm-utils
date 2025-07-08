@@ -13,8 +13,6 @@ fn get_prometheus_url(cluster: &Cluster) -> &'static str {
     }
 }
 
-
-
 // Using enums for type safety, similar to Python's Literal type
 #[derive(Debug, Clone, Copy)]
 pub enum Cluster {
@@ -83,18 +81,14 @@ struct PrometheusResult {
 
 fn usage_query(grouping: Grouping, resource: Resource) -> String {
     format!(
-        "sum by({}) (slurm_job_{}{{state=\"running\",job=\"slurm\"}})",
-        grouping, resource
-    )
+        "sum by({grouping}) (slurm_job_{resource}{{state=\"running\",job=\"slurm\"}})")
 }
 
 fn capacity_query(grouping: Option<Grouping>, resource: Resource) -> String {
     let by_clause =
-        grouping.map_or_else(String::new, |g| format!("by({})", g));
+        grouping.map_or_else(String::new, |g| format!("by({g})"));
     format!(
-        "sum {} (slurm_node_{}{{state!=\"drain\",state!=\"down\"}})",
-        by_clause, resource
-    )
+        "sum {by_clause} (slurm_node_{resource}{{state!=\"drain\",state!=\"down\"}})")
 }
 
 /// The core function for querying the Prometheus API
@@ -117,9 +111,9 @@ fn query(
     let url = if let (Some(end_time), Some(step_val)) = (end, step) {
         params.insert("end".to_string(), end_time.timestamp().to_string());
         params.insert("step".to_string(), step_val.to_string());
-        format!("{}/api/v1/query_range", base_url)
+        format!("{base_url}/api/v1/query_range")
     } else {
-        format!("{}/api/v1/query", base_url)
+        format!("{base_url}/api/v1/query")
     };
 
     let response = client.get(&url).query(&params).send()?;
