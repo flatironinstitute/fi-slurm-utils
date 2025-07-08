@@ -275,7 +275,7 @@ enum BarColor {
 }
 
 impl BarColor {
-    pub fn apply_color(self, text: String) -> ColoredString {
+    pub fn apply_color(&self, text: &str) -> ColoredString {
         match self {
             BarColor::Cyan => text.cyan(),
             BarColor::Red => text.red(),
@@ -285,25 +285,32 @@ impl BarColor {
 }
 
 fn print_utilization(utilization_percent: f64, bar_width: usize, bar_color: BarColor, name: &str, no_color: bool) {
+    // 1. Call count_blocks to get the components of the bar.
+    //    Note: We divide by 100.0 to convert the percentage to a 0.0-1.0 scale.
+    let (full, empty, partial_opt) = count_blocks(bar_width, utilization_percent / 100.0);
 
-    
-    //let (full, empty, partial_opt) = count_blocks(bar_width, utilization_percent/100.0)
-    let bars = count_blocks(bar_width, utilization_percent/100.0);
+    // 2. Create the string for the full blocks.
+    let full_bar = "█".repeat(full);
 
-    //let filled_chars = (bar_width as f64 * (utilization_percent / 100.0)).round() as usize;
-    let filled_bar = if no_color {"█".repeat(bars.0).white()} else {bar_color.clone().apply_color("█".repeat(bars.0))};
+    // 3. Get the partial block character, or an empty string if there isn't one.
+    let partial_bar = partial_opt.unwrap_or_default();
 
-    //let empty_chars = bar_width.saturating_sub(filled_chars);        
-    let empty_bar = "░".repeat(bars.1).normal();
+    // 4. Create the string for the empty space. Using a simple space is often cleaner.
+    let empty_bar = " ".repeat(empty);
 
-    if let Some(remainder) = bars.2 {
-        let remainder_bar = if no_color {remainder.white()} else {bar_color.apply_color(remainder)};
-        println!("Overall {} Utilization: \n [{}{}{}] {:.1}%", name, filled_bar, remainder_bar, empty_bar, utilization_percent);
-    } else {
-        println!("Overall {} Utilization: \n [{}{}] {:.1}%", name, filled_bar, empty_bar, utilization_percent);
-    }
+    // 5. Apply color to the filled parts of the bar.
+    let colored_full = if no_color { full_bar.white() } else { bar_color.apply_color(&full_bar) };
+    let colored_partial = if no_color { partial_bar.white() } else { bar_color.apply_color(&partial_bar) };
 
-    //println!("Overall {} Utilization: \n [{}{}] {:.1}%", name, filled_bar, empty_bar, utilization_percent);
+    // 6. Print the assembled bar.
+    println!(
+        "Overall {} Utilization: \n [{}{}{}] {:.1}%",
+        name,
+        colored_full,
+        colored_partial,
+        empty_bar, // The empty part is not colored.
+        utilization_percent
+    );
 }
 
 fn generate_report_body(report_data: &HashMap<NodeState, ReportGroup>, 
