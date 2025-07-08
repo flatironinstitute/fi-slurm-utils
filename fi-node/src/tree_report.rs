@@ -194,34 +194,33 @@ fn format_tree_stat_column(current: u32, total: u32, max_current_width: usize, m
 }
 
 fn count_blocks(max_blocks: usize, percentage: f64) -> (usize, usize, Option<String>) {
-    let num_segments = 8 * max_blocks;
+    // Use floating point numbers for precision and round at the end
+    // to get the closest visual representation
+    let total_segments = max_blocks as f64 * 8.0;
+    let filled_segments = (total_segments * percentage).round() as usize;
 
-    // first figure out how many full blocks, then which partial block (there will only be one
-    // at most), and then how many empty blocks
+    // The number of full blocks is the integer division of filled segments
+    let full_blocks = filled_segments / 8;
 
-    let proportion = (num_segments as f64 * percentage).floor() as usize;
+    // The remainder determines the partial block character
+    let remainder_segments = filled_segments % 8;
 
-    let full = proportion / 8; //19
-    let empty = (num_segments - proportion) / 8;
-
-    let remainder_block = if full + empty != num_segments {
-        let remainder = num_segments - (full+empty);
-
-        match remainder {
-            1 => Some("▏".to_string()),
-            2 => Some("▎".to_string()),
-            3 => Some("▍".to_string()),
-            4 => Some("▌".to_string()),
-            5 => Some("▋".to_string()),
-            6 => Some("▊".to_string()),
-            7 => Some("▉".to_string()),
-            _ => None,
-        }
-    } else {
-        None
+    let partial_block = match remainder_segments {
+        1 => Some("▏".to_string()),
+        2 => Some("▎".to_string()),
+        3 => Some("▍".to_string()),
+        4 => Some("▌".to_string()),
+        5 => Some("▋".to_string()),
+        6 => Some("▊".to_string()),
+        7 => Some("▉".to_string()),
+        _ => None, // This covers the case where remainder_segments is 0
     };
 
-    (full, empty, remainder_block)
+    // The number of empty blocks is what's left over to reach max_blocks
+    let partial_block_count = if remainder_segments > 0 { 1 } else { 0 };
+    let empty_blocks = max_blocks.saturating_sub(full_blocks + partial_block_count);
+
+    (full_blocks, empty_blocks, partial_block)
 }
 
 /// Creates a colored bar string for available resources (nodes or CPUs)
@@ -243,7 +242,7 @@ fn create_avail_bar(current: u32, total: u32, width: usize, color: Color, no_col
     let empty = " ".repeat(bars.1);
 
     if let Some(remainder) = bars.2 {
-        format!("|{}{}{}|", filled, remainder, empty)
+        format!("|{}{}{}|", filled, remainder.color(if no_color { Color::White} else { color }), empty)
     } else {
         format!("|{}{}|", filled, empty)
     }
