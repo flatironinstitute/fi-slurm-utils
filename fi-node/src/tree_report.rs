@@ -354,32 +354,18 @@ fn print_node_recursive(
     let cpu_bar = create_avail_bar(current_node.stats.idle_cpus, current_node.stats.total_cpus, bar_width, Color::Cyan, no_color);
     let node_names = &current_node.stats.node_names.clone();
 
-    if show_node_names {
-        println!(
-            "{:<feature_w$} {:>nodes_w$} {:>cpus_w$} {} {} {}",
-            display_name.bold(),
-            node_text,
-            node_bar,
-            cpu_text,
-            cpu_bar,
-            fi_slurm::parser::compress_hostlist(node_names),
-            feature_w = max_width,
-            nodes_w = nodes_final_width,
-            cpus_w = cpus_final_width,
-        );
-    } else {
-        println!(
-            "{:<feature_w$} {:>nodes_w$} {:>cpus_w$} {} {}",
-            display_name.bold(),
-            node_text,
-            node_bar,
-            cpu_text,
-            cpu_bar,
-            feature_w = max_width,
-            nodes_w = nodes_final_width,
-            cpus_w = cpus_final_width,
-        );
-    }
+    println!(
+        "{:<feature_w$} {:>nodes_w$} {:>cpus_w$} {} {} {}",
+        display_name.bold(),
+        node_text,
+        node_bar,
+        cpu_text,
+        cpu_bar,
+        if show_node_names {fi_slurm::parser::compress_hostlist(node_names)} else {"".to_string()},
+        feature_w = max_width,
+        nodes_w = nodes_final_width,
+        cpus_w = cpus_final_width,
+    );
 
     let full_child_prefix = format!("{}{}", prefix, if is_last { "   " } else { "│  " });
     let mut sorted_children: Vec<_> = current_node.children.values().collect();

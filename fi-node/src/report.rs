@@ -371,11 +371,16 @@ fn generate_report_body(report_data: &HashMap<NodeState, ReportGroup>,
             // Use a two-step print to ensure alignment with colored text.
             print!("{}{}", colored_str, padding);
 
-            if show_node_names {
-                println!("{:>5}  {}  {}  {}", group.summary.node_count, cpu_str, gpu_str, fi_slurm::parser::compress_hostlist(&group.summary.node_names));
-            } else {
-                println!("{:>5}  {}  {}", group.summary.node_count, cpu_str, gpu_str);
-            }
+            println!("{:>5}  {}  {}  {}", 
+                group.summary.node_count, 
+                cpu_str, 
+                gpu_str, 
+                if show_node_names {
+                    fi_slurm::parser::compress_hostlist(&group.summary.node_names)
+                } else {
+                    "".to_string()
+                },
+            );
 
 
             let mut sorted_subgroups: Vec<&String> = group.subgroups.keys().collect();
@@ -396,11 +401,16 @@ fn generate_report_body(report_data: &HashMap<NodeState, ReportGroup>,
 
                     print!("{}{}", indented_name, sub_padding);
     
-                    if show_node_names {
-                        println!("{:>5}  {}  {}  {}", subgroup_line.node_count, sub_cpu_str, sub_gpu_str, fi_slurm::parser::compress_hostlist(&subgroup_line.node_names));
-                    } else {
-                        println!("{:>5}  {}  {}", subgroup_line.node_count, sub_cpu_str, sub_gpu_str);
-                    }
+                    println!("{:>5}  {}  {}  {}", 
+                        subgroup_line.node_count, 
+                        sub_cpu_str, 
+                        sub_gpu_str, 
+                        if show_node_names {
+                            fi_slurm::parser::compress_hostlist(&subgroup_line.node_names)
+                        } else {
+                            "".to_string()
+                        }
+                    );
                 }
             }
         }
