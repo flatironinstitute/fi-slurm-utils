@@ -281,13 +281,13 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
     let node_bar = create_avail_bar(top_level_node.stats.idle_nodes, top_level_node.stats.total_nodes, bar_width, Color::Green, no_color);
     let cpu_bar = create_avail_bar(top_level_node.stats.idle_cpus, top_level_node.stats.total_cpus, bar_width, Color::Cyan, no_color);
 
-    // Print Headers with Centered Alignment
+    // Print Headers with left-alignment
     println!(
-        "{:<feature_w$} {:<nodes_w$}  {:<cpus_w$}  {:<bar_w$} {:<bar_w$}",
+        "{:<feature_w$} {:<nodes_w$}   {:<bar_w$}{:<cpus_w$}   {:<bar_w$}",
         HEADER_FEATURE.bold(),
         HEADER_NODES.bold(),
-        HEADER_CPUS.bold(),
         HEADER_NODE_AVAIL.bold(),
+        HEADER_CPUS.bold(),
         HEADER_CPU_AVAIL.bold(),
         feature_w = max_feature_width,
         nodes_w = nodes_final_width,
@@ -303,8 +303,8 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
         "{:<feature_w$} {:>nodes_w$} {:>cpus_w$} {} {}",
         top_level_node.name.bold(),
         node_text,
-        cpu_text,
         node_bar,
+        cpu_text,
         cpu_bar,
         feature_w = max_feature_width,
         nodes_w = nodes_final_width,
@@ -359,8 +359,8 @@ fn print_node_recursive(
             "{:<feature_w$} {:>nodes_w$} {:>cpus_w$} {} {} {}",
             display_name.bold(),
             node_text,
-            cpu_text,
             node_bar,
+            cpu_text,
             cpu_bar,
             fi_slurm::parser::compress_hostlist(node_names),
             feature_w = max_width,
@@ -372,8 +372,8 @@ fn print_node_recursive(
             "{:<feature_w$} {:>nodes_w$} {:>cpus_w$} {} {}",
             display_name.bold(),
             node_text,
-            cpu_text,
             node_bar,
+            cpu_text,
             cpu_bar,
             feature_w = max_width,
             nodes_w = nodes_final_width,
