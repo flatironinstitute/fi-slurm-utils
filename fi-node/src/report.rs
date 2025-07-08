@@ -351,7 +351,7 @@ fn generate_report_body(report_data: &HashMap<NodeState, ReportGroup>,
             print!("{}{}", colored_str, padding);
 
             if show_node_names {
-                println!("{:>5} {} {}: {}", group.summary.node_count, cpu_str, gpu_str, fi_slurm::parser::compress_hostlist(&group.summary.node_names));
+                println!("{:>5} {} {} {}", group.summary.node_count, cpu_str, gpu_str, fi_slurm::parser::compress_hostlist(&group.summary.node_names));
             } else {
                 println!("{:>5} {} {}", group.summary.node_count, cpu_str, gpu_str);
             }
