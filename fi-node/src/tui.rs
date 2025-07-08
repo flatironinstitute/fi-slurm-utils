@@ -16,6 +16,8 @@ use ratatui::{
 };
 use std::collections::HashMap;
 use std::io;
+use std::time::Duration;
+use tokio::sync::mpsc;
 
 // --- Data Structures ---
 
@@ -34,6 +36,20 @@ enum AppView {
     GpuByType,
 }
 
+#[allow(clippy::large_enum_variant)]
+enum AppState<'a> {
+    Loading { tick: usize },
+    Loaded(App<'a>),
+}
+
+#[derive(Debug)]
+enum FetchedData<'a> {
+    CpuByAccount(ChartData<'a>),
+    CpuByNode(ChartData<'a>),
+    GpuByType(ChartData<'a>),
+}
+
+#[derive(Debug)]
 struct ChartData<'a> {
     _title: &'a str,
     source_data: HashMap<String, Vec<u64>>,
@@ -42,15 +58,24 @@ struct ChartData<'a> {
 }
 
 
-pub fn tui_execute() -> Result<(), Box<dyn std::error::Error>> {
+#[tokio::main]
+pub async fn tui_execute() -> Result<(), Box<dyn std::error::Error>> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    let app = App::new();
-    run_app(&mut terminal, app)?;
+    let (tx, rx) = mpsc::channel(3);
+
+    tokio::spawn(get_cpu_by_account_data_async(tx.clone()));
+    tokio::spawn(get_cpu_by_node_data_async(tx.clone()));
+    tokio::spawn(get_gpu_by_type_data_async(tx.clone()));
+
+    let res = run_app(&mut terminal, rx).await;
+
+    //let app = App::new();
+    //run_app(&mut terminal, app)?;
 
     disable_raw_mode()?;
     execute!(
@@ -60,37 +85,118 @@ pub fn tui_execute() -> Result<(), Box<dyn std::error::Error>> {
     )?;
     terminal.show_cursor()?;
 
+    if let Err(err) = res {
+        println!("Error in app: {:?}", err);
+    }
+
     Ok(())
 }
 
-fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<()> {
-    loop {
-        terminal.draw(|f| ui(f, &app))?;
+async fn run_app<B: Backend>(
+    terminal: &mut Terminal<B>, 
+    mut rx: mpsc::Receiver<FetchedData<'_>>,
+) -> io::Result<()> {
 
-        if event::poll(std::time::Duration::from_millis(250))? {
+    let mut app_state = AppState::Loading {tick: 0};
+
+    let mut cpu_by_account_data = None;
+    let mut cpu_by_node_data = None;
+    let mut gpu_by_type_data = None;
+
+
+    loop {
+        terminal.draw(|f| ui(f, &app_state))?;
+
+        if event::poll(std::time::Duration::from_millis(100))? {
             if let Event::Key(key) = event::read()? {
-                match key.code {
-                    KeyCode::Char('q') => app.should_quit = true,
-                    KeyCode::Char('1') => app.current_view = AppView::CpuByAccount,
-                    KeyCode::Char('2') => app.current_view = AppView::CpuByNode,
-                    KeyCode::Char('3') => app.current_view = AppView::GpuByType,
-                    KeyCode::Right | KeyCode::Char('l') | KeyCode::Tab => app.next_view(),
-                    KeyCode::Left | KeyCode::Char('h') => app.prev_view(),
-                    _ => {}
+
+                if key.code == KeyCode::Char('q') {
+                    if let AppState::Loaded(ref mut app) = app_state {
+                        app.should_quit = true;
+                    } else {
+                        return Ok(())
+                    }
+                }
+
+                if let AppState::Loaded(ref mut app) = app_state {
+                    match key.code {
+                        KeyCode::Char('1') => app.current_view = AppView::CpuByAccount,
+                        KeyCode::Char('2') => app.current_view = AppView::CpuByNode,
+                        KeyCode::Char('3') => app.current_view = AppView::GpuByType,
+                        KeyCode::Right | KeyCode::Char('l') | KeyCode::Tab => app.next_view(),
+                        KeyCode::Left | KeyCode::Char('h') => app.prev_view(),
+                        _ => {}
+                    }
                 }
             }
         }
 
-        if app.should_quit {
-            return Ok(());
+        if let Ok(fetched_data) = rx.try_recv() {
+            match fetched_data {
+                FetchedData::CpuByAccount(data) => cpu_by_account_data = Some(data),
+                FetchedData::CpuByNode(data) => cpu_by_node_data = Some(data),
+                FetchedData::GpuByType(data) => gpu_by_type_data = Some(data),
+            }
+        }
+
+        if let AppState::Loading {ref mut tick} = app_state {
+            *tick += 1;
+
+            if cpu_by_account_data.is_some() && cpu_by_node_data.is_some() && gpu_by_type_data.is_some() {
+                let app = App {
+                    current_view: AppView::CpuByAccount,
+                    cpu_by_account: cpu_by_account_data.take().unwrap(),
+                    cpu_by_node: cpu_by_node_data.take().unwrap(),
+                    gpu_by_type: gpu_by_type_data.take().unwrap(),
+                    should_quit: false,
+                };
+                app_state = AppState::Loaded(app);
+            }
+        }
+
+        if let AppState::Loaded(app) = &app_state {
+            if app.should_quit {
+                return Ok(());
+            }
         }
     }
 }
 
 // --- UI Drawing ---
 
-fn ui(f: &mut Frame, app: &App) {
-    // Main layout with a top tab bar, a main content area, and a footer
+// MODIFIED: The main UI function now dispatches based on AppState.
+fn ui(f: &mut Frame, app_state: &AppState) {
+    match app_state {
+        AppState::Loading { tick } => draw_loading_screen(f, *tick),
+        AppState::Loaded(app) => draw_dashboard(f, app),
+    }
+}
+
+// NEW: A function to draw the loading screen.
+fn draw_loading_screen(f: &mut Frame, tick: usize) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Percentage(45),
+            Constraint::Length(3),
+            Constraint::Percentage(45),
+        ].as_ref())
+        .split(f.area());
+
+    let loading_text = "Loading Data";
+    let dots = ".".repeat(tick % 4);
+    let text = format!("{}{}", loading_text, dots);
+
+    let paragraph = Paragraph::new(text)
+        .style(Style::default().fg(Color::White))
+        .block(Block::default().borders(Borders::ALL).title("Status").border_set(border::ROUNDED))
+        .alignment(Alignment::Center);
+
+    f.render_widget(paragraph, chunks[1]);
+}
+
+// NEW: Renamed from `ui` to `draw_dashboard` to be more specific.
+fn draw_dashboard(f: &mut Frame, app: &App) {
     let main_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -101,16 +207,14 @@ fn ui(f: &mut Frame, app: &App) {
         .split(f.area());
 
     draw_tabs(f, main_chunks[0], app.current_view);
-    
+
     let chart_data = match app.current_view {
         AppView::CpuByAccount => &app.cpu_by_account,
         AppView::CpuByNode => &app.cpu_by_node,
         AppView::GpuByType => &app.gpu_by_type,
     };
-    
-    // Pass the main content area to the chart drawing function
-    draw_charts(f, main_chunks[1], chart_data);
 
+    draw_charts(f, main_chunks[1], chart_data);
     draw_footer(f, main_chunks[2]);
 }
 
@@ -259,20 +363,20 @@ fn draw_footer(f: &mut Frame, area: Rect) {
 
 // --- App State and Data Loading ---
 
-impl<'a> App<'a> {
-    fn new() -> App<'a> {
-        let cpu_by_account = get_cpu_by_account_data();
-        let cpu_by_node = get_cpu_by_node_data();
-        let gpu_by_type = get_gpu_by_type_data();
-
-        App {
-            current_view: AppView::CpuByAccount,
-            cpu_by_account,
-            cpu_by_node,
-            gpu_by_type,
-            should_quit: false,
-        }
-    }
+impl App<'_> {
+    //fn new() -> App<'a> {
+    //    let cpu_by_account = get_cpu_by_account_data();
+    //    let cpu_by_node = get_cpu_by_node_data();
+    //    let gpu_by_type = get_gpu_by_type_data();
+    //
+    //    App {
+    //        current_view: AppView::CpuByAccount,
+    //        cpu_by_account,
+    //        cpu_by_node,
+    //        gpu_by_type,
+    //        should_quit: false,
+    //    }
+    //}
 
     fn next_view(&mut self) {
         self.current_view = match self.current_view {
@@ -296,7 +400,9 @@ impl<'a> App<'a> {
 // Prometheus interface 
 
 fn get_cpu_by_account_data<'a>() -> ChartData<'a> {
-    let data = get_usage_by(Cluster::Rusty, Grouping::Account, Resource::Cpus, 7, "1d").unwrap();
+    // Using a dummy delay to simulate network latency
+    std::thread::sleep(Duration::from_secs(2));
+    let data = get_usage_by(Cluster::Rusty, Grouping::Account, Resource::Cpus, 7, "1d").unwrap_or_default();
 
     let binding = data.clone();
     let max = binding.values().map(|vec| vec.iter().sum::<u64>()).max().unwrap_or(0);
@@ -309,8 +415,10 @@ fn get_cpu_by_account_data<'a>() -> ChartData<'a> {
     }
 }
 
+
 fn get_cpu_by_node_data<'a>() -> ChartData<'a> {
-    let data = get_usage_by(Cluster::Rusty, Grouping::Nodes, Resource::Cpus, 7, "1d").unwrap();
+    std::thread::sleep(Duration::from_secs(3));
+    let data = get_usage_by(Cluster::Rusty, Grouping::Nodes, Resource::Cpus, 7, "1d").unwrap_or_default();
     
     let binding = data.clone();
     let max = binding.values().map(|vec| vec.iter().sum::<u64>()).max().unwrap_or(0);
@@ -324,7 +432,8 @@ fn get_cpu_by_node_data<'a>() -> ChartData<'a> {
 }
 
 fn get_gpu_by_type_data<'a>() -> ChartData<'a> {
-    let data = get_usage_by(Cluster::Rusty, Grouping::GpuType, Resource::Gpus, 7, "1d").unwrap();
+    std::thread::sleep(Duration::from_secs(1));
+    let data = get_usage_by(Cluster::Rusty, Grouping::GpuType, Resource::Gpus, 7, "1d").unwrap_or_default();
     
     let binding = data.clone();
     let max = binding.values().map(|vec| vec.iter().sum::<u64>()).max().unwrap_or(0);
@@ -336,3 +445,41 @@ fn get_gpu_by_type_data<'a>() -> ChartData<'a> {
         _y_axis_title: "GPUs",
     }
 }
+
+
+async fn get_cpu_by_account_data_async(tx: mpsc::Sender<FetchedData<'_>>) {
+    let result = tokio::task::spawn_blocking(move || {
+        get_cpu_by_account_data()
+    }).await;
+
+    if let Ok(data) = result {
+        if tx.send(FetchedData::CpuByAccount(data)).await.is_err() {
+            // Handle error: receiver was dropped.
+        }
+    }
+}
+
+async fn get_cpu_by_node_data_async(tx: mpsc::Sender<FetchedData<'_>>) {
+    let result = tokio::task::spawn_blocking(move || {
+        get_cpu_by_node_data()
+    }).await;
+
+    if let Ok(data) = result {
+        if tx.send(FetchedData::CpuByNode(data)).await.is_err() {
+            // Handle error
+        }
+    }
+}
+
+async fn get_gpu_by_type_data_async(tx: mpsc::Sender<FetchedData<'_>>) {
+    let result = tokio::task::spawn_blocking(move || {
+        get_gpu_by_type_data()
+    }).await;
+
+    if let Ok(data) = result {
+        if tx.send(FetchedData::GpuByType(data)).await.is_err() {
+            // Handle error
+        }
+    }
+}
+
