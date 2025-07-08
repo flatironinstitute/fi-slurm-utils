@@ -220,7 +220,6 @@ struct Args {
     #[arg(short, long)]
     #[arg(help = "Prints the top-level summary report for each feature type")]
     summary: bool,
-    #[arg(short, long, num_args = 1..)]
     #[arg(help = "Select individual features to filter by. `--feature icelake` would only show information for icelake nodes. \n For multiple features, separate them with spaces, such as `--feature genoa gpu skylake`")]
     feature: Vec<String>,
     #[arg(short, long)]
