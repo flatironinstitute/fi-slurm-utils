@@ -1,5 +1,6 @@
 use crate::nodes::{NodeState, Node};
 use crate::jobs::SlurmJobs;
+use fi_slurm::utils::count_blocks;
 use std::collections::HashMap;
 use colored::*;
 
@@ -266,6 +267,7 @@ fn get_node_utilization(report_data: &HashMap<NodeState, ReportGroup>) -> f64 {
     utilized_nodes as f64
 }
 
+#[derive(Clone)]
 enum BarColor {
     Red,
     Green,
@@ -283,13 +285,25 @@ impl BarColor {
 }
 
 fn print_utilization(utilization_percent: f64, bar_width: usize, bar_color: BarColor, name: &str, no_color: bool) {
-        let filled_chars = (bar_width as f64 * (utilization_percent / 100.0)).round() as usize;
 
-        let filled_bar = if no_color {"█".repeat(filled_chars).white()} else {bar_color.apply_color("█".repeat(filled_chars))};
-        let empty_chars = bar_width.saturating_sub(filled_chars);        
-        let empty_bar = "░".repeat(empty_chars).normal();
+    
+    //let (full, empty, partial_opt) = count_blocks(bar_width, utilization_percent/100.0)
+    let bars = count_blocks(bar_width, utilization_percent/100.0);
 
+    //let filled_chars = (bar_width as f64 * (utilization_percent / 100.0)).round() as usize;
+    let filled_bar = if no_color {"█".repeat(bars.0).white()} else {bar_color.clone().apply_color("█".repeat(bars.0))};
+
+    //let empty_chars = bar_width.saturating_sub(filled_chars);        
+    let empty_bar = "░".repeat(bars.1).normal();
+
+    if let Some(remainder) = bars.2 {
+        let remainder_bar = if no_color {remainder.white()} else {bar_color.apply_color(remainder)};
+        println!("Overall {} Utilization: \n [{}{}{}] {:.1}%", name, filled_bar, remainder_bar, empty_bar, utilization_percent);
+    } else {
         println!("Overall {} Utilization: \n [{}{}] {:.1}%", name, filled_bar, empty_bar, utilization_percent);
+    }
+
+    //println!("Overall {} Utilization: \n [{}{}] {:.1}%", name, filled_bar, empty_bar, utilization_percent);
 }
 
 fn generate_report_body(report_data: &HashMap<NodeState, ReportGroup>, 
