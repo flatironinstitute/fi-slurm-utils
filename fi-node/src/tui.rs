@@ -16,7 +16,6 @@ use ratatui::{
 };
 use std::collections::HashMap;
 use std::io;
-use std::time::Duration;
 use tokio::sync::mpsc;
 
 // --- Data Structures ---
@@ -400,8 +399,6 @@ impl App<'_> {
 // Prometheus interface 
 
 fn get_cpu_by_account_data<'a>() -> ChartData<'a> {
-    // Using a dummy delay to simulate network latency
-    std::thread::sleep(Duration::from_secs(2));
     let data = get_usage_by(Cluster::Rusty, Grouping::Account, Resource::Cpus, 7, "1d").unwrap_or_default();
 
     let binding = data.clone();
@@ -417,7 +414,6 @@ fn get_cpu_by_account_data<'a>() -> ChartData<'a> {
 
 
 fn get_cpu_by_node_data<'a>() -> ChartData<'a> {
-    std::thread::sleep(Duration::from_secs(3));
     let data = get_usage_by(Cluster::Rusty, Grouping::Nodes, Resource::Cpus, 7, "1d").unwrap_or_default();
     
     let binding = data.clone();
@@ -432,7 +428,6 @@ fn get_cpu_by_node_data<'a>() -> ChartData<'a> {
 }
 
 fn get_gpu_by_type_data<'a>() -> ChartData<'a> {
-    std::thread::sleep(Duration::from_secs(1));
     let data = get_usage_by(Cluster::Rusty, Grouping::GpuType, Resource::Gpus, 7, "1d").unwrap_or_default();
     
     let binding = data.clone();
