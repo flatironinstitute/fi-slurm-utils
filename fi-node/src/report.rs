@@ -200,28 +200,28 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
     // Print Headers
     let cpu_header = "CPU (A/T)";
     let gpu_header = "GPU (A/T)";
-    let cpu_col_width = max_alloc_cpu_width + max_total_cpu_width + 3; // +3 for " / "
+    let cpu_col_width = max_alloc_cpu_width + max_total_cpu_width + 2; // +3 for " / "
     let gpu_col_width = max_alloc_gpu_width + max_total_gpu_width + 3;
     
     println!(
-        "{:<width$} {:>5} {:>cpu_w$} {:>gpu_w$}",
+        "{:<width$} {:>5} {:>cpu_w$}  {:>gpu_w$}",
         "STATE".bold(), "COUNT".bold(), cpu_header.bold(), gpu_header.bold(),
         width = max_state_width,
         cpu_w = cpu_col_width,
         gpu_w = gpu_col_width,
     );
-    println!("{}", "-".repeat(max_state_width + cpu_col_width + gpu_col_width + 7));
+    println!("{}", "-".repeat(max_state_width + cpu_col_width + gpu_col_width + 9));
 
     // Generate and Print Report Body
     let total_line = generate_report_body(report_data, sorted_states, max_state_width, (max_alloc_cpu_width, max_total_cpu_width, max_alloc_gpu_width, max_total_gpu_width), no_color, show_node_names);
 
     // Print Totals and Utilization Bars
-    println!("{}", "-".repeat(max_state_width + cpu_col_width + gpu_col_width + 7));
+    println!("{}", "-".repeat(max_state_width + cpu_col_width + gpu_col_width + 9));
     let total_cpu_str = format_stat_column(total_line.alloc_cpus as u64, total_line.total_cpus as u64, max_alloc_cpu_width, max_total_cpu_width);
     let total_gpu_str = format_stat_column(total_line.alloc_gpus, total_line.total_gpus, max_alloc_gpu_width, max_total_gpu_width);
     let total_padding = " ".repeat(max_state_width - "TOTAL".len());
     print!("{}{}", "TOTAL".bold(), total_padding);
-    println!("{:>5} {} {}", total_line.node_count, total_cpu_str, total_gpu_str);
+    println!("{:>5}  {}  {}", total_line.node_count, total_cpu_str, total_gpu_str);
 
     let utilized_nodes = get_node_utilization(report_data);
     if total_line.node_count > 0 {
@@ -351,9 +351,9 @@ fn generate_report_body(report_data: &HashMap<NodeState, ReportGroup>,
             print!("{}{}", colored_str, padding);
 
             if show_node_names {
-                println!("{:>5} {} {} {}", group.summary.node_count, cpu_str, gpu_str, fi_slurm::parser::compress_hostlist(&group.summary.node_names));
+                println!("{:>5}  {}  {}  {}", group.summary.node_count, cpu_str, gpu_str, fi_slurm::parser::compress_hostlist(&group.summary.node_names));
             } else {
-                println!("{:>5} {} {}", group.summary.node_count, cpu_str, gpu_str);
+                println!("{:>5}  {}  {}", group.summary.node_count, cpu_str, gpu_str);
             }
 
 
@@ -376,9 +376,9 @@ fn generate_report_body(report_data: &HashMap<NodeState, ReportGroup>,
                     print!("{}{}", indented_name, sub_padding);
     
                     if show_node_names {
-                        println!("{:>5} {} {}: {}", subgroup_line.node_count, sub_cpu_str, sub_gpu_str, fi_slurm::parser::compress_hostlist(&subgroup_line.node_names));
+                        println!("{:>5}  {}  {}  {}", subgroup_line.node_count, sub_cpu_str, sub_gpu_str, fi_slurm::parser::compress_hostlist(&subgroup_line.node_names));
                     } else {
-                        println!("{:>5} {} {}", subgroup_line.node_count, sub_cpu_str, sub_gpu_str);
+                        println!("{:>5}  {}  {}", subgroup_line.node_count, sub_cpu_str, sub_gpu_str);
                     }
                 }
             }
