@@ -285,24 +285,23 @@ impl BarColor {
 }
 
 fn print_utilization(utilization_percent: f64, bar_width: usize, bar_color: BarColor, name: &str, no_color: bool) {
-    // 1. Call count_blocks to get the components of the bar.
-    //    Note: We divide by 100.0 to convert the percentage to a 0.0-1.0 scale.
+    // Call count_blocks to get the components of the bar
     let (full, empty, partial_opt) = count_blocks(bar_width, utilization_percent / 100.0);
 
-    // 2. Create the string for the full blocks.
+    // Create the string for the full blocks
     let full_bar = "█".repeat(full);
 
-    // 3. Get the partial block character, or an empty string if there isn't one.
+    // Get the partial block character, or an empty string if there isn't one
     let partial_bar = partial_opt.unwrap_or_default();
 
-    // 4. Create the string for the empty space. Using a simple space is often cleaner.
+    // Create the string for the empty space. Using a simple space is often cleaner
     let empty_bar = " ".repeat(empty);
 
-    // 5. Apply color to the filled parts of the bar.
+    // Apply color to the filled parts of the bar
     let colored_full = if no_color { full_bar.white() } else { bar_color.apply_color(&full_bar) };
     let colored_partial = if no_color { partial_bar.white() } else { bar_color.apply_color(&partial_bar) };
 
-    // 6. Print the assembled bar.
+    // Print the assembled bar
     println!(
         "Overall {} Utilization: \n [{}{}{}] {:.1}%",
         name,
