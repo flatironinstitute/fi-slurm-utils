@@ -17,6 +17,7 @@ use ratatui::{
 use std::collections::HashMap;
 use std::io;
 use tokio::sync::mpsc;
+use std::time::Duration;
 use thiserror::Error;
 
 // --- Data Structures ---
@@ -112,32 +113,34 @@ pub async fn tui_execute() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+
 async fn run_app<B: Backend>(
-    terminal: &mut Terminal<B>, 
+    terminal: &mut Terminal<B>,
     mut rx: mpsc::Receiver<FetchedData<'_>>,
 ) -> io::Result<()> {
+    let mut app_state = AppState::Loading { tick: 0 };
 
-    let mut app_state = AppState::Loading {tick: 0};
-
-    let mut cpu_by_account_data = None;
-    let mut cpu_by_node_data = None;
-    let mut gpu_by_type_data = None;
-
+    // ERROR HANDLING: We now store Results, not just the data.
+    let mut cpu_by_account_data: Option<Result<ChartData, AppError>> = None;
+    let mut cpu_by_node_data: Option<Result<ChartData, AppError>> = None;
+    let mut gpu_by_type_data: Option<Result<ChartData, AppError>> = None;
+    let mut data_fetch_count = 0;
 
     loop {
         terminal.draw(|f| ui(f, &app_state))?;
 
-        if event::poll(std::time::Duration::from_millis(100))? {
+        if event::poll(Duration::from_millis(100))? {
             if let Event::Key(key) = event::read()? {
-
+                // Quit works in any state
                 if key.code == KeyCode::Char('q') {
-                    if let AppState::Loaded(ref mut app) = app_state {
+                     if let AppState::Loaded(ref mut app) = app_state {
                         app.should_quit = true;
                     } else {
-                        return Ok(())
+                        // Quit immediately if loading or in error state
+                        return Ok(());
                     }
                 }
-
+                
                 if let AppState::Loaded(ref mut app) = app_state {
                     match key.code {
                         KeyCode::Char('1') => app.current_view = AppView::CpuByAccount,
@@ -151,26 +154,46 @@ async fn run_app<B: Backend>(
             }
         }
 
-        if let Ok(fetched_data) = rx.try_recv() {
-            match fetched_data {
-                FetchedData::CpuByAccount(data) => cpu_by_account_data = Some(data),
-                FetchedData::CpuByNode(data) => cpu_by_node_data = Some(data),
-                FetchedData::GpuByType(data) => gpu_by_type_data = Some(data),
+        // Only process messages if we are in the Loading state
+        if let AppState::Loading {..} = app_state {
+            if let Ok(fetched_data) = rx.try_recv() {
+                data_fetch_count += 1;
+                match fetched_data {
+                    FetchedData::CpuByAccount(res) => cpu_by_account_data = Some(res),
+                    FetchedData::CpuByNode(res) => cpu_by_node_data = Some(res),
+                    FetchedData::GpuByType(res) => gpu_by_type_data = Some(res),
+                }
             }
         }
-
-        if let AppState::Loading {ref mut tick} = app_state {
+        
+        if let AppState::Loading { ref mut tick } = app_state {
             *tick += 1;
+            // Check if all tasks have reported back
+            if data_fetch_count == 3 {
 
-            if cpu_by_account_data.is_some() && cpu_by_node_data.is_some() && gpu_by_type_data.is_some() {
-                let app = App {
-                    current_view: AppView::CpuByAccount,
-                    cpu_by_account: cpu_by_account_data.take().unwrap().unwrap(),
-                    cpu_by_node: cpu_by_node_data.take().unwrap().unwrap(),
-                    gpu_by_type: gpu_by_type_data.take().unwrap().unwrap(),
-                    should_quit: false,
-                };
-                app_state = AppState::Loaded(app);
+                let mut first_error: Option<AppError> = None;
+                for res_opt in [&cpu_by_account_data, &cpu_by_node_data, &gpu_by_type_data].into_iter().flatten() {
+                    if let Err(err) = res_opt {
+                        first_error = Some(err.clone());
+                        break; // Found an error, no need to check further
+                    }
+                }
+
+                // 2. Transition state based on whether an error was found.
+                if let Some(error) = first_error {
+                    app_state = AppState::Error(error);
+                } else {
+                    // All data is loaded successfully, create the App.
+                    // The .unwrap().unwrap() is safe here because we know all results are Some(Ok(...))
+                    let app = App {
+                        current_view: AppView::CpuByAccount,
+                        cpu_by_account: cpu_by_account_data.take().unwrap().unwrap(),
+                        cpu_by_node: cpu_by_node_data.take().unwrap().unwrap(),
+                        gpu_by_type: gpu_by_type_data.take().unwrap().unwrap(),
+                        should_quit: false,
+                    };
+                    app_state = AppState::Loaded(app);
+                }
             }
         }
 
