@@ -24,7 +24,7 @@ use chrono::{DateTime, Utc};
 /// 4. Print the final, formatted report to the console
 fn main() -> Result<(), String> {
 
-    if args.debug {let start = Instant::now(); }
+    let start = Instant::now();
 
     let args = Args::parse();
 
@@ -57,13 +57,27 @@ fn main() -> Result<(), String> {
     // Load Data 
     if args.debug { println!("Starting to load Slurm data: {:?}", start.elapsed()); }
 
-    let nodes_collection = nodes::get_nodes()?;
+    let mut nodes_collection = nodes::get_nodes()?;
     if args.debug { println!("Finished loading node data from Slurm: {:?}", start.elapsed()); }
 
     let mut jobs_collection = jobs::get_jobs()?;
     if args.debug { println!("Finished loading job data from Slurm: {:?}", start.elapsed()); }
 
     enrich_jobs_with_node_ids(&mut jobs_collection, &nodes_collection.name_to_id);
+
+    // Build Cross-Reference Map 
+    let node_to_job_map = build_node_to_job_map(&jobs_collection);
+    if args.debug { 
+        println!(
+            "Built map cross-referencing {} nodes with active jobs.",
+            node_to_job_map.len()
+        ); 
+        println!("Finished building node to job map: {:?}", start.elapsed()); 
+    }
+
+    if args.preempt {
+        preempt_node(&mut nodes_collection, &node_to_job_map, &jobs_collection);
+    }
 
     let filtered_nodes = filter::filter_nodes_by_feature(&nodes_collection, &args.feature, args.exact);
     if args.debug && !args.feature.is_empty() { println!("Finished filtering data: {:?}", start.elapsed()); }
@@ -91,15 +105,8 @@ fn main() -> Result<(), String> {
         println!("Started building node to job map: {:?}", start.elapsed()); 
     }
 
-    // Build Cross-Reference Map 
-    let node_to_job_map = build_node_to_job_map(&jobs_collection, args.preempt);
-    if args.debug { 
-        println!(
-            "Built map cross-referencing {} nodes with active jobs.",
-            node_to_job_map.len()
-        ); 
-        println!("Finished building node to job map: {:?}", start.elapsed()); 
-    }
+
+
     if args.detailed {
         if args.debug { println!("Started building report: {:?}", start.elapsed()); }
         //  Aggregate Data into Report
@@ -137,7 +144,7 @@ fn main() -> Result<(), String> {
 // taking into account preempt jobs that we may want to classify as idle for some purposes
 /// Builds a map where keys are node hostnames and values are a list of job IDs
 /// running on that node
-fn build_node_to_job_map(slurm_jobs: &SlurmJobs, preempt_is_idle: bool) -> HashMap<usize, Vec<u32>> {
+fn build_node_to_job_map(slurm_jobs: &SlurmJobs) -> HashMap<usize, Vec<u32>> {
     let mut node_to_job_map: HashMap<usize, Vec<u32>> = HashMap::new();
 
     for job in slurm_jobs.jobs.values() {
@@ -253,14 +260,14 @@ fn preempt_node(
 
     for node in slurm_nodes.nodes.iter_mut() {
         if all_preempt.contains(&node.id) {
-            match node.state {
+            match &node.state {
                 NodeState::Allocated | NodeState::Mixed => {
                     node.state = NodeState::Idle
                 },
                 NodeState::Compound {base, flags} => {
-                    match base {
+                    match **base {
                         NodeState::Allocated | NodeState::Mixed => {
-                            node.state = NodeState::Compound { base: Box::new(NodeState::Idle), flags }
+                            node.state = NodeState::Compound { base: Box::new(NodeState::Idle), flags: flags.to_vec() }
                         },
                         _ => (),
                     }
@@ -268,17 +275,20 @@ fn preempt_node(
                 _ => (),
             }
         } else if partially_preempt.contains(&node.id) {
-            match node.state {
+            match &node.state {
                 NodeState::Allocated => {
                     node.state = NodeState::Mixed
                 },
                 NodeState::Compound {base, flags} => {
-                    match base {
-                        NodeState::Allocated => {
-                            node.state = NodeState::Compound { base: Box::new(NodeState::Mixed), flags }
-                        }
-                        _ => (),
+                    if **base == NodeState::Allocated {
+                        node.state = NodeState::Compound { base: Box::new(NodeState::Mixed), flags: flags.to_vec() }
                     }
+                    //match **base {
+                    //    NodeState::Allocated => {
+                    //        node.state = NodeState::Compound { base: Box::new(NodeState::Mixed), flags: flags.to_vec() }
+                    //    }
+                    //    _ => (),
+                    //}
                 },
                 _ => (),
             }
