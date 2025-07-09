@@ -1,4 +1,4 @@
-use fi_prometheus::{Cluster, Resource, Grouping, get_usage_by};
+use fi_prometheus::{Cluster, Resource, Grouping, get_usage_by, get_max_resource};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
@@ -11,7 +11,7 @@ use ratatui::{
     style::{Color, Modifier, Style, Stylize},
     symbols::border,
     text::{Line, Span},
-    widgets::{Bar, BarChart, BarGroup, Block, Borders, Paragraph, Tabs},
+    widgets::{Bar, BarChart, BarGroup, Block, Borders, Paragraph, Tabs, Wrap},
     Frame, Terminal,
 };
 use std::collections::HashMap;
@@ -19,6 +19,16 @@ use std::io;
 use tokio::sync::mpsc;
 
 // --- Data Structures ---
+
+#[derive(Error, Debug, Clone)]
+pub enum AppError {
+    #[error("Failed to fetch data from source: {0}")]
+    DataFetch(String),
+    #[error("A background task failed: {0}")]
+    TaskJoin(String),
+    #[error("Failed to send data to UI thread: {0}")]
+    ChannelSend(String),
+}
 
 struct App<'a> {
     current_view: AppView,
@@ -39,13 +49,21 @@ enum AppView {
 enum AppState<'a> {
     Loading { tick: usize },
     Loaded(App<'a>),
+    Error(AppError),
 }
 
 #[derive(Debug)]
 enum FetchedData<'a> {
-    CpuByAccount(ChartData<'a>),
-    CpuByNode(ChartData<'a>),
-    GpuByType(ChartData<'a>),
+    CpuByAccount(Result<ChartData<'a>, AppError>),
+    CpuByNode(Result<ChartData<'a>, AppError>),
+    GpuByType(Result<ChartData<'a>, AppError>),
+}
+
+#[derive(Debug)]
+enum FetchedCapacity {
+    CpuByAccount(ChartData),
+    CpuByNode(ChartData),
+    GpuByType(ChartData),
 }
 
 #[derive(Debug)]
@@ -56,6 +74,10 @@ struct ChartData<'a> {
     _y_axis_title: &'a str,
 }
 
+struct ChartCapacity {
+    capacity_vec: HashMap<String, u64>,
+    max_capacity: u64,
+}
 
 #[tokio::main]
 pub async fn tui_execute() -> Result<(), Box<dyn std::error::Error>> {
@@ -72,9 +94,6 @@ pub async fn tui_execute() -> Result<(), Box<dyn std::error::Error>> {
     tokio::spawn(get_gpu_by_type_data_async(tx.clone()));
 
     let res = run_app(&mut terminal, rx).await;
-
-    //let app = App::new();
-    //run_app(&mut terminal, app)?;
 
     disable_raw_mode()?;
     execute!(
@@ -168,6 +187,7 @@ fn ui(f: &mut Frame, app_state: &AppState) {
     match app_state {
         AppState::Loading { tick } => draw_loading_screen(f, *tick),
         AppState::Loaded(app) => draw_dashboard(f, app),
+        AppState::Error(err) => draw_error_screen(f, err),
     }
 }
 
@@ -193,6 +213,34 @@ fn draw_loading_screen(f: &mut Frame, tick: usize) {
 
     f.render_widget(paragraph, chunks[1]);
 }
+
+fn draw_error_screen(f: &mut Frame, err: &AppError) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Percentage(40),
+            Constraint::Min(5),
+            Constraint::Percentage(40),
+        ].as_ref())
+        .split(f.area());
+
+    let error_text = Text::from(vec![
+        Line::from(Span::styled("An error occurred:", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))),
+        Line::from(""),
+        Line::from(err),
+        Line::from(""),
+        Line::from("Press 'q' to quit."),
+    ]);
+
+    let paragraph = Paragraph::new(error_text)
+        .wrap(Wrap { trim: true })
+        .style(Style::default().fg(Color::White))
+        .block(Block::default().borders(Borders::ALL).title("Error").border_style(Style::default().fg(Color::Red)).border_set(border::ROUNDED))
+        .alignment(Alignment::Center);
+
+    f.render_widget(paragraph, chunks[1]);
+}
+
 
 // NEW: Renamed from `ui` to `draw_dashboard` to be more specific.
 fn draw_dashboard(f: &mut Frame, app: &App) {
@@ -413,6 +461,30 @@ fn get_cpu_by_account_data<'a>() -> ChartData<'a> {
 }
 
 
+fn get_cpu_capacity_by_account() -> ChartCapacity {
+    let data = get_max_resource(Cluster::Rusty, Some(Grouping::Account), Resource::Cpus, Some(7), Some("1d")).unwrap_or_default();
+
+    let binding = data.clone();
+    let max = binding.values().max().unwrap_or(0);
+
+    ChartCapacity {
+        capacity_vec: data,
+        max_capacity: max,
+    }
+}
+
+async fn get_cpu_capacity_by_account_async(tx: mpsc::Sender<FetchedCapacity>) {
+    let result = tokio::task::spawn_blocking(move || {
+        get_cpu_capacity_by_account()
+    }).await;
+
+    if let Ok(data) = result {
+        if tx.send(FetchedCapacity::CpuByAccount(data)).await.is_err() {
+            // Handle error: receiver was dropped.
+        }
+    }
+}
+
 fn get_cpu_by_node_data<'a>() -> ChartData<'a> {
     let data = get_usage_by(Cluster::Rusty, Grouping::Nodes, Resource::Cpus, 7, "1d").unwrap_or_default();
     
@@ -424,6 +496,19 @@ fn get_cpu_by_node_data<'a>() -> ChartData<'a> {
         source_data: data,
         _y_axis_bounds: [0.0, max as f64],
         _y_axis_title: "CPU Cores",
+    }
+}
+
+
+fn get_cpu_capacity_by_node() -> ChartCapacity {
+    let data = get_max_resource(Cluster::Rusty, Some(Grouping::Nodes), Resource::Cpus, Some(7), Some("1d")).unwrap_or_default();
+
+    let binding = data.clone();
+    let max = binding.values().max().unwrap_or(0);
+
+    ChartCapacity {
+        capacity_vec: data,
+        max_capacity: max,
     }
 }
 
@@ -441,6 +526,18 @@ fn get_gpu_by_type_data<'a>() -> ChartData<'a> {
     }
 }
 
+fn get_gpu_capacity_by_type() -> ChartCapacity {
+    let data = get_max_resource(Cluster::Rusty, Some(Grouping::GpuType), Resource::Cpus, Some(7), Some("1d")).unwrap_or_default();
+
+    let binding = data.clone();
+    let max = binding.values().max().unwrap_or(0);
+
+    ChartCapacity {
+        capacity_vec: data,
+        max_capacity: max,
+    }
+}
+
 
 async fn get_cpu_by_account_data_async(tx: mpsc::Sender<FetchedData<'_>>) {
     let result = tokio::task::spawn_blocking(move || {
@@ -448,7 +545,7 @@ async fn get_cpu_by_account_data_async(tx: mpsc::Sender<FetchedData<'_>>) {
     }).await;
 
     if let Ok(data) = result {
-        if tx.send(FetchedData::CpuByAccount(data)).await.is_err() {
+        if tx.send(FetchedData::CpuByAccount(Ok(data))).await.is_err() {
             // Handle error: receiver was dropped.
         }
     }
@@ -460,7 +557,7 @@ async fn get_cpu_by_node_data_async(tx: mpsc::Sender<FetchedData<'_>>) {
     }).await;
 
     if let Ok(data) = result {
-        if tx.send(FetchedData::CpuByNode(data)).await.is_err() {
+        if tx.send(FetchedData::CpuByNode(Ok(data))).await.is_err() {
             // Handle error
         }
     }
@@ -472,7 +569,7 @@ async fn get_gpu_by_type_data_async(tx: mpsc::Sender<FetchedData<'_>>) {
     }).await;
 
     if let Ok(data) = result {
-        if tx.send(FetchedData::GpuByType(data)).await.is_err() {
+        if tx.send(FetchedData::GpuByType(Ok(data))).await.is_err() {
             // Handle error
         }
     }
