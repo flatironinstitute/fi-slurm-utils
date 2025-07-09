@@ -221,8 +221,7 @@ fn preempt_node(
     // in order to figure out which nodes are preempt, we have to take the current UTC date time
 // and compare it to the preemptable_time feature in the job
     for job in slurm_jobs.jobs.values() {
-        
-        if job.preemptable_time <= now {
+        if job.preemptable_time <= now && job.preemptable_time != chrono::DateTime::UNIX_EPOCH { 
             preemptable_jobs.insert(job.job_id);
         }
     }
@@ -266,6 +265,7 @@ fn preempt_node(
                 },
                 NodeState::Compound {base, flags} => {
                     match **base {
+                        // NodeState::Allocated | NodeState::Mixed => {
                         NodeState::Allocated | NodeState::Mixed => {
                             node.state = NodeState::Compound { base: Box::new(NodeState::Idle), flags: flags.to_vec() }
                         },
@@ -283,12 +283,6 @@ fn preempt_node(
                     if **base == NodeState::Allocated {
                         node.state = NodeState::Compound { base: Box::new(NodeState::Mixed), flags: flags.to_vec() }
                     }
-                    //match **base {
-                    //    NodeState::Allocated => {
-                    //        node.state = NodeState::Compound { base: Box::new(NodeState::Mixed), flags: flags.to_vec() }
-                    //    }
-                    //    _ => (),
-                    //}
                 },
                 _ => (),
             }
