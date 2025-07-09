@@ -261,12 +261,14 @@ fn preempt_node(
     for node in slurm_nodes.nodes.iter_mut() {
         if all_preempt.contains(&node.id) {
             match &node.state {
-                NodeState::Allocated | NodeState::Mixed => {
+                // NodeState::Allocated | NodeState::Mixed => {
+                NodeState::Allocated => {
                     node.state = NodeState::Idle
                 },
                 NodeState::Compound {base, flags} => {
                     match **base {
-                        NodeState::Allocated | NodeState::Mixed => {
+                        // NodeState::Allocated | NodeState::Mixed => {
+                        NodeState::Allocated => {
                             node.state = NodeState::Compound { base: Box::new(NodeState::Idle), flags: flags.to_vec() }
                         },
                         _ => (),
