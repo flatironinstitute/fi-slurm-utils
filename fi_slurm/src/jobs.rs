@@ -210,6 +210,7 @@ pub struct Job {
     pub start_time: DateTime<Utc>,
     pub end_time: DateTime<Utc>,
     pub time_limit_minutes: u32,
+    pub preemptable_time: DateTime<Utc>,
 
     // Resource Allocation 
     pub num_nodes: u32,
@@ -245,6 +246,7 @@ impl Job {
             start_time: time_t_to_datetime(raw_job.start_time),
             end_time: time_t_to_datetime(raw_job.end_time),
             time_limit_minutes: raw_job.time_limit,
+            preemptable_time: time_t_to_datetime(raw_job.preemptable_time),
             num_nodes: raw_job.num_nodes,
             num_cpus: raw_job.num_cpus,
             num_tasks: raw_job.num_tasks,
