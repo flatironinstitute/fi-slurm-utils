@@ -17,6 +17,7 @@ use ratatui::{
 use std::collections::HashMap;
 use std::io;
 use tokio::sync::mpsc;
+use thiserror::Error;
 
 // --- Data Structures ---
 
@@ -61,9 +62,9 @@ enum FetchedData<'a> {
 
 #[derive(Debug)]
 enum FetchedCapacity {
-    CpuByAccount(ChartData),
-    CpuByNode(ChartData),
-    GpuByType(ChartData),
+    CpuByAccount(ChartCapacity),
+    CpuByNode(ChartCapacity),
+    GpuByType(ChartCapacity),
 }
 
 #[derive(Debug)]
@@ -74,6 +75,7 @@ struct ChartData<'a> {
     _y_axis_title: &'a str,
 }
 
+#[derive(Debug)]
 struct ChartCapacity {
     capacity_vec: HashMap<String, u64>,
     max_capacity: u64,
@@ -163,9 +165,9 @@ async fn run_app<B: Backend>(
             if cpu_by_account_data.is_some() && cpu_by_node_data.is_some() && gpu_by_type_data.is_some() {
                 let app = App {
                     current_view: AppView::CpuByAccount,
-                    cpu_by_account: cpu_by_account_data.take().unwrap(),
-                    cpu_by_node: cpu_by_node_data.take().unwrap(),
-                    gpu_by_type: gpu_by_type_data.take().unwrap(),
+                    cpu_by_account: cpu_by_account_data.take().unwrap().unwrap(),
+                    cpu_by_node: cpu_by_node_data.take().unwrap().unwrap(),
+                    gpu_by_type: gpu_by_type_data.take().unwrap().unwrap(),
                     should_quit: false,
                 };
                 app_state = AppState::Loaded(app);
@@ -227,7 +229,7 @@ fn draw_error_screen(f: &mut Frame, err: &AppError) {
     let error_text = Text::from(vec![
         Line::from(Span::styled("An error occurred:", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))),
         Line::from(""),
-        Line::from(err),
+        Line::from(err.to_string()),
         Line::from(""),
         Line::from("Press 'q' to quit."),
     ]);
@@ -465,11 +467,11 @@ fn get_cpu_capacity_by_account() -> ChartCapacity {
     let data = get_max_resource(Cluster::Rusty, Some(Grouping::Account), Resource::Cpus, Some(7), Some("1d")).unwrap_or_default();
 
     let binding = data.clone();
-    let max = binding.values().max().unwrap_or(0);
+    let max = &binding.values().max().unwrap_or(&0);
 
     ChartCapacity {
         capacity_vec: data,
-        max_capacity: max,
+        max_capacity: **max,
     }
 }
 
@@ -504,11 +506,11 @@ fn get_cpu_capacity_by_node() -> ChartCapacity {
     let data = get_max_resource(Cluster::Rusty, Some(Grouping::Nodes), Resource::Cpus, Some(7), Some("1d")).unwrap_or_default();
 
     let binding = data.clone();
-    let max = binding.values().max().unwrap_or(0);
+    let max = &binding.values().max().unwrap_or(&0);
 
     ChartCapacity {
         capacity_vec: data,
-        max_capacity: max,
+        max_capacity: **max,
     }
 }
 
@@ -530,11 +532,11 @@ fn get_gpu_capacity_by_type() -> ChartCapacity {
     let data = get_max_resource(Cluster::Rusty, Some(Grouping::GpuType), Resource::Cpus, Some(7), Some("1d")).unwrap_or_default();
 
     let binding = data.clone();
-    let max = binding.values().max().unwrap_or(0);
+    let max = &binding.values().max().unwrap_or(&0);
 
     ChartCapacity {
         capacity_vec: data,
-        max_capacity: max,
+        max_capacity: **max,
     }
 }
 
