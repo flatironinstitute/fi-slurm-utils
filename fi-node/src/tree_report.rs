@@ -31,6 +31,7 @@ pub type TreeReportData = TreeNode;
 
 // Aggregation Logic
 
+// editing in order to conditionally take into account preempt 
 /// Helper function to determine if a node is available for new work
 fn is_node_available(state: &NodeState) -> bool {
     match state {
@@ -74,6 +75,13 @@ pub fn build_tree_report(
             0
         };
         let is_available = is_node_available(&node.state);
+        // need to also check whether any given job on that node is preempt
+        // what if a job is preempt, but it's a job on a mixed node with another non-preempt job?
+        // maybe the correct solution is further up the chain
+        // do we perhaps want to change Node state much further up, as part of creating the node to
+        // job mappings?
+        // would need to do it in a way we can reconstruct in case we don't want this behavior to
+        // be universal
 
         // Update Grand Total Stats
         root.stats.total_nodes += 1;
