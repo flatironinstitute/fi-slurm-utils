@@ -1,4 +1,4 @@
-use crate::tui::app::{AppError, ChartCapacity, ChartData, FetchedData};
+use crate::tui::app::{AppError, CapacityData, FetchedData, UsageData};
 use fi_prometheus::{get_max_resource, get_usage_by, Cluster, Grouping, Resource};
 use tokio::sync::mpsc;
 
@@ -6,10 +6,10 @@ use tokio::sync::mpsc;
 
 // --- CPU by Account ---
 
-pub fn get_cpu_by_account_data() -> Result<ChartData, AppError> {
+pub fn get_cpu_by_account_data() -> Result<UsageData, AppError> {
     let data = get_usage_by(Cluster::Rusty, Grouping::Account, Resource::Cpus, 7, "1d")
         .map_err(|e| AppError::DataFetch(e.to_string()))?;
-    Ok(ChartData { source_data: data })
+    Ok(UsageData { source_data: data })
 }
 
 pub async fn get_cpu_by_account_data_async(tx: mpsc::Sender<FetchedData>) {
@@ -23,7 +23,7 @@ pub async fn get_cpu_by_account_data_async(tx: mpsc::Sender<FetchedData>) {
     }
 }
 
-pub fn get_cpu_capacity_by_account() -> Result<ChartCapacity, AppError> {
+pub fn get_cpu_capacity_by_account() -> Result<CapacityData, AppError> {
     let data = get_max_resource(
         Cluster::Rusty,
         Some(Grouping::Account),
@@ -34,7 +34,7 @@ pub fn get_cpu_capacity_by_account() -> Result<ChartCapacity, AppError> {
     .map_err(|e| AppError::DataFetch(e.to_string()))?;
 
     let max = *data.values().max().unwrap_or(&0);
-    Ok(ChartCapacity {
+    Ok(CapacityData {
         capacity_vec: data,
         max_capacity: max,
     })
@@ -53,10 +53,10 @@ pub async fn get_cpu_capacity_by_account_async(tx: mpsc::Sender<FetchedData>) {
 
 // --- CPU by Node ---
 
-pub fn get_cpu_by_node_data() -> Result<ChartData, AppError> {
+pub fn get_cpu_by_node_data() -> Result<UsageData, AppError> {
     let data = get_usage_by(Cluster::Rusty, Grouping::Nodes, Resource::Cpus, 7, "1d")
         .map_err(|e| AppError::DataFetch(e.to_string()))?;
-    Ok(ChartData { source_data: data })
+    Ok(UsageData { source_data: data })
 }
 
 pub async fn get_cpu_by_node_data_async(tx: mpsc::Sender<FetchedData>) {
@@ -70,7 +70,7 @@ pub async fn get_cpu_by_node_data_async(tx: mpsc::Sender<FetchedData>) {
     }
 }
 
-pub fn get_cpu_capacity_by_node() -> Result<ChartCapacity, AppError> {
+pub fn get_cpu_capacity_by_node() -> Result<CapacityData, AppError> {
     let data = get_max_resource(
         Cluster::Rusty,
         Some(Grouping::Nodes),
@@ -81,7 +81,7 @@ pub fn get_cpu_capacity_by_node() -> Result<ChartCapacity, AppError> {
     .map_err(|e| AppError::DataFetch(e.to_string()))?;
 
     let max = *data.values().max().unwrap_or(&0);
-    Ok(ChartCapacity {
+    Ok(CapacityData {
         capacity_vec: data,
         max_capacity: max,
     })
@@ -100,10 +100,10 @@ pub async fn get_cpu_capacity_by_node_async(tx: mpsc::Sender<FetchedData>) {
 
 // --- GPU by Type ---
 
-pub fn get_gpu_by_type_data() -> Result<ChartData, AppError> {
+pub fn get_gpu_by_type_data() -> Result<UsageData, AppError> {
     let data = get_usage_by(Cluster::Rusty, Grouping::GpuType, Resource::Gpus, 7, "1d")
         .map_err(|e| AppError::DataFetch(e.to_string()))?;
-    Ok(ChartData { source_data: data })
+    Ok(UsageData { source_data: data })
 }
 
 pub async fn get_gpu_by_type_data_async(tx: mpsc::Sender<FetchedData>) {
@@ -117,18 +117,18 @@ pub async fn get_gpu_by_type_data_async(tx: mpsc::Sender<FetchedData>) {
     }
 }
 
-pub fn get_gpu_capacity_by_type() -> Result<ChartCapacity, AppError> {
+pub fn get_gpu_capacity_by_type() -> Result<CapacityData, AppError> {
     let data = get_max_resource(
         Cluster::Rusty,
         Some(Grouping::GpuType),
-        Resource::Gpus, // Corrected from Cpus to Gpus
+        Resource::Gpus,
         Some(7),
         Some("1d"),
     )
     .map_err(|e| AppError::DataFetch(e.to_string()))?;
 
     let max = *data.values().max().unwrap_or(&0);
-    Ok(ChartCapacity {
+    Ok(CapacityData {
         capacity_vec: data,
         max_capacity: max,
     })

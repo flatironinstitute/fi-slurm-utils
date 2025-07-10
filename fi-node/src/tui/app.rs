@@ -179,30 +179,32 @@ async fn run_app<B: Backend>(
         
         if let AppState::Loading { ref mut tick } = app_state {
             *tick += 1;
-            // MODIFIED: Wait for all 6 tasks to report back.
+
             if data_fetch_count == 6 {
                 let mut first_error: Option<AppError> = None;
                 
                 // Check all 6 results for any errors.
-                let results: [&Option<Result<_, AppError>>; 6] = [
-                    &cpu_by_account_data.as_ref().map(|r| r.as_ref().err()).flatten().cloned(),
-                    &cpu_by_node_data.as_ref().map(|r| r.as_ref().err()).flatten().cloned(),
-                    &gpu_by_type_data.as_ref().map(|r| r.as_ref().err()).flatten().cloned(),
-                    &cpu_by_account_capacity.as_ref().map(|r| r.as_ref().err()).flatten().cloned(),
-                    &cpu_by_node_capacity.as_ref().map(|r| r.as_ref().err()).flatten().cloned(),
-                    &gpu_by_type_capacity.as_ref().map(|r| r.as_ref().err()).flatten().cloned(),
+                let error_checks = [
+                    cpu_by_account_data.as_ref().and_then(|r| r.as_ref().err().cloned()),
+                    cpu_by_node_data.as_ref().and_then(|r| r.as_ref().err().cloned()),
+                    gpu_by_type_data.as_ref().and_then(|r| r.as_ref().err().cloned()),
+                    cpu_by_account_capacity.as_ref().and_then(|r| r.as_ref().err().cloned()),
+                    cpu_by_node_capacity.as_ref().and_then(|r| r.as_ref().err().cloned()),
+                    gpu_by_type_capacity.as_ref().and_then(|r| r.as_ref().err().cloned()),
                 ];
 
-                for res_opt in results {
-                    if let Some(err) = res_opt {
-                        first_error = Some(err.clone());
-                        break;
-                    }
+                if let Some(err_opt) = error_checks.iter().flatten().next() {
+                    first_error = Some(err_opt.clone());
                 }
 
                 if let Some(error) = first_error {
                     app_state = AppState::Error(error);
                 } else {
+
+                    //println!("{:?}", &cpu_by_account_data);
+                    //println!("{:?}", &cpu_by_account_capacity);
+                    //return Ok(())
+
                     // MODIFIED: Combine usage and capacity data into the final ChartData structs.
                     let final_cpu_by_account = {
                         let usage = cpu_by_account_data.take().unwrap().unwrap();
@@ -233,7 +235,7 @@ async fn run_app<B: Backend>(
                             max_capacity: capacity.max_capacity,
                         }
                     };
-                    
+
                     let app = App {
                         current_view: AppView::CpuByAccount,
                         cpu_by_account: final_cpu_by_account,
