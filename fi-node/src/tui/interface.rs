@@ -5,27 +5,20 @@ use crate::tui::app::{
     ChartData, 
     FetchedData, 
     ChartCapacity,
-    FetchedCapacity,
 };
 // --- Prometheus interface ---
 
 // Prometheus interface 
 
-pub fn get_cpu_by_account_data<'a>() -> ChartData<'a> {
+pub fn get_cpu_by_account_data() -> ChartData {
     let data = get_usage_by(Cluster::Rusty, Grouping::Account, Resource::Cpus, 7, "1d").unwrap_or_default();
-
-    let binding = data.clone();
-    let max = binding.values().map(|vec| vec.iter().sum::<u64>()).max().unwrap_or(0);
     
     ChartData {
-        _title: "CPU Usage by Account (8 Days)",
         source_data: data,
-        _y_axis_bounds: [0.0, max as f64],
-        _y_axis_title: "CPU Cores",
     }
 }
 
-pub async fn get_cpu_by_account_data_async(tx: mpsc::Sender<FetchedData<'_>>) {
+pub async fn get_cpu_by_account_data_async(tx: mpsc::Sender<FetchedData>) {
     let result = tokio::task::spawn_blocking(move || {
         get_cpu_by_account_data()
     }).await;
@@ -52,14 +45,14 @@ pub fn get_cpu_capacity_by_account() -> ChartCapacity {
     }
 }
 
-pub async fn get_cpu_capacity_by_account_async(tx: mpsc::Sender<FetchedCapacity>) {
+pub async fn get_cpu_capacity_by_account_async(tx: mpsc::Sender<FetchedData>) {
     let result = tokio::task::spawn_blocking(move || {
         get_cpu_capacity_by_account()
     }).await;
 
     let data_to_send = match result {
-        Ok(data) => FetchedCapacity::CpuByAccount(Ok(data)),
-        Err(e) => FetchedCapacity::CpuByAccount(Err(AppError::TaskJoin(e.to_string()))),
+        Ok(data) => FetchedData::CpuCapacityByAccount(Ok(data)),
+        Err(e) => FetchedData::CpuCapacityByAccount(Err(AppError::TaskJoin(e.to_string()))),
     };
 
     if tx.send(data_to_send).await.is_err() {
@@ -67,21 +60,15 @@ pub async fn get_cpu_capacity_by_account_async(tx: mpsc::Sender<FetchedCapacity>
     }
 }
 
-pub fn get_cpu_by_node_data<'a>() -> ChartData<'a> {
+pub fn get_cpu_by_node_data() -> ChartData {
     let data = get_usage_by(Cluster::Rusty, Grouping::Nodes, Resource::Cpus, 7, "1d").unwrap_or_default();
-    
-    let binding = data.clone();
-    let max = binding.values().map(|vec| vec.iter().sum::<u64>()).max().unwrap_or(0);
 
     ChartData {
-        _title: "CPU Usage by Node Type (8 Days)",
         source_data: data,
-        _y_axis_bounds: [0.0, max as f64],
-        _y_axis_title: "CPU Cores",
     }
 }
 
-pub async fn get_cpu_by_node_data_async(tx: mpsc::Sender<FetchedData<'_>>) {
+pub async fn get_cpu_by_node_data_async(tx: mpsc::Sender<FetchedData>) {
     let result = tokio::task::spawn_blocking(move || {
         get_cpu_by_node_data()
     }).await;
@@ -108,14 +95,14 @@ pub fn get_cpu_capacity_by_node() -> ChartCapacity {
     }
 }
 
-pub async fn get_cpu_capacity_by_node_async(tx: mpsc::Sender<FetchedCapacity>) {
+pub async fn get_cpu_capacity_by_node_async(tx: mpsc::Sender<FetchedData>) {
     let result = tokio::task::spawn_blocking(move || {
         get_cpu_capacity_by_node()
     }).await;
 
     let data_to_send = match result {
-        Ok(data) => FetchedCapacity::CpuByNode(Ok(data)),
-        Err(e) => FetchedCapacity::CpuByNode(Err(AppError::TaskJoin(e.to_string()))),
+        Ok(data) => FetchedData::CpuCapacityByNode(Ok(data)),
+        Err(e) => FetchedData::CpuCapacityByNode(Err(AppError::TaskJoin(e.to_string()))),
     };
 
     if tx.send(data_to_send).await.is_err() {
@@ -123,21 +110,15 @@ pub async fn get_cpu_capacity_by_node_async(tx: mpsc::Sender<FetchedCapacity>) {
     }
 }
 
-pub fn get_gpu_by_type_data<'a>() -> ChartData<'a> {
+pub fn get_gpu_by_type_data() -> ChartData {
     let data = get_usage_by(Cluster::Rusty, Grouping::GpuType, Resource::Gpus, 7, "1d").unwrap_or_default();
     
-    let binding = data.clone();
-    let max = binding.values().map(|vec| vec.iter().sum::<u64>()).max().unwrap_or(0);
-
     ChartData {
-        _title: "GPU Usage by Type (8 Days)",
         source_data: data,
-        _y_axis_bounds: [0.0, max as f64],
-        _y_axis_title: "GPUs",
     }
 }
 
-pub async fn get_gpu_by_type_data_async(tx: mpsc::Sender<FetchedData<'_>>) {
+pub async fn get_gpu_by_type_data_async(tx: mpsc::Sender<FetchedData>) {
     let result = tokio::task::spawn_blocking(move || {
         get_gpu_by_type_data()
     }).await;
@@ -164,14 +145,14 @@ pub fn get_gpu_capacity_by_type() -> ChartCapacity {
     }
 }
 
-pub async fn get_gpu_capacity_by_type_async(tx: mpsc::Sender<FetchedCapacity>) {
+pub async fn get_gpu_capacity_by_type_async(tx: mpsc::Sender<FetchedData>) {
     let result = tokio::task::spawn_blocking(move || {
         get_gpu_capacity_by_type()
     }).await;
 
     let data_to_send = match result {
-        Ok(data) => FetchedCapacity::GpuByType(Ok(data)),
-        Err(e) => FetchedCapacity::GpuByType(Err(AppError::TaskJoin(e.to_string()))),
+        Ok(data) => FetchedData::GpuCapacityByType(Ok(data)),
+        Err(e) => FetchedData::GpuCapacityByType(Err(AppError::TaskJoin(e.to_string()))),
     };
 
     if tx.send(data_to_send).await.is_err() {

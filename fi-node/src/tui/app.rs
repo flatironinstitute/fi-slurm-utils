@@ -29,11 +29,11 @@ pub enum AppError {
     ChannelSend(String),
 }
 
-pub struct App<'a> {
+pub struct App {
     pub current_view: AppView,
-    pub cpu_by_account: ChartData<'a>,
-    pub cpu_by_node: ChartData<'a>,
-    pub gpu_by_type: ChartData<'a>,
+    pub cpu_by_account: ChartData,
+    pub cpu_by_node: ChartData,
+    pub gpu_by_type: ChartData,
     pub should_quit: bool,
 }
 
@@ -45,32 +45,32 @@ pub enum AppView {
 }
 
 #[allow(clippy::large_enum_variant)]
-pub enum AppState<'a> {
+pub enum AppState {
     Loading { tick: usize },
-    Loaded(App<'a>),
+    Loaded(App),
     Error(AppError),
 }
 
 #[derive(Debug)]
-pub enum FetchedData<'a> {
-    CpuByAccount(Result<ChartData<'a>, AppError>),
-    CpuByNode(Result<ChartData<'a>, AppError>),
-    GpuByType(Result<ChartData<'a>, AppError>),
+pub enum FetchedData {
+    CpuByAccount(Result<ChartData, AppError>),
+    CpuByNode(Result<ChartData, AppError>),
+    GpuByType(Result<ChartData, AppError>),
+    CpuCapacityByAccount(Result<ChartCapacity, AppError>),
+    CpuCapacityByNode(Result<ChartCapacity, AppError>),
+    GpuCapacityByType(Result<ChartCapacity, AppError>),
 }
 
-#[derive(Debug)]
-pub enum FetchedCapacity {
-    CpuByAccount(Result<ChartCapacity, AppError>),
-    CpuByNode(Result<ChartCapacity, AppError>),
-    GpuByType(Result<ChartCapacity, AppError>),
-}
+//#[derive(Debug)]
+//pub enum FetchedCapacity {
+//    CpuByAccount(Result<ChartCapacity, AppError>),
+//    CpuByNode(Result<ChartCapacity, AppError>),
+//    GpuByType(Result<ChartCapacity, AppError>),
+//}
 
 #[derive(Debug)]
-pub struct ChartData<'a> {
-    pub _title: &'a str,
+pub struct ChartData {
     pub source_data: HashMap<String, Vec<u64>>,
-    pub _y_axis_bounds: [f64; 2],
-    pub _y_axis_title: &'a str,
 }
 
 #[derive(Debug)]
@@ -87,11 +87,15 @@ pub async fn tui_execute() -> Result<(), Box<dyn std::error::Error>> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    let (tx, rx) = mpsc::channel(3);
+    let (tx, rx) = mpsc::channel(6);
 
     tokio::spawn(get_cpu_by_account_data_async(tx.clone()));
     tokio::spawn(get_cpu_by_node_data_async(tx.clone()));
     tokio::spawn(get_gpu_by_type_data_async(tx.clone()));
+
+    tokio::spawn(get_cpu_capacity_by_account_async(tx.clone()));
+    tokio::spawn(get_cpu_capacity_by_node_async(tx.clone()));
+    tokio::spawn(get_gpu_capacity_by_type_async(tx.clone()));
 
     let res = run_app(&mut terminal, rx).await;
 
@@ -113,7 +117,7 @@ pub async fn tui_execute() -> Result<(), Box<dyn std::error::Error>> {
 
 async fn run_app<B: Backend>(
     terminal: &mut Terminal<B>,
-    mut rx: mpsc::Receiver<FetchedData<'_>>,
+    mut rx: mpsc::Receiver<FetchedData>,
 ) -> io::Result<()> {
     let mut app_state = AppState::Loading { tick: 0 };
 
@@ -121,6 +125,10 @@ async fn run_app<B: Backend>(
     let mut cpu_by_account_data: Option<Result<ChartData, AppError>> = None;
     let mut cpu_by_node_data: Option<Result<ChartData, AppError>> = None;
     let mut gpu_by_type_data: Option<Result<ChartData, AppError>> = None;
+    let mut cpu_by_account_capacity: Option<Result<ChartCapacity, AppError>> = None;
+    let mut cpu_by_node_capacity: Option<Result<ChartCapacity, AppError>> = None;
+    let mut gpu_by_type_capacity: Option<Result<ChartCapacity, AppError>> = None;
+
     let mut data_fetch_count = 0;
 
     loop {
@@ -159,6 +167,9 @@ async fn run_app<B: Backend>(
                     FetchedData::CpuByAccount(res) => cpu_by_account_data = Some(res),
                     FetchedData::CpuByNode(res) => cpu_by_node_data = Some(res),
                     FetchedData::GpuByType(res) => gpu_by_type_data = Some(res),
+                    FetchedData::CpuCapacityByAccount(res) => cpu_by_account_capacity = Some(res),
+                    FetchedData::CpuCapacityByNode(res) => cpu_by_node_capacity = Some(res),
+                    FetchedData::GpuCapacityByType(res) => gpu_by_type_capacity = Some(res),
                 }
             }
         }
@@ -204,7 +215,7 @@ async fn run_app<B: Backend>(
 
 // --- App State and Data Loading ---
 
-impl App<'_> {
+impl App {
     //fn new() -> App<'a> {
     //    let cpu_by_account = get_cpu_by_account_data();
     //    let cpu_by_node = get_cpu_by_node_data();
