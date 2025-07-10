@@ -251,9 +251,9 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData) -> Result<(), AppErr
                 bar_data.push(
                     Bar::default()
                         .value(*max_capacity)
-                        .label("total".into()) // The crucial empty label
+                        .label("MAX".into()) // The crucial empty label
                         .style(Style::default()
-                            //.add_modifier(Modifier::HIDDEN)
+                            .add_modifier(Modifier::HIDDEN)
                         ),
                 );
 
