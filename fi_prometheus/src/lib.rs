@@ -198,6 +198,8 @@ pub fn get_max_resource(
     
     let cap_query = capacity_query(grouping, resource); // Assuming Cpus
     let result = query(&cap_query, &cluster, start_time, Some(now), step)?;
+    dbg!(&cap_query);
+    dbg!(&result);
     
     if let Some(g) = grouping {
         Ok(group_by(result, g))
