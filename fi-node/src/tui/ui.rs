@@ -8,7 +8,6 @@ use ratatui::{
     Frame, 
 };
 
-
 use crate::tui::app::{
     App, 
     AppState, 
@@ -16,7 +15,6 @@ use crate::tui::app::{
     AppError, 
     ChartData, 
 };
-
 
 // --- UI Drawing ---
 
