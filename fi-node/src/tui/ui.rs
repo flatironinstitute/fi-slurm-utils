@@ -21,7 +21,7 @@ use crate::tui::app::{
 // --- UI Drawing ---
 
 // MODIFIED: The main UI function now dispatches based on AppState.
-fn ui(f: &mut Frame, app_state: &AppState) {
+pub fn ui(f: &mut Frame, app_state: &AppState) {
     match app_state {
         AppState::Loading { tick } => draw_loading_screen(f, *tick),
         AppState::Loaded(app) => draw_dashboard(f, app),
