@@ -315,6 +315,7 @@ fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView) {
     f.render_widget(tabs, area);
 }
 
+
 fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData) {
     // --- Layout Constants ---
     const DESIRED_CHART_WIDTH: u16 = 50;
@@ -364,11 +365,24 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData) {
             if let Some((name, values)) = chart_iter.next() {
                 let cell_area = col_chunks[j];
 
-                // --- NEW: Split the cell into a top area for labels and a bottom for the chart ---
+                // NEW: Create an outer block for the entire chart cell.
+                let outer_block = Block::default()
+                    .title(Span::from(*name).bold()) // The title is now on the outer block
+                    .borders(Borders::ALL)
+                    .border_set(border::ROUNDED);
+                
+                // Get the inner area of the block to draw the content in.
+                let inner_area = outer_block.inner(cell_area);
+
+                // Render the outer block first, covering the whole cell.
+                f.render_widget(outer_block, cell_area);
+
+
+                // Split the *inner area* for the labels and the chart.
                 let chart_chunks = Layout::default()
                     .direction(Direction::Vertical)
                     .constraints([Constraint::Length(1), Constraint::Min(0)])
-                    .split(cell_area);
+                    .split(inner_area); // Use inner_area here
                 let labels_area = chart_chunks[0];
                 let chart_area = chart_chunks[1];
 
@@ -381,12 +395,11 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData) {
                             .value(val) // Set numeric value for scaling
                             .label(time_labels[k % time_labels.len()].into())
                             .style(Style::default().fg(colors[(i * num_cols + j) % colors.len()]))
-                            // --- CHANGED: Render an empty string on the bar itself ---
                             .text_value("".to_string())
                     })
                     .collect();
 
-                // --- NEW: Manually render labels in the top area ---
+                // --- Manually render labels in the top area ---
                 let mut label_constraints = Vec::new();
                 for _ in 0..values.len() {
                     label_constraints.push(Constraint::Length(BAR_WIDTH));
@@ -409,12 +422,8 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData) {
 
                 // --- Render the BarChart in the bottom area ---
                 let bar_group = BarGroup::default().bars(&bar_data);
+                // MODIFIED: The BarChart no longer needs its own block.
                 let barchart = BarChart::default()
-                    .block(
-                        Block::default()
-                            .title(Span::from(*name).bold())
-                            .border_set(border::ROUNDED)
-                    )
                     .data(bar_group)
                     .bar_width(BAR_WIDTH)
                     .bar_gap(BAR_GAP);
