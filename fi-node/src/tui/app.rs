@@ -68,7 +68,7 @@ pub enum FetchedData {
 pub struct ChartData {
     pub source_data: HashMap<String, Vec<u64>>,
     pub capacity_data: HashMap<String, Vec<u64>>,
-    pub max_capacity: Vec<u64>,
+    pub max_capacity: u64, // MODIFIED: Changed from Vec<u64> to u64
 }
 
 // RENAMED: For clarity, from ChartData to UsageData
@@ -81,7 +81,7 @@ pub struct UsageData {
 #[derive(Debug)]
 pub struct CapacityData {
     pub capacity_vec: HashMap<String, Vec<u64>>,
-    pub max_capacities: Vec<u64>,
+    pub max_capacity: u64, // MODIFIED: Changed from Vec<u64> to u64
 }
 
 #[tokio::main]
@@ -202,19 +202,14 @@ async fn run_app<B: Backend>(
                 if let Some(error) = first_error {
                     app_state = AppState::Error(error);
                 } else {
-
-                    //println!("{:?}", &cpu_by_account_data);
-                    //println!("{:?}", &cpu_by_account_capacity);
-                    //return Ok(())
-
-                    // MODIFIED: Combine usage and capacity data into the final ChartData structs.
+                    // Combine usage and capacity data into the final ChartData structs.
                     let final_cpu_by_account = {
                         let usage = cpu_by_account_data.take().unwrap().unwrap();
                         let capacity = cpu_by_account_capacity.take().unwrap().unwrap();
                         ChartData {
                             source_data: usage.source_data,
                             capacity_data: capacity.capacity_vec,
-                            max_capacity: capacity.max_capacities,
+                            max_capacity: capacity.max_capacity,
                         }
                     };
 
@@ -224,7 +219,7 @@ async fn run_app<B: Backend>(
                         ChartData {
                             source_data: usage.source_data,
                             capacity_data: capacity.capacity_vec,
-                            max_capacity: capacity.max_capacities,
+                            max_capacity: capacity.max_capacity,
                         }
                     };
 
@@ -234,7 +229,7 @@ async fn run_app<B: Backend>(
                         ChartData {
                             source_data: usage.source_data,
                             capacity_data: capacity.capacity_vec,
-                            max_capacity: capacity.max_capacities,
+                            max_capacity: capacity.max_capacity,
                         }
                     };
 

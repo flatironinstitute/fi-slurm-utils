@@ -111,7 +111,7 @@ fn draw_dashboard(f: &mut Frame, app: &App) {
         AppView::GpuByType => &app.gpu_by_type,
     };
 
-    let _ = draw_charts(f, main_chunks[1], chart_data);
+    draw_charts(f, main_chunks[1], chart_data);
     draw_footer(f, main_chunks[2]);
 }
 
@@ -146,7 +146,7 @@ fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView) {
 }
 
 // REFACTORED: This function now uses the corrected ghost bar method for scaling.
-fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData) -> Result<(), AppError> {
+fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData) {
     // --- Layout Constants ---
     const DESIRED_CHART_WIDTH: u16 = 35;
     const CHART_HEIGHT: u16 = 10;
@@ -174,7 +174,7 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData) -> Result<(), AppErr
     // --- Grid Calculation ---
     let num_charts = sorted_series.len();
     if num_charts == 0 {
-        return Ok(());
+        return;
     }
 
     let num_cols = (area.width / DESIRED_CHART_WIDTH).max(1) as usize;
@@ -234,7 +234,7 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData) -> Result<(), AppErr
                     .enumerate()
                     .map(|(k, &val)| {
                         Bar::default()
-                            .value(val) // Use the original value directly
+                            .value(*val) // Use the original value directly
                             .label(time_labels[k % time_labels.len()].into())
                             .style(
                                 Style::default().fg(colors[(i * num_cols + j) % colors.len()]),
@@ -243,18 +243,12 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData) -> Result<(), AppErr
                     })
                     .collect();
 
-                let Some(max_capacity) = data.max_capacity.iter().max() else {
-                    return Err(AppError::MaxFail("max_capacity is empty".to_string()));
-                };
-
                 // Add an invisible bar with an empty label to force scaling.
                 bar_data.push(
                     Bar::default()
-                        .value(*max_capacity)
-                        .label("MAX".into()) // The crucial empty label
-                        .style(Style::default()
-                            .add_modifier(Modifier::HIDDEN)
-                        ),
+                        .value(data.max_capacity)
+                        .label("".into()) // The crucial empty label
+                        .style(Style::default().add_modifier(Modifier::HIDDEN)),
                 );
 
 
@@ -290,7 +284,6 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData) -> Result<(), AppErr
             }
         }
     }
-    Ok(())
 }
 
 fn draw_footer(f: &mut Frame, area: Rect) {

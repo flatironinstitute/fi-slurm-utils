@@ -33,17 +33,14 @@ pub fn get_cpu_capacity_by_account() -> Result<CapacityData, AppError> {
     )
     .map_err(|e| AppError::DataFetch(e.to_string()))?;
 
-    let temp = data.clone();
-
-    //let Some(max_capacity) = data.max_capacity.iter().max() else {
-    //    return Err(AppError::MaxFail("max_capacity is empty".to_string()));
-    //};
-    let Some(max) = temp.values().max() else {
+    // Find the single highest capacity value across all data points.
+    let Some(max) = data.values().flatten().max() else {
         return Err(AppError::MaxFail("max_capacity is empty".to_string()));
     };
+
     Ok(CapacityData {
         capacity_vec: data,
-        max_capacities: max.to_vec(),
+        max_capacity: *max,
     })
 }
 
@@ -87,15 +84,14 @@ pub fn get_cpu_capacity_by_node() -> Result<CapacityData, AppError> {
     )
     .map_err(|e| AppError::DataFetch(e.to_string()))?;
 
-    let temp = data.clone();
-
-    let Some(max) = temp.values().max() else {
+    // Find the single highest capacity value across all data points.
+    let Some(max) = data.values().flatten().max() else {
         return Err(AppError::MaxFail("max_capacity is empty".to_string()));
     };
-    //let max = temp.values().max().unwrap();
+
     Ok(CapacityData {
         capacity_vec: data,
-        max_capacities: max.to_vec(),
+        max_capacity: *max,
     })
 }
 
@@ -139,15 +135,14 @@ pub fn get_gpu_capacity_by_type() -> Result<CapacityData, AppError> {
     )
     .map_err(|e| AppError::DataFetch(e.to_string()))?;
 
-    let temp = data.clone();
-
-    let Some(max) = temp.values().max() else {
+    // Find the single highest capacity value across all data points.
+    let Some(max) = data.values().flatten().max() else {
         return Err(AppError::MaxFail("max_capacity is empty".to_string()));
     };
-    //let max = temp.values().max().unwrap();
+
     Ok(CapacityData {
         capacity_vec: data,
-        max_capacities: max.to_vec(),
+        max_capacity: *max,
     })
 }
 
