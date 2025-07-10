@@ -145,14 +145,13 @@ fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView) {
     f.render_widget(tabs, area);
 }
 
-// REFACTORED: This function now uses a hidden "ghost bar" for correct scaling.
+// REFACTORED: This function now uses the corrected ghost bar method for scaling.
 fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData) {
     // --- Layout Constants ---
-    const DESIRED_CHART_WIDTH: u16 = 50;
+    const DESIRED_CHART_WIDTH: u16 = 35;
     const CHART_HEIGHT: u16 = 10;
     const BAR_WIDTH: u16 = 4;
     const BAR_GAP: u16 = 1;
-    const NORMALIZED_MAX: u64 = 100;
 
     // --- Data Preparation ---
     let colors = [
@@ -218,37 +217,24 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData) {
                 let inner_area = outer_block.inner(cell_area);
                 f.render_widget(outer_block, cell_area);
 
+                // A simpler 2-row layout for numeric labels and the chart.
                 let chart_chunks = Layout::default()
                     .direction(Direction::Vertical)
                     .constraints([
-                        Constraint::Length(1), // For capacity line
                         Constraint::Length(1), // For usage numbers
                         Constraint::Min(0),    // For the bar chart
                     ])
                     .split(inner_area);
-                let capacity_area = chart_chunks[0];
-                let labels_area = chart_chunks[1];
-                let chart_area = chart_chunks[2];
-                
-                let max_capacity_for_calc = data.max_capacity.max(1);
+                let labels_area = chart_chunks[0];
+                let chart_area = chart_chunks[1];
 
-                // --- Draw Capacity Line ---
-                let capacity = data.capacity_data.get(*name).cloned().unwrap_or(0);
-                let capacity_percentage = capacity as f64 / max_capacity_for_calc as f64;
-                
-                let line_width = (capacity_percentage * capacity_area.width as f64).min(capacity_area.width as f64) as u16;
-                let capacity_line = "─".repeat(line_width as usize);
-                let line_widget = Paragraph::new(capacity_line).style(Style::default().fg(Color::Gray));
-                f.render_widget(line_widget, capacity_area);
-
-                // --- Create Bars (with normalized values) ---
+                // --- Create Bars (with original values) ---
                 let mut bar_data: Vec<Bar> = values
                     .iter()
                     .enumerate()
                     .map(|(k, &val)| {
-                        let normalized_value = (val as f64 / max_capacity_for_calc as f64 * NORMALIZED_MAX as f64) as u64;
                         Bar::default()
-                            .value(normalized_value)
+                            .value(val) // Use the original value directly
                             .label(time_labels[k % time_labels.len()].into())
                             .style(
                                 Style::default().fg(colors[(i * num_cols + j) % colors.len()]),
@@ -257,15 +243,20 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData) {
                     })
                     .collect();
 
-                // NEW: Add an invisible bar with a value of 100 to force scaling.
-                bar_data.push(
-                    Bar::default()
-                        .value(NORMALIZED_MAX)
-                        .style(Style::default().add_modifier(Modifier::HIDDEN)),
-                );
+                // Add an invisible bar with an empty label to force scaling.
+                //bar_data.push(
+                //    Bar::default()
+                //        .value(data.max_capacity)
+                //        .label("total".into()) // The crucial empty label
+                //        .style(Style::default()
+                //            //.add_modifier(Modifier::HIDDEN)
+                //        ),
+                //);
+
 
                 // --- Draw Usage Labels (with original values) ---
-                let label_constraints: Vec<Constraint> = (0..time_labels.len())
+                // This layout is based on the number of *visible* bars.
+                let label_constraints: Vec<Constraint> = (0..values.len())
                     .flat_map(|_| [Constraint::Length(BAR_WIDTH), Constraint::Length(BAR_GAP)])
                     .collect();
 
@@ -290,7 +281,6 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData) {
                     .data(bar_group)
                     .bar_width(BAR_WIDTH)
                     .bar_gap(BAR_GAP);
-                    // REMOVED: .max() is no longer needed.
 
                 f.render_widget(barchart, chart_area);
             }
@@ -307,4 +297,3 @@ fn draw_footer(f: &mut Frame, area: Rect) {
         area,
     );
 }
-

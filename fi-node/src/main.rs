@@ -10,6 +10,7 @@ use fi_slurm::{jobs, nodes, utils::{SlurmConfig, initialize_slurm}};
 use fi_slurm::filter::{self, gather_all_features};
 //use fi_prometheus::{get_max_resource, get_usage_by, Cluster, Grouping, Resource};
 use crate::tui::app::tui_execute;
+use crate::tui::interface::get_cpu_capacity_by_account;
 
 use std::time::Instant;
 
@@ -26,6 +27,13 @@ fn main() -> Result<(), String> {
     let start = Instant::now();
 
     let args = Args::parse();
+
+    if args.test {
+        let res = get_cpu_capacity_by_account();
+        println!("{:?}", res.unwrap());
+
+        return Ok(())
+    }
 
     if args.terminal {
         let _ = tui_execute();
@@ -238,6 +246,8 @@ struct Args {
     #[arg(short, long)]
     #[arg(help = "Shows all node names (not yet implemented in summary report)")]
     names: bool,
+    #[arg(long)]
+    test: bool,
 }
 
 
