@@ -1,3 +1,4 @@
+use crate::tui::app::AppError;
 use tokio::sync::mpsc;
 use fi_prometheus::{Cluster, Resource, Grouping, get_usage_by, get_max_resource};
 use crate::tui::app::{
@@ -24,6 +25,20 @@ pub fn get_cpu_by_account_data<'a>() -> ChartData<'a> {
     }
 }
 
+pub async fn get_cpu_by_account_data_async(tx: mpsc::Sender<FetchedData<'_>>) {
+    let result = tokio::task::spawn_blocking(move || {
+        get_cpu_by_account_data()
+    }).await;
+
+    let data_to_send = match result {
+        Ok(data) => FetchedData::CpuByAccount(Ok(data)),
+        Err(e) => FetchedData::CpuByAccount(Err(AppError::TaskJoin(e.to_string()))),
+    };
+
+    if tx.send(data_to_send).await.is_err() {
+        // error sending to main thread, take no action
+    }
+}
 
 pub fn get_cpu_capacity_by_account() -> ChartCapacity {
     let data = get_max_resource(Cluster::Rusty, Some(Grouping::Account), Resource::Cpus, Some(7), Some("1d")).unwrap_or_default();
@@ -42,10 +57,13 @@ pub async fn get_cpu_capacity_by_account_async(tx: mpsc::Sender<FetchedCapacity>
         get_cpu_capacity_by_account()
     }).await;
 
-    if let Ok(data) = result {
-        if tx.send(FetchedCapacity::CpuByAccount(data)).await.is_err() {
-            // Handle error: receiver was dropped.
-        }
+    let data_to_send = match result {
+        Ok(data) => FetchedCapacity::CpuByAccount(Ok(data)),
+        Err(e) => FetchedCapacity::CpuByAccount(Err(AppError::TaskJoin(e.to_string()))),
+    };
+
+    if tx.send(data_to_send).await.is_err() {
+        // error sending to main thread, take no action
     }
 }
 
@@ -63,6 +81,20 @@ pub fn get_cpu_by_node_data<'a>() -> ChartData<'a> {
     }
 }
 
+pub async fn get_cpu_by_node_data_async(tx: mpsc::Sender<FetchedData<'_>>) {
+    let result = tokio::task::spawn_blocking(move || {
+        get_cpu_by_node_data()
+    }).await;
+
+    let data_to_send = match result {
+        Ok(data) => FetchedData::CpuByNode(Ok(data)),
+        Err(e) => FetchedData::CpuByNode(Err(AppError::TaskJoin(e.to_string()))),
+    };
+
+    if tx.send(data_to_send).await.is_err() {
+        // error sending to main thread, take no action
+    }
+}
 
 pub fn get_cpu_capacity_by_node() -> ChartCapacity {
     let data = get_max_resource(Cluster::Rusty, Some(Grouping::Nodes), Resource::Cpus, Some(7), Some("1d")).unwrap_or_default();
@@ -73,6 +105,21 @@ pub fn get_cpu_capacity_by_node() -> ChartCapacity {
     ChartCapacity {
         capacity_vec: data,
         max_capacity: **max,
+    }
+}
+
+pub async fn get_cpu_capacity_by_node_async(tx: mpsc::Sender<FetchedCapacity>) {
+    let result = tokio::task::spawn_blocking(move || {
+        get_cpu_capacity_by_node()
+    }).await;
+
+    let data_to_send = match result {
+        Ok(data) => FetchedCapacity::CpuByNode(Ok(data)),
+        Err(e) => FetchedCapacity::CpuByNode(Err(AppError::TaskJoin(e.to_string()))),
+    };
+
+    if tx.send(data_to_send).await.is_err() {
+        // error sending to main thread, take no action
     }
 }
 
@@ -90,6 +137,21 @@ pub fn get_gpu_by_type_data<'a>() -> ChartData<'a> {
     }
 }
 
+pub async fn get_gpu_by_type_data_async(tx: mpsc::Sender<FetchedData<'_>>) {
+    let result = tokio::task::spawn_blocking(move || {
+        get_gpu_by_type_data()
+    }).await;
+
+    let data_to_send = match result {
+        Ok(data) => FetchedData::GpuByType(Ok(data)),
+        Err(e) => FetchedData::GpuByType(Err(AppError::TaskJoin(e.to_string()))),
+    };
+
+    if tx.send(data_to_send).await.is_err() {
+        // error sending to main thread, take no action
+    }
+}
+
 pub fn get_gpu_capacity_by_type() -> ChartCapacity {
     let data = get_max_resource(Cluster::Rusty, Some(Grouping::GpuType), Resource::Cpus, Some(7), Some("1d")).unwrap_or_default();
 
@@ -102,39 +164,18 @@ pub fn get_gpu_capacity_by_type() -> ChartCapacity {
     }
 }
 
-
-pub async fn get_cpu_by_account_data_async(tx: mpsc::Sender<FetchedData<'_>>) {
+pub async fn get_gpu_capacity_by_type_async(tx: mpsc::Sender<FetchedCapacity>) {
     let result = tokio::task::spawn_blocking(move || {
-        get_cpu_by_account_data()
+        get_gpu_capacity_by_type()
     }).await;
 
-    if let Ok(data) = result {
-        if tx.send(FetchedData::CpuByAccount(Ok(data))).await.is_err() {
-            // Handle error: receiver was dropped.
-        }
+    let data_to_send = match result {
+        Ok(data) => FetchedCapacity::GpuByType(Ok(data)),
+        Err(e) => FetchedCapacity::GpuByType(Err(AppError::TaskJoin(e.to_string()))),
+    };
+
+    if tx.send(data_to_send).await.is_err() {
+        // error sending to main thread, take no action
     }
 }
 
-pub async fn get_cpu_by_node_data_async(tx: mpsc::Sender<FetchedData<'_>>) {
-    let result = tokio::task::spawn_blocking(move || {
-        get_cpu_by_node_data()
-    }).await;
-
-    if let Ok(data) = result {
-        if tx.send(FetchedData::CpuByNode(Ok(data))).await.is_err() {
-            // Handle error
-        }
-    }
-}
-
-pub async fn get_gpu_by_type_data_async(tx: mpsc::Sender<FetchedData<'_>>) {
-    let result = tokio::task::spawn_blocking(move || {
-        get_gpu_by_type_data()
-    }).await;
-
-    if let Ok(data) = result {
-        if tx.send(FetchedData::GpuByType(Ok(data))).await.is_err() {
-            // Handle error
-        }
-    }
-}

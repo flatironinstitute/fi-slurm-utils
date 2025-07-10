@@ -60,9 +60,9 @@ pub enum FetchedData<'a> {
 
 #[derive(Debug)]
 pub enum FetchedCapacity {
-    CpuByAccount(ChartCapacity),
-    CpuByNode(ChartCapacity),
-    GpuByType(ChartCapacity),
+    CpuByAccount(Result<ChartCapacity, AppError>),
+    CpuByNode(Result<ChartCapacity, AppError>),
+    GpuByType(Result<ChartCapacity, AppError>),
 }
 
 #[derive(Debug)]
