@@ -53,28 +53,31 @@ pub enum AppState {
 
 #[derive(Debug)]
 pub enum FetchedData {
-    CpuByAccount(Result<ChartData, AppError>),
-    CpuByNode(Result<ChartData, AppError>),
-    GpuByType(Result<ChartData, AppError>),
-    CpuCapacityByAccount(Result<ChartCapacity, AppError>),
-    CpuCapacityByNode(Result<ChartCapacity, AppError>),
-    GpuCapacityByType(Result<ChartCapacity, AppError>),
+    CpuByAccount(Result<UsageData, AppError>),
+    CpuByNode(Result<UsageData, AppError>),
+    GpuByType(Result<UsageData, AppError>),
+    CpuCapacityByAccount(Result<CapacityData, AppError>),
+    CpuCapacityByNode(Result<CapacityData, AppError>),
+    GpuCapacityByType(Result<CapacityData, AppError>),
 }
 
-//#[derive(Debug)]
-//pub enum FetchedCapacity {
-//    CpuByAccount(Result<ChartCapacity, AppError>),
-//    CpuByNode(Result<ChartCapacity, AppError>),
-//    GpuByType(Result<ChartCapacity, AppError>),
-//}
-
+// MODIFIED: This struct now holds all data needed for a chart view.
 #[derive(Debug)]
 pub struct ChartData {
     pub source_data: HashMap<String, Vec<u64>>,
+    pub capacity_data: HashMap<String, u64>,
+    pub max_capacity: u64,
 }
 
+// RENAMED: For clarity, from ChartData to UsageData
 #[derive(Debug)]
-pub struct ChartCapacity {
+pub struct UsageData {
+    pub source_data: HashMap<String, Vec<u64>>,
+}
+
+// RENAMED: For clarity, from ChartCapacity to CapacityData
+#[derive(Debug)]
+pub struct CapacityData {
     pub capacity_vec: HashMap<String, u64>,
     pub max_capacity: u64,
 }
@@ -87,12 +90,15 @@ pub async fn tui_execute() -> Result<(), Box<dyn std::error::Error>> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
+    // Channel now needs to hold 6 items
     let (tx, rx) = mpsc::channel(6);
 
+    // Spawn tasks for usage data
     tokio::spawn(get_cpu_by_account_data_async(tx.clone()));
     tokio::spawn(get_cpu_by_node_data_async(tx.clone()));
     tokio::spawn(get_gpu_by_type_data_async(tx.clone()));
 
+    // Spawn tasks for capacity data
     tokio::spawn(get_cpu_capacity_by_account_async(tx.clone()));
     tokio::spawn(get_cpu_capacity_by_node_async(tx.clone()));
     tokio::spawn(get_gpu_capacity_by_type_async(tx.clone()));
@@ -121,13 +127,13 @@ async fn run_app<B: Backend>(
 ) -> io::Result<()> {
     let mut app_state = AppState::Loading { tick: 0 };
 
-    // ERROR HANDLING: We now store Results, not just the data.
-    let mut cpu_by_account_data: Option<Result<ChartData, AppError>> = None;
-    let mut cpu_by_node_data: Option<Result<ChartData, AppError>> = None;
-    let mut gpu_by_type_data: Option<Result<ChartData, AppError>> = None;
-    let mut cpu_by_account_capacity: Option<Result<ChartCapacity, AppError>> = None;
-    let mut cpu_by_node_capacity: Option<Result<ChartCapacity, AppError>> = None;
-    let mut gpu_by_type_capacity: Option<Result<ChartCapacity, AppError>> = None;
+    // Store results for all 6 data types
+    let mut cpu_by_account_data: Option<Result<UsageData, AppError>> = None;
+    let mut cpu_by_node_data: Option<Result<UsageData, AppError>> = None;
+    let mut gpu_by_type_data: Option<Result<UsageData, AppError>> = None;
+    let mut cpu_by_account_capacity: Option<Result<CapacityData, AppError>> = None;
+    let mut cpu_by_node_capacity: Option<Result<CapacityData, AppError>> = None;
+    let mut gpu_by_type_capacity: Option<Result<CapacityData, AppError>> = None;
 
     let mut data_fetch_count = 0;
 
@@ -136,12 +142,10 @@ async fn run_app<B: Backend>(
 
         if event::poll(Duration::from_millis(100))? {
             if let Event::Key(key) = event::read()? {
-                // Quit works in any state
                 if key.code == KeyCode::Char('q') {
-                     if let AppState::Loaded(ref mut app) = app_state {
+                    if let AppState::Loaded(ref mut app) = app_state {
                         app.should_quit = true;
                     } else {
-                        // Quit immediately if loading or in error state
                         return Ok(());
                     }
                 }
@@ -159,7 +163,6 @@ async fn run_app<B: Backend>(
             }
         }
 
-        // Only process messages if we are in the Loading state
         if let AppState::Loading {..} = app_state {
             if let Ok(fetched_data) = rx.try_recv() {
                 data_fetch_count += 1;
@@ -176,28 +179,66 @@ async fn run_app<B: Backend>(
         
         if let AppState::Loading { ref mut tick } = app_state {
             *tick += 1;
-            // Check if all tasks have reported back
-            if data_fetch_count == 3 {
-
+            // MODIFIED: Wait for all 6 tasks to report back.
+            if data_fetch_count == 6 {
                 let mut first_error: Option<AppError> = None;
-                for res_opt in [&cpu_by_account_data, &cpu_by_node_data, &gpu_by_type_data].into_iter().flatten() {
-                    if let Err(err) = res_opt {
+                
+                // Check all 6 results for any errors.
+                let results: [&Option<Result<_, AppError>>; 6] = [
+                    &cpu_by_account_data.as_ref().map(|r| r.as_ref().err()).flatten().cloned(),
+                    &cpu_by_node_data.as_ref().map(|r| r.as_ref().err()).flatten().cloned(),
+                    &gpu_by_type_data.as_ref().map(|r| r.as_ref().err()).flatten().cloned(),
+                    &cpu_by_account_capacity.as_ref().map(|r| r.as_ref().err()).flatten().cloned(),
+                    &cpu_by_node_capacity.as_ref().map(|r| r.as_ref().err()).flatten().cloned(),
+                    &gpu_by_type_capacity.as_ref().map(|r| r.as_ref().err()).flatten().cloned(),
+                ];
+
+                for res_opt in results {
+                    if let Some(err) = res_opt {
                         first_error = Some(err.clone());
-                        break; // Found an error, no need to check further
+                        break;
                     }
                 }
 
-                // 2. Transition state based on whether an error was found.
                 if let Some(error) = first_error {
                     app_state = AppState::Error(error);
                 } else {
-                    // All data is loaded successfully, create the App.
-                    // The .unwrap().unwrap() is safe here because we know all results are Some(Ok(...))
+                    // MODIFIED: Combine usage and capacity data into the final ChartData structs.
+                    let final_cpu_by_account = {
+                        let usage = cpu_by_account_data.take().unwrap().unwrap();
+                        let capacity = cpu_by_account_capacity.take().unwrap().unwrap();
+                        ChartData {
+                            source_data: usage.source_data,
+                            capacity_data: capacity.capacity_vec,
+                            max_capacity: capacity.max_capacity,
+                        }
+                    };
+
+                    let final_cpu_by_node = {
+                        let usage = cpu_by_node_data.take().unwrap().unwrap();
+                        let capacity = cpu_by_node_capacity.take().unwrap().unwrap();
+                        ChartData {
+                            source_data: usage.source_data,
+                            capacity_data: capacity.capacity_vec,
+                            max_capacity: capacity.max_capacity,
+                        }
+                    };
+
+                    let final_gpu_by_type = {
+                        let usage = gpu_by_type_data.take().unwrap().unwrap();
+                        let capacity = gpu_by_type_capacity.take().unwrap().unwrap();
+                        ChartData {
+                            source_data: usage.source_data,
+                            capacity_data: capacity.capacity_vec,
+                            max_capacity: capacity.max_capacity,
+                        }
+                    };
+                    
                     let app = App {
                         current_view: AppView::CpuByAccount,
-                        cpu_by_account: cpu_by_account_data.take().unwrap().unwrap(),
-                        cpu_by_node: cpu_by_node_data.take().unwrap().unwrap(),
-                        gpu_by_type: gpu_by_type_data.take().unwrap().unwrap(),
+                        cpu_by_account: final_cpu_by_account,
+                        cpu_by_node: final_cpu_by_node,
+                        gpu_by_type: final_gpu_by_type,
                         should_quit: false,
                     };
                     app_state = AppState::Loaded(app);
@@ -213,23 +254,9 @@ async fn run_app<B: Backend>(
     }
 }
 
-// --- App State and Data Loading ---
+// --- App State Logic ---
 
 impl App {
-    //fn new() -> App<'a> {
-    //    let cpu_by_account = get_cpu_by_account_data();
-    //    let cpu_by_node = get_cpu_by_node_data();
-    //    let gpu_by_type = get_gpu_by_type_data();
-    //
-    //    App {
-    //        current_view: AppView::CpuByAccount,
-    //        cpu_by_account,
-    //        cpu_by_node,
-    //        gpu_by_type,
-    //        should_quit: false,
-    //    }
-    //}
-
     fn next_view(&mut self) {
         self.current_view = match self.current_view {
             AppView::CpuByAccount => AppView::CpuByNode,
