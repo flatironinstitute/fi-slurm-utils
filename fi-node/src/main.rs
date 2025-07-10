@@ -9,7 +9,7 @@ use fi_slurm::jobs::{SlurmJobs, enrich_jobs_with_node_ids};
 use fi_slurm::{jobs, nodes, utils::{SlurmConfig, initialize_slurm}};
 use fi_slurm::filter::{self, gather_all_features};
 //use fi_prometheus::{get_max_resource, get_usage_by, Cluster, Grouping, Resource};
-use crate::tui::tui_execute;
+use crate::tui::app::tui_execute;
 
 use std::time::Instant;
 

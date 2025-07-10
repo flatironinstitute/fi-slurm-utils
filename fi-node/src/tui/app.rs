@@ -1,4 +1,4 @@
-use fi_prometheus::{Cluster, Resource, Grouping, get_usage_by, get_max_resource};
+use crate::tui::interface::*;
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
@@ -32,54 +32,54 @@ pub enum AppError {
     ChannelSend(String),
 }
 
-struct App<'a> {
-    current_view: AppView,
-    cpu_by_account: ChartData<'a>,
-    cpu_by_node: ChartData<'a>,
-    gpu_by_type: ChartData<'a>,
-    should_quit: bool,
+pub struct App<'a> {
+    pub current_view: AppView,
+    pub cpu_by_account: ChartData<'a>,
+    pub cpu_by_node: ChartData<'a>,
+    pub gpu_by_type: ChartData<'a>,
+    pub should_quit: bool,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum AppView {
+pub enum AppView {
     CpuByAccount,
     CpuByNode,
     GpuByType,
 }
 
 #[allow(clippy::large_enum_variant)]
-enum AppState<'a> {
+pub enum AppState<'a> {
     Loading { tick: usize },
     Loaded(App<'a>),
     Error(AppError),
 }
 
 #[derive(Debug)]
-enum FetchedData<'a> {
+pub enum FetchedData<'a> {
     CpuByAccount(Result<ChartData<'a>, AppError>),
     CpuByNode(Result<ChartData<'a>, AppError>),
     GpuByType(Result<ChartData<'a>, AppError>),
 }
 
 #[derive(Debug)]
-enum FetchedCapacity {
+pub enum FetchedCapacity {
     CpuByAccount(ChartCapacity),
     CpuByNode(ChartCapacity),
     GpuByType(ChartCapacity),
 }
 
 #[derive(Debug)]
-struct ChartData<'a> {
-    _title: &'a str,
-    source_data: HashMap<String, Vec<u64>>,
-    _y_axis_bounds: [f64; 2],
-    _y_axis_title: &'a str,
+pub struct ChartData<'a> {
+    pub _title: &'a str,
+    pub source_data: HashMap<String, Vec<u64>>,
+    pub _y_axis_bounds: [f64; 2],
+    pub _y_axis_title: &'a str,
 }
 
 #[derive(Debug)]
-struct ChartCapacity {
-    capacity_vec: HashMap<String, u64>,
-    max_capacity: u64,
+pub struct ChartCapacity {
+    pub capacity_vec: HashMap<String, u64>,
+    pub max_capacity: u64,
 }
 
 #[tokio::main]
@@ -472,139 +472,6 @@ impl App<'_> {
             AppView::CpuByAccount => AppView::GpuByType,
             AppView::CpuByNode => AppView::CpuByAccount,
             AppView::GpuByType => AppView::CpuByNode,
-        }
-    }
-}
-
-// --- Prometheus interface ---
-
-// Prometheus interface 
-
-fn get_cpu_by_account_data<'a>() -> ChartData<'a> {
-    let data = get_usage_by(Cluster::Rusty, Grouping::Account, Resource::Cpus, 7, "1d").unwrap_or_default();
-
-    let binding = data.clone();
-    let max = binding.values().map(|vec| vec.iter().sum::<u64>()).max().unwrap_or(0);
-    
-    ChartData {
-        _title: "CPU Usage by Account (8 Days)",
-        source_data: data,
-        _y_axis_bounds: [0.0, max as f64],
-        _y_axis_title: "CPU Cores",
-    }
-}
-
-
-fn get_cpu_capacity_by_account() -> ChartCapacity {
-    let data = get_max_resource(Cluster::Rusty, Some(Grouping::Account), Resource::Cpus, Some(7), Some("1d")).unwrap_or_default();
-
-    let binding = data.clone();
-    let max = &binding.values().max().unwrap_or(&0);
-
-    ChartCapacity {
-        capacity_vec: data,
-        max_capacity: **max,
-    }
-}
-
-async fn get_cpu_capacity_by_account_async(tx: mpsc::Sender<FetchedCapacity>) {
-    let result = tokio::task::spawn_blocking(move || {
-        get_cpu_capacity_by_account()
-    }).await;
-
-    if let Ok(data) = result {
-        if tx.send(FetchedCapacity::CpuByAccount(data)).await.is_err() {
-            // Handle error: receiver was dropped.
-        }
-    }
-}
-
-fn get_cpu_by_node_data<'a>() -> ChartData<'a> {
-    let data = get_usage_by(Cluster::Rusty, Grouping::Nodes, Resource::Cpus, 7, "1d").unwrap_or_default();
-    
-    let binding = data.clone();
-    let max = binding.values().map(|vec| vec.iter().sum::<u64>()).max().unwrap_or(0);
-
-    ChartData {
-        _title: "CPU Usage by Node Type (8 Days)",
-        source_data: data,
-        _y_axis_bounds: [0.0, max as f64],
-        _y_axis_title: "CPU Cores",
-    }
-}
-
-
-fn get_cpu_capacity_by_node() -> ChartCapacity {
-    let data = get_max_resource(Cluster::Rusty, Some(Grouping::Nodes), Resource::Cpus, Some(7), Some("1d")).unwrap_or_default();
-
-    let binding = data.clone();
-    let max = &binding.values().max().unwrap_or(&0);
-
-    ChartCapacity {
-        capacity_vec: data,
-        max_capacity: **max,
-    }
-}
-
-fn get_gpu_by_type_data<'a>() -> ChartData<'a> {
-    let data = get_usage_by(Cluster::Rusty, Grouping::GpuType, Resource::Gpus, 7, "1d").unwrap_or_default();
-    
-    let binding = data.clone();
-    let max = binding.values().map(|vec| vec.iter().sum::<u64>()).max().unwrap_or(0);
-
-    ChartData {
-        _title: "GPU Usage by Type (8 Days)",
-        source_data: data,
-        _y_axis_bounds: [0.0, max as f64],
-        _y_axis_title: "GPUs",
-    }
-}
-
-fn get_gpu_capacity_by_type() -> ChartCapacity {
-    let data = get_max_resource(Cluster::Rusty, Some(Grouping::GpuType), Resource::Cpus, Some(7), Some("1d")).unwrap_or_default();
-
-    let binding = data.clone();
-    let max = &binding.values().max().unwrap_or(&0);
-
-    ChartCapacity {
-        capacity_vec: data,
-        max_capacity: **max,
-    }
-}
-
-
-async fn get_cpu_by_account_data_async(tx: mpsc::Sender<FetchedData<'_>>) {
-    let result = tokio::task::spawn_blocking(move || {
-        get_cpu_by_account_data()
-    }).await;
-
-    if let Ok(data) = result {
-        if tx.send(FetchedData::CpuByAccount(Ok(data))).await.is_err() {
-            // Handle error: receiver was dropped.
-        }
-    }
-}
-
-async fn get_cpu_by_node_data_async(tx: mpsc::Sender<FetchedData<'_>>) {
-    let result = tokio::task::spawn_blocking(move || {
-        get_cpu_by_node_data()
-    }).await;
-
-    if let Ok(data) = result {
-        if tx.send(FetchedData::CpuByNode(Ok(data))).await.is_err() {
-            // Handle error
-        }
-    }
-}
-
-async fn get_gpu_by_type_data_async(tx: mpsc::Sender<FetchedData<'_>>) {
-    let result = tokio::task::spawn_blocking(move || {
-        get_gpu_by_type_data()
-    }).await;
-
-    if let Ok(data) = result {
-        if tx.send(FetchedData::GpuByType(Ok(data))).await.is_err() {
-            // Handle error
         }
     }
 }
