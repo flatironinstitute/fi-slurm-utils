@@ -147,14 +147,14 @@ fn group_by(result: PrometheusResponse, metric: Grouping) -> HashMap<String, u64
     data_dict
 }
 
-/// Processes a range query result, ensuring all time series are aligned.
+
 fn range_group_by(result: PrometheusResponse, metric: Grouping) -> HashMap<String, Vec<u64>> {
-    // This is a simplified version. A full implementation would need the two-pass
-    // logic from the Python script to handle missing data points correctly.
     let mut data_dict = HashMap::new();
     let metric_key = metric.to_string();
 
     for series in result.data.result {
+        // First, try to get the group name from the metric object.
+        // This is the normal path for queries that return multiple series.
         if let Some(group) = series.metric.get(&metric_key) {
             if let Some(values) = series.values {
                 let parsed_values: Vec<u64> = values
@@ -164,6 +164,19 @@ fn range_group_by(result: PrometheusResponse, metric: Grouping) -> HashMap<Strin
                 data_dict.insert(group.clone(), parsed_values);
             }
         }
+        // NEW: If the metric object is empty, we've found our special case.
+        else if series.metric.is_empty() {
+            if let Some(values) = series.values {
+                let parsed_values: Vec<u64> = values
+                    .into_iter()
+                    .filter_map(|(_, val_str)| val_str.parse().ok())
+                    .collect();
+                // Since there's no group name, we'll use a default key.
+                // "Total" is a good, descriptive choice for this aggregate data.
+                data_dict.insert("Total".to_string(), parsed_values);
+            }
+        }
+        // If a series has metrics but not the one we're looking for, we ignore it.
     }
     data_dict
 }
