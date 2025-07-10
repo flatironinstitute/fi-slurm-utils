@@ -111,7 +111,7 @@ fn draw_dashboard(f: &mut Frame, app: &App) {
         AppView::GpuByType => &app.gpu_by_type,
     };
 
-    draw_charts(f, main_chunks[1], chart_data);
+    let _ = draw_charts(f, main_chunks[1], chart_data);
     draw_footer(f, main_chunks[2]);
 }
 
@@ -146,7 +146,7 @@ fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView) {
 }
 
 // REFACTORED: This function now uses the corrected ghost bar method for scaling.
-fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData) {
+fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData) -> Result<(), AppError> {
     // --- Layout Constants ---
     const DESIRED_CHART_WIDTH: u16 = 35;
     const CHART_HEIGHT: u16 = 10;
@@ -174,7 +174,7 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData) {
     // --- Grid Calculation ---
     let num_charts = sorted_series.len();
     if num_charts == 0 {
-        return;
+        return Ok(());
     }
 
     let num_cols = (area.width / DESIRED_CHART_WIDTH).max(1) as usize;
@@ -243,15 +243,19 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData) {
                     })
                     .collect();
 
+                let Some(max_capacity) = data.max_capacity.iter().max() else {
+                    return Err(AppError::MaxFail("max_capacity is empty".to_string()));
+                };
+
                 // Add an invisible bar with an empty label to force scaling.
-                //bar_data.push(
-                //    Bar::default()
-                //        .value(data.max_capacity)
-                //        .label("total".into()) // The crucial empty label
-                //        .style(Style::default()
-                //            //.add_modifier(Modifier::HIDDEN)
-                //        ),
-                //);
+                bar_data.push(
+                    Bar::default()
+                        .value(*max_capacity)
+                        .label("total".into()) // The crucial empty label
+                        .style(Style::default()
+                            //.add_modifier(Modifier::HIDDEN)
+                        ),
+                );
 
 
                 // --- Draw Usage Labels (with original values) ---
@@ -286,6 +290,7 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData) {
             }
         }
     }
+    Ok(())
 }
 
 fn draw_footer(f: &mut Frame, area: Rect) {

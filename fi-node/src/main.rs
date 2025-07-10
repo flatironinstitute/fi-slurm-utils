@@ -10,7 +10,7 @@ use fi_slurm::{jobs, nodes, utils::{SlurmConfig, initialize_slurm}};
 use fi_slurm::filter::{self, gather_all_features};
 //use fi_prometheus::{get_max_resource, get_usage_by, Cluster, Grouping, Resource};
 use crate::tui::app::tui_execute;
-use crate::tui::interface::get_cpu_capacity_by_account;
+use crate::tui::interface::{get_cpu_capacity_by_node, get_cpu_capacity_by_account, get_gpu_capacity_by_type};
 
 use std::time::Instant;
 

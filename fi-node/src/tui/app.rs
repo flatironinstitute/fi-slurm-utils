@@ -27,6 +27,8 @@ pub enum AppError {
     TaskJoin(String),
     #[error("Failed to send data to UI thread: {0}")]
     ChannelSend(String),
+    #[error("Failed to get maximum capacity: {0}")]
+    MaxFail(String),
 }
 
 pub struct App {
@@ -65,8 +67,8 @@ pub enum FetchedData {
 #[derive(Debug)]
 pub struct ChartData {
     pub source_data: HashMap<String, Vec<u64>>,
-    pub capacity_data: HashMap<String, u64>,
-    pub max_capacity: u64,
+    pub capacity_data: HashMap<String, Vec<u64>>,
+    pub max_capacity: Vec<u64>,
 }
 
 // RENAMED: For clarity, from ChartData to UsageData
@@ -78,8 +80,8 @@ pub struct UsageData {
 // RENAMED: For clarity, from ChartCapacity to CapacityData
 #[derive(Debug)]
 pub struct CapacityData {
-    pub capacity_vec: HashMap<String, u64>,
-    pub max_capacity: u64,
+    pub capacity_vec: HashMap<String, Vec<u64>>,
+    pub max_capacities: Vec<u64>,
 }
 
 #[tokio::main]
@@ -212,7 +214,7 @@ async fn run_app<B: Backend>(
                         ChartData {
                             source_data: usage.source_data,
                             capacity_data: capacity.capacity_vec,
-                            max_capacity: capacity.max_capacity,
+                            max_capacity: capacity.max_capacities,
                         }
                     };
 
@@ -222,7 +224,7 @@ async fn run_app<B: Backend>(
                         ChartData {
                             source_data: usage.source_data,
                             capacity_data: capacity.capacity_vec,
-                            max_capacity: capacity.max_capacity,
+                            max_capacity: capacity.max_capacities,
                         }
                     };
 
@@ -232,7 +234,7 @@ async fn run_app<B: Backend>(
                         ChartData {
                             source_data: usage.source_data,
                             capacity_data: capacity.capacity_vec,
-                            max_capacity: capacity.max_capacity,
+                            max_capacity: capacity.max_capacities,
                         }
                     };
 
