@@ -1,162 +1,147 @@
-use crate::tui::app::AppError;
+use crate::tui::app::{AppError, ChartCapacity, ChartData, FetchedData};
+use fi_prometheus::{get_max_resource, get_usage_by, Cluster, Grouping, Resource};
 use tokio::sync::mpsc;
-use fi_prometheus::{Cluster, Resource, Grouping, get_usage_by, get_max_resource};
-use crate::tui::app::{
-    ChartData, 
-    FetchedData, 
-    ChartCapacity,
-};
-// --- Prometheus interface ---
 
-// Prometheus interface 
+// --- Prometheus Interface ---
 
-pub fn get_cpu_by_account_data() -> ChartData {
-    let data = get_usage_by(Cluster::Rusty, Grouping::Account, Resource::Cpus, 7, "1d").unwrap_or_default();
-    
-    ChartData {
-        source_data: data,
-    }
+// --- CPU by Account ---
+
+pub fn get_cpu_by_account_data() -> Result<ChartData, AppError> {
+    let data = get_usage_by(Cluster::Rusty, Grouping::Account, Resource::Cpus, 7, "1d")
+        .map_err(|e| AppError::DataFetch(e.to_string()))?;
+    Ok(ChartData { source_data: data })
 }
 
 pub async fn get_cpu_by_account_data_async(tx: mpsc::Sender<FetchedData>) {
-    let result = tokio::task::spawn_blocking(move || {
-        get_cpu_by_account_data()
-    }).await;
-
+    let result = tokio::task::spawn_blocking(get_cpu_by_account_data).await;
     let data_to_send = match result {
-        Ok(data) => FetchedData::CpuByAccount(Ok(data)),
+        Ok(data_res) => FetchedData::CpuByAccount(data_res),
         Err(e) => FetchedData::CpuByAccount(Err(AppError::TaskJoin(e.to_string()))),
     };
-
     if tx.send(data_to_send).await.is_err() {
-        // error sending to main thread, take no action
+        // Error sending to main thread, it likely shut down.
     }
 }
 
-pub fn get_cpu_capacity_by_account() -> ChartCapacity {
-    let data = get_max_resource(Cluster::Rusty, Some(Grouping::Account), Resource::Cpus, Some(7), Some("1d")).unwrap_or_default();
+pub fn get_cpu_capacity_by_account() -> Result<ChartCapacity, AppError> {
+    let data = get_max_resource(
+        Cluster::Rusty,
+        Some(Grouping::Account),
+        Resource::Cpus,
+        Some(7),
+        Some("1d"),
+    )
+    .map_err(|e| AppError::DataFetch(e.to_string()))?;
 
-    let binding = data.clone();
-    let max = &binding.values().max().unwrap_or(&0);
-
-    ChartCapacity {
+    let max = *data.values().max().unwrap_or(&0);
+    Ok(ChartCapacity {
         capacity_vec: data,
-        max_capacity: **max,
-    }
+        max_capacity: max,
+    })
 }
 
 pub async fn get_cpu_capacity_by_account_async(tx: mpsc::Sender<FetchedData>) {
-    let result = tokio::task::spawn_blocking(move || {
-        get_cpu_capacity_by_account()
-    }).await;
-
+    let result = tokio::task::spawn_blocking(get_cpu_capacity_by_account).await;
     let data_to_send = match result {
-        Ok(data) => FetchedData::CpuCapacityByAccount(Ok(data)),
+        Ok(data) => FetchedData::CpuCapacityByAccount(data),
         Err(e) => FetchedData::CpuCapacityByAccount(Err(AppError::TaskJoin(e.to_string()))),
     };
-
     if tx.send(data_to_send).await.is_err() {
-        // error sending to main thread, take no action
+        // Error sending to main thread, it likely shut down.
     }
 }
 
-pub fn get_cpu_by_node_data() -> ChartData {
-    let data = get_usage_by(Cluster::Rusty, Grouping::Nodes, Resource::Cpus, 7, "1d").unwrap_or_default();
+// --- CPU by Node ---
 
-    ChartData {
-        source_data: data,
-    }
+pub fn get_cpu_by_node_data() -> Result<ChartData, AppError> {
+    let data = get_usage_by(Cluster::Rusty, Grouping::Nodes, Resource::Cpus, 7, "1d")
+        .map_err(|e| AppError::DataFetch(e.to_string()))?;
+    Ok(ChartData { source_data: data })
 }
 
 pub async fn get_cpu_by_node_data_async(tx: mpsc::Sender<FetchedData>) {
-    let result = tokio::task::spawn_blocking(move || {
-        get_cpu_by_node_data()
-    }).await;
-
+    let result = tokio::task::spawn_blocking(get_cpu_by_node_data).await;
     let data_to_send = match result {
-        Ok(data) => FetchedData::CpuByNode(Ok(data)),
+        Ok(data_res) => FetchedData::CpuByNode(data_res),
         Err(e) => FetchedData::CpuByNode(Err(AppError::TaskJoin(e.to_string()))),
     };
-
     if tx.send(data_to_send).await.is_err() {
-        // error sending to main thread, take no action
+        // Error sending to main thread, it likely shut down.
     }
 }
 
-pub fn get_cpu_capacity_by_node() -> ChartCapacity {
-    let data = get_max_resource(Cluster::Rusty, Some(Grouping::Nodes), Resource::Cpus, Some(7), Some("1d")).unwrap_or_default();
+pub fn get_cpu_capacity_by_node() -> Result<ChartCapacity, AppError> {
+    let data = get_max_resource(
+        Cluster::Rusty,
+        Some(Grouping::Nodes),
+        Resource::Cpus,
+        Some(7),
+        Some("1d"),
+    )
+    .map_err(|e| AppError::DataFetch(e.to_string()))?;
 
-    let binding = data.clone();
-    let max = &binding.values().max().unwrap_or(&0);
-
-    ChartCapacity {
+    let max = *data.values().max().unwrap_or(&0);
+    Ok(ChartCapacity {
         capacity_vec: data,
-        max_capacity: **max,
-    }
+        max_capacity: max,
+    })
 }
 
 pub async fn get_cpu_capacity_by_node_async(tx: mpsc::Sender<FetchedData>) {
-    let result = tokio::task::spawn_blocking(move || {
-        get_cpu_capacity_by_node()
-    }).await;
-
+    let result = tokio::task::spawn_blocking(get_cpu_capacity_by_node).await;
     let data_to_send = match result {
-        Ok(data) => FetchedData::CpuCapacityByNode(Ok(data)),
+        Ok(data) => FetchedData::CpuCapacityByNode(data),
         Err(e) => FetchedData::CpuCapacityByNode(Err(AppError::TaskJoin(e.to_string()))),
     };
-
     if tx.send(data_to_send).await.is_err() {
-        // error sending to main thread, take no action
+        // Error sending to main thread, it likely shut down.
     }
 }
 
-pub fn get_gpu_by_type_data() -> ChartData {
-    let data = get_usage_by(Cluster::Rusty, Grouping::GpuType, Resource::Gpus, 7, "1d").unwrap_or_default();
-    
-    ChartData {
-        source_data: data,
-    }
+// --- GPU by Type ---
+
+pub fn get_gpu_by_type_data() -> Result<ChartData, AppError> {
+    let data = get_usage_by(Cluster::Rusty, Grouping::GpuType, Resource::Gpus, 7, "1d")
+        .map_err(|e| AppError::DataFetch(e.to_string()))?;
+    Ok(ChartData { source_data: data })
 }
 
 pub async fn get_gpu_by_type_data_async(tx: mpsc::Sender<FetchedData>) {
-    let result = tokio::task::spawn_blocking(move || {
-        get_gpu_by_type_data()
-    }).await;
-
+    let result = tokio::task::spawn_blocking(get_gpu_by_type_data).await;
     let data_to_send = match result {
-        Ok(data) => FetchedData::GpuByType(Ok(data)),
+        Ok(data_res) => FetchedData::GpuByType(data_res),
         Err(e) => FetchedData::GpuByType(Err(AppError::TaskJoin(e.to_string()))),
     };
-
     if tx.send(data_to_send).await.is_err() {
-        // error sending to main thread, take no action
+        // Error sending to main thread, it likely shut down.
     }
 }
 
-pub fn get_gpu_capacity_by_type() -> ChartCapacity {
-    let data = get_max_resource(Cluster::Rusty, Some(Grouping::GpuType), Resource::Cpus, Some(7), Some("1d")).unwrap_or_default();
+pub fn get_gpu_capacity_by_type() -> Result<ChartCapacity, AppError> {
+    let data = get_max_resource(
+        Cluster::Rusty,
+        Some(Grouping::GpuType),
+        Resource::Gpus, // Corrected from Cpus to Gpus
+        Some(7),
+        Some("1d"),
+    )
+    .map_err(|e| AppError::DataFetch(e.to_string()))?;
 
-    let binding = data.clone();
-    let max = &binding.values().max().unwrap_or(&0);
-
-    ChartCapacity {
+    let max = *data.values().max().unwrap_or(&0);
+    Ok(ChartCapacity {
         capacity_vec: data,
-        max_capacity: **max,
-    }
+        max_capacity: max,
+    })
 }
 
 pub async fn get_gpu_capacity_by_type_async(tx: mpsc::Sender<FetchedData>) {
-    let result = tokio::task::spawn_blocking(move || {
-        get_gpu_capacity_by_type()
-    }).await;
-
+    let result = tokio::task::spawn_blocking(get_gpu_capacity_by_type).await;
     let data_to_send = match result {
-        Ok(data) => FetchedData::GpuCapacityByType(Ok(data)),
+        Ok(data) => FetchedData::GpuCapacityByType(data),
         Err(e) => FetchedData::GpuCapacityByType(Err(AppError::TaskJoin(e.to_string()))),
     };
-
     if tx.send(data_to_send).await.is_err() {
-        // error sending to main thread, take no action
+        // Error sending to main thread, it likely shut down.
     }
 }
 
