@@ -148,9 +148,9 @@ fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView) {
 // REFACTORED: This function now scales each chart to its own capacity.
 fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData) {
     // --- Layout Constants ---
-    const DESIRED_CHART_WIDTH: u16 = 35;
+    const DESIRED_CHART_WIDTH: u16 = 100;
     const CHART_HEIGHT: u16 = 10;
-    const BAR_WIDTH: u16 = 4;
+    const BAR_WIDTH: u16 = 6;
     const BAR_GAP: u16 = 1;
 
     // --- Data Preparation ---
@@ -233,7 +233,7 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData) {
                     .enumerate()
                     .map(|(k, &val)| {
                         Bar::default()
-                            .value(*val)
+                            .value(val)
                             .label(time_labels[k % time_labels.len()].into())
                             .style(
                                 Style::default().fg(colors[(i * num_cols + j) % colors.len()]),
