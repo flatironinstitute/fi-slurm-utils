@@ -145,7 +145,7 @@ fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView) {
     f.render_widget(tabs, area);
 }
 
-// REFACTORED: This function now uses the corrected ghost bar method for scaling.
+// REFACTORED: This function now scales each chart to its own capacity.
 fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData) {
     // --- Layout Constants ---
     const DESIRED_CHART_WIDTH: u16 = 35;
@@ -217,7 +217,6 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData) {
                 let inner_area = outer_block.inner(cell_area);
                 f.render_widget(outer_block, cell_area);
 
-                // A simpler 2-row layout for numeric labels and the chart.
                 let chart_chunks = Layout::default()
                     .direction(Direction::Vertical)
                     .constraints([
@@ -234,7 +233,7 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData) {
                     .enumerate()
                     .map(|(k, &val)| {
                         Bar::default()
-                            .value(*val) // Use the original value directly
+                            .value(*val)
                             .label(time_labels[k % time_labels.len()].into())
                             .style(
                                 Style::default().fg(colors[(i * num_cols + j) % colors.len()]),
@@ -243,17 +242,22 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData) {
                     })
                     .collect();
 
-                // Add an invisible bar with an empty label to force scaling.
+                // Get the specific capacity vector for this chart.
+                let capacity_vec = data.capacity_data.get(*name);
+                
+                // Find the maximum capacity for this specific chart.
+                let chart_specific_max = capacity_vec.and_then(|v| v.iter().max()).cloned().unwrap_or(0);
+
+                // Add an invisible bar with this chart's specific max capacity.
                 bar_data.push(
                     Bar::default()
-                        .value(data.max_capacity)
-                        .label("".into()) // The crucial empty label
+                        .value(chart_specific_max)
+                        .label("".into())
                         .style(Style::default().add_modifier(Modifier::HIDDEN)),
                 );
 
 
                 // --- Draw Usage Labels (with original values) ---
-                // This layout is based on the number of *visible* bars.
                 let label_constraints: Vec<Constraint> = (0..values.len())
                     .flat_map(|_| [Constraint::Length(BAR_WIDTH), Constraint::Length(BAR_GAP)])
                     .collect();

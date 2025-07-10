@@ -63,25 +63,22 @@ pub enum FetchedData {
     GpuCapacityByType(Result<CapacityData, AppError>),
 }
 
-// MODIFIED: This struct now holds all data needed for a chart view.
+// MODIFIED: This struct no longer holds a single max_capacity.
 #[derive(Debug)]
 pub struct ChartData {
     pub source_data: HashMap<String, Vec<u64>>,
     pub capacity_data: HashMap<String, Vec<u64>>,
-    pub max_capacity: u64, // MODIFIED: Changed from Vec<u64> to u64
 }
 
-// RENAMED: For clarity, from ChartData to UsageData
 #[derive(Debug)]
 pub struct UsageData {
     pub source_data: HashMap<String, Vec<u64>>,
 }
 
-// RENAMED: For clarity, from ChartCapacity to CapacityData
+// MODIFIED: This struct no longer holds a single max_capacity.
 #[derive(Debug)]
 pub struct CapacityData {
-    pub capacity_vec: HashMap<String, Vec<u64>>,
-    pub max_capacity: u64, // MODIFIED: Changed from Vec<u64> to u64
+    pub capacities: HashMap<String, Vec<u64>>,
 }
 
 #[tokio::main]
@@ -92,15 +89,11 @@ pub async fn tui_execute() -> Result<(), Box<dyn std::error::Error>> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    // Channel now needs to hold 6 items
     let (tx, rx) = mpsc::channel(6);
 
-    // Spawn tasks for usage data
     tokio::spawn(get_cpu_by_account_data_async(tx.clone()));
     tokio::spawn(get_cpu_by_node_data_async(tx.clone()));
     tokio::spawn(get_gpu_by_type_data_async(tx.clone()));
-
-    // Spawn tasks for capacity data
     tokio::spawn(get_cpu_capacity_by_account_async(tx.clone()));
     tokio::spawn(get_cpu_capacity_by_node_async(tx.clone()));
     tokio::spawn(get_gpu_capacity_by_type_async(tx.clone()));
@@ -129,7 +122,6 @@ async fn run_app<B: Backend>(
 ) -> io::Result<()> {
     let mut app_state = AppState::Loading { tick: 0 };
 
-    // Store results for all 6 data types
     let mut cpu_by_account_data: Option<Result<UsageData, AppError>> = None;
     let mut cpu_by_node_data: Option<Result<UsageData, AppError>> = None;
     let mut gpu_by_type_data: Option<Result<UsageData, AppError>> = None;
@@ -185,7 +177,6 @@ async fn run_app<B: Backend>(
             if data_fetch_count == 6 {
                 let mut first_error: Option<AppError> = None;
                 
-                // Check all 6 results for any errors.
                 let error_checks = [
                     cpu_by_account_data.as_ref().and_then(|r| r.as_ref().err().cloned()),
                     cpu_by_node_data.as_ref().and_then(|r| r.as_ref().err().cloned()),
@@ -208,8 +199,7 @@ async fn run_app<B: Backend>(
                         let capacity = cpu_by_account_capacity.take().unwrap().unwrap();
                         ChartData {
                             source_data: usage.source_data,
-                            capacity_data: capacity.capacity_vec,
-                            max_capacity: capacity.max_capacity,
+                            capacity_data: capacity.capacities,
                         }
                     };
 
@@ -218,8 +208,7 @@ async fn run_app<B: Backend>(
                         let capacity = cpu_by_node_capacity.take().unwrap().unwrap();
                         ChartData {
                             source_data: usage.source_data,
-                            capacity_data: capacity.capacity_vec,
-                            max_capacity: capacity.max_capacity,
+                            capacity_data: capacity.capacities,
                         }
                     };
 
@@ -228,8 +217,7 @@ async fn run_app<B: Backend>(
                         let capacity = gpu_by_type_capacity.take().unwrap().unwrap();
                         ChartData {
                             source_data: usage.source_data,
-                            capacity_data: capacity.capacity_vec,
-                            max_capacity: capacity.max_capacity,
+                            capacity_data: capacity.capacities,
                         }
                     };
 
@@ -252,8 +240,6 @@ async fn run_app<B: Backend>(
         }
     }
 }
-
-// --- App State Logic ---
 
 impl App {
     fn next_view(&mut self) {

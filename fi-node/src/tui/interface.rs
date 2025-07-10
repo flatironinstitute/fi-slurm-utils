@@ -18,9 +18,7 @@ pub async fn get_cpu_by_account_data_async(tx: mpsc::Sender<FetchedData>) {
         Ok(data_res) => FetchedData::CpuByAccount(data_res),
         Err(e) => FetchedData::CpuByAccount(Err(AppError::TaskJoin(e.to_string()))),
     };
-    if tx.send(data_to_send).await.is_err() {
-        // Error sending to main thread, it likely shut down.
-    }
+    if tx.send(data_to_send).await.is_err() {}
 }
 
 pub fn get_cpu_capacity_by_account() -> Result<CapacityData, AppError> {
@@ -33,15 +31,7 @@ pub fn get_cpu_capacity_by_account() -> Result<CapacityData, AppError> {
     )
     .map_err(|e| AppError::DataFetch(e.to_string()))?;
 
-    // Find the single highest capacity value across all data points.
-    let Some(max) = data.values().flatten().max() else {
-        return Err(AppError::MaxFail("max_capacity is empty".to_string()));
-    };
-
-    Ok(CapacityData {
-        capacity_vec: data,
-        max_capacity: *max,
-    })
+    Ok(CapacityData { capacities: data })
 }
 
 pub async fn get_cpu_capacity_by_account_async(tx: mpsc::Sender<FetchedData>) {
@@ -50,9 +40,7 @@ pub async fn get_cpu_capacity_by_account_async(tx: mpsc::Sender<FetchedData>) {
         Ok(data) => FetchedData::CpuCapacityByAccount(data),
         Err(e) => FetchedData::CpuCapacityByAccount(Err(AppError::TaskJoin(e.to_string()))),
     };
-    if tx.send(data_to_send).await.is_err() {
-        // Error sending to main thread, it likely shut down.
-    }
+    if tx.send(data_to_send).await.is_err() {}
 }
 
 // --- CPU by Node ---
@@ -69,9 +57,7 @@ pub async fn get_cpu_by_node_data_async(tx: mpsc::Sender<FetchedData>) {
         Ok(data_res) => FetchedData::CpuByNode(data_res),
         Err(e) => FetchedData::CpuByNode(Err(AppError::TaskJoin(e.to_string()))),
     };
-    if tx.send(data_to_send).await.is_err() {
-        // Error sending to main thread, it likely shut down.
-    }
+    if tx.send(data_to_send).await.is_err() {}
 }
 
 pub fn get_cpu_capacity_by_node() -> Result<CapacityData, AppError> {
@@ -84,15 +70,7 @@ pub fn get_cpu_capacity_by_node() -> Result<CapacityData, AppError> {
     )
     .map_err(|e| AppError::DataFetch(e.to_string()))?;
 
-    // Find the single highest capacity value across all data points.
-    let Some(max) = data.values().flatten().max() else {
-        return Err(AppError::MaxFail("max_capacity is empty".to_string()));
-    };
-
-    Ok(CapacityData {
-        capacity_vec: data,
-        max_capacity: *max,
-    })
+    Ok(CapacityData { capacities: data })
 }
 
 pub async fn get_cpu_capacity_by_node_async(tx: mpsc::Sender<FetchedData>) {
@@ -101,9 +79,7 @@ pub async fn get_cpu_capacity_by_node_async(tx: mpsc::Sender<FetchedData>) {
         Ok(data) => FetchedData::CpuCapacityByNode(data),
         Err(e) => FetchedData::CpuCapacityByNode(Err(AppError::TaskJoin(e.to_string()))),
     };
-    if tx.send(data_to_send).await.is_err() {
-        // Error sending to main thread, it likely shut down.
-    }
+    if tx.send(data_to_send).await.is_err() {}
 }
 
 // --- GPU by Type ---
@@ -120,9 +96,7 @@ pub async fn get_gpu_by_type_data_async(tx: mpsc::Sender<FetchedData>) {
         Ok(data_res) => FetchedData::GpuByType(data_res),
         Err(e) => FetchedData::GpuByType(Err(AppError::TaskJoin(e.to_string()))),
     };
-    if tx.send(data_to_send).await.is_err() {
-        // Error sending to main thread, it likely shut down.
-    }
+    if tx.send(data_to_send).await.is_err() {}
 }
 
 pub fn get_gpu_capacity_by_type() -> Result<CapacityData, AppError> {
@@ -135,15 +109,7 @@ pub fn get_gpu_capacity_by_type() -> Result<CapacityData, AppError> {
     )
     .map_err(|e| AppError::DataFetch(e.to_string()))?;
 
-    // Find the single highest capacity value across all data points.
-    let Some(max) = data.values().flatten().max() else {
-        return Err(AppError::MaxFail("max_capacity is empty".to_string()));
-    };
-
-    Ok(CapacityData {
-        capacity_vec: data,
-        max_capacity: *max,
-    })
+    Ok(CapacityData { capacities: data })
 }
 
 pub async fn get_gpu_capacity_by_type_async(tx: mpsc::Sender<FetchedData>) {
@@ -152,8 +118,6 @@ pub async fn get_gpu_capacity_by_type_async(tx: mpsc::Sender<FetchedData>) {
         Ok(data) => FetchedData::GpuCapacityByType(data),
         Err(e) => FetchedData::GpuCapacityByType(Err(AppError::TaskJoin(e.to_string()))),
     };
-    if tx.send(data_to_send).await.is_err() {
-        // Error sending to main thread, it likely shut down.
-    }
+    if tx.send(data_to_send).await.is_err() {}
 }
 
