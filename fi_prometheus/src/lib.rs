@@ -212,17 +212,13 @@ pub fn get_max_resource(
     
     let cap_query = capacity_query(grouping, resource); // Assuming Cpus
     let result = query(&cap_query, &cluster, start_time, Some(now), step)?;
-    dbg!(&cap_query);
-    dbg!(&result);
 
     // if days is none, then instantaneous regular grou by
     // otherwise range groupby
     
     if let Some(g) = grouping {
-        dbg!("We took this branch");
         Ok(range_group_by(result, g))
     } else {
-        dbg!("We took this other branch");
         // Handle case where there is no grouping
         let mut total = 0;
         if let Some(series) = result.data.result.first() {

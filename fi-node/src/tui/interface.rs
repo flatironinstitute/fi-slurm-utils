@@ -34,7 +34,6 @@ pub fn get_cpu_capacity_by_account() -> Result<CapacityData, AppError> {
     .map_err(|e| AppError::DataFetch(e.to_string()))?;
 
     let temp = data.clone();
-    dbg!(&temp);
 
     //let Some(max_capacity) = data.max_capacity.iter().max() else {
     //    return Err(AppError::MaxFail("max_capacity is empty".to_string()));
@@ -89,7 +88,6 @@ pub fn get_cpu_capacity_by_node() -> Result<CapacityData, AppError> {
     .map_err(|e| AppError::DataFetch(e.to_string()))?;
 
     let temp = data.clone();
-    dbg!(&temp);
 
     let Some(max) = temp.values().max() else {
         return Err(AppError::MaxFail("max_capacity is empty".to_string()));
@@ -142,7 +140,6 @@ pub fn get_gpu_capacity_by_type() -> Result<CapacityData, AppError> {
     .map_err(|e| AppError::DataFetch(e.to_string()))?;
 
     let temp = data.clone();
-    dbg!(&temp);
 
     let Some(max) = temp.values().max() else {
         return Err(AppError::MaxFail("max_capacity is empty".to_string()));
