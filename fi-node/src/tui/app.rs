@@ -1,5 +1,13 @@
 use crate::tui::{
-    interface::*,
+    interface::{
+        PrometheusTimeScale,
+        get_cpu_by_account_data_async,
+        get_cpu_by_node_data_async,
+        get_gpu_by_type_data_async,
+        get_cpu_capacity_by_account_async,
+        get_cpu_capacity_by_node_async,
+        get_gpu_capacity_by_type_async,
+    },
     ui::ui,
 };
 use crossterm::{
@@ -92,12 +100,12 @@ pub async fn tui_execute() -> Result<(), Box<dyn std::error::Error>> {
 
     let (tx, rx) = mpsc::channel(6);
 
-    tokio::spawn(get_cpu_by_account_data_async(tx.clone()));
-    tokio::spawn(get_cpu_by_node_data_async(tx.clone()));
-    tokio::spawn(get_gpu_by_type_data_async(tx.clone()));
-    tokio::spawn(get_cpu_capacity_by_account_async(tx.clone()));
-    tokio::spawn(get_cpu_capacity_by_node_async(tx.clone()));
-    tokio::spawn(get_gpu_capacity_by_type_async(tx.clone()));
+    tokio::spawn(get_cpu_by_account_data_async(tx.clone(), 7, PrometheusTimeScale::Day));
+    tokio::spawn(get_cpu_by_node_data_async(tx.clone(), 7, PrometheusTimeScale::Day));
+    tokio::spawn(get_gpu_by_type_data_async(tx.clone(), 7, PrometheusTimeScale::Day));
+    tokio::spawn(get_cpu_capacity_by_account_async(tx.clone(), 7, PrometheusTimeScale::Day));
+    tokio::spawn(get_cpu_capacity_by_node_async(tx.clone(), 7, PrometheusTimeScale::Day));
+    tokio::spawn(get_gpu_capacity_by_type_async(tx.clone(), 7, PrometheusTimeScale::Day));
 
     let res = run_app(&mut terminal, rx).await;
 

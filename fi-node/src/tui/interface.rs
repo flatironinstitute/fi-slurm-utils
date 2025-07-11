@@ -5,7 +5,7 @@ use tokio::sync::mpsc;
 // --- Prometheus Interface ---
 
 
-enum PrometheusTimeScale {
+pub enum PrometheusTimeScale {
     Minute,
     Hour,
     Day,
