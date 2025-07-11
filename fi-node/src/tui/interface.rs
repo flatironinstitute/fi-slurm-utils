@@ -4,7 +4,69 @@ use tokio::sync::mpsc;
 
 // --- Prometheus Interface ---
 
+
+struct PrometheusRequest {
+    cluster: Cluster, //assume it's the one we're currently connected to? Try to get popeye info
+    //from here?
+    grouping: Option<Grouping>,
+    resource: Resource,
+    range: i64,
+    time_scale: String,
+}
+
+impl PrometheusRequest {
+    fn new(
+        cluster: Cluster, //assume it's the one we're currently connected to? Try to get popeye info
+        //from here?
+        grouping: Option<Grouping>,
+        resource: Resource,
+        range: usize,
+        time_scale: String,
+    ) -> Self {
+        Self {
+            cluster,
+            grouping,
+            resource,
+            range,
+            time_scale,
+        }
+    }
+}
+
+
+
+enum PrometheusData {
+    UsageData,
+    CapacityData,
+}
+
+fn generic_data_request(request: PrometheusRequest, data_type: PrometheusData) -> Result<PrometheusData, AppError>{
+
+    match data_type {
+        PrometheusData::UsageData => {
+            let data = get_usage_by(request.cluster, request.grouping.unwrap(), request.resource, request.range, &request.time_scale)
+                .map_err(|e| AppError::DataFetch(e.to_string()))?;
+            Ok(UsageData {source_data: data})
+        },
+        PrometheusData::CapacityData => {
+            let data = get_max_resource(request.cluster, request.grouping, request.resource, request.range, &request.time_scale)
+                .map_err(|e| AppError::DataFetch(e.to_string()))?;
+            Ok(CapacityData {capacities: data})
+        }
+    }
+    
+}
+
 // --- CPU by Account ---
+
+
+// similarities: 
+// we have functions which take in a usage request, and output data, either usage daata or capacity
+// data
+//
+//
+//
+
 
 pub fn get_cpu_by_account_data() -> Result<UsageData, AppError> {
     let data = get_usage_by(Cluster::Rusty, Grouping::Account, Resource::Cpus, 7, "1d")
