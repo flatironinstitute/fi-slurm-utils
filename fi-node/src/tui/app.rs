@@ -31,6 +31,20 @@ pub enum AppError {
     MaxFail(String),
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum AppView {
+    CpuByAccount,
+    CpuByNode,
+    GpuByType,
+}
+
+// MODIFIED: This struct no longer holds a single max_capacity.
+#[derive(Debug)]
+pub struct ChartData {
+    pub source_data: HashMap<String, Vec<u64>>,
+    pub capacity_data: HashMap<String, Vec<u64>>,
+}
+
 pub struct App {
     pub current_view: AppView,
     pub cpu_by_account: ChartData,
@@ -39,35 +53,11 @@ pub struct App {
     pub should_quit: bool,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum AppView {
-    CpuByAccount,
-    CpuByNode,
-    GpuByType,
-}
-
 #[allow(clippy::large_enum_variant)]
 pub enum AppState {
     Loading { tick: usize },
     Loaded(App),
     Error(AppError),
-}
-
-#[derive(Debug)]
-pub enum FetchedData {
-    CpuByAccount(Result<UsageData, AppError>),
-    CpuByNode(Result<UsageData, AppError>),
-    GpuByType(Result<UsageData, AppError>),
-    CpuCapacityByAccount(Result<CapacityData, AppError>),
-    CpuCapacityByNode(Result<CapacityData, AppError>),
-    GpuCapacityByType(Result<CapacityData, AppError>),
-}
-
-// MODIFIED: This struct no longer holds a single max_capacity.
-#[derive(Debug)]
-pub struct ChartData {
-    pub source_data: HashMap<String, Vec<u64>>,
-    pub capacity_data: HashMap<String, Vec<u64>>,
 }
 
 #[derive(Debug)]
@@ -80,6 +70,17 @@ pub struct UsageData {
 pub struct CapacityData {
     pub capacities: HashMap<String, Vec<u64>>,
 }
+
+#[derive(Debug)]
+pub enum FetchedData {
+    CpuByAccount(Result<UsageData, AppError>),
+    CpuByNode(Result<UsageData, AppError>),
+    GpuByType(Result<UsageData, AppError>),
+    CpuCapacityByAccount(Result<CapacityData, AppError>),
+    CpuCapacityByNode(Result<CapacityData, AppError>),
+    GpuCapacityByType(Result<CapacityData, AppError>),
+}
+
 
 #[tokio::main]
 pub async fn tui_execute() -> Result<(), Box<dyn std::error::Error>> {
