@@ -34,27 +34,62 @@ impl PrometheusRequest {
 }
 
 
+// used to select which type of data to fetch
+pub enum PrometheusDataType {
+    Usage,
+    Capacity,
+}
+
+// This enum is the successful return type. It can hold either
+// a UsageData struct or a CapacityData struct
+#[derive(Debug)]
+pub enum PrometheusDataResult {
+    Usage(UsageData),
+    Capacity(CapacityData),
+}
+
 
 enum PrometheusData {
     UsageData,
     CapacityData,
 }
 
-fn generic_data_request(request: PrometheusRequest, data_type: PrometheusData) -> Result<PrometheusData, AppError>{
-
+pub fn generic_data_request(
+    request: PrometheusRequest,
+    data_type: PrometheusDataType,
+) -> Result<PrometheusDataResult, AppError> {
     match data_type {
-        PrometheusData::UsageData => {
-            let data = get_usage_by(request.cluster, request.grouping.unwrap(), request.resource, request.range, &request.time_scale)
-                .map_err(|e| AppError::DataFetch(e.to_string()))?;
-            Ok(UsageData {source_data: data})
+
+        PrometheusDataType::Usage => {
+            let data = get_usage_by(
+                request.cluster,
+                request.grouping, // No longer needs .unwrap()
+                request.resource,
+                request.range,
+                &request.time_scale,
+            )
+            .map_err(|e| AppError::DataFetch(e.to_string()))?;
+
+            Ok(PrometheusDataResult::Usage(UsageData {
+                source_data: data,
+            }))
         },
-        PrometheusData::CapacityData => {
-            let data = get_max_resource(request.cluster, request.grouping, request.resource, request.range, &request.time_scale)
-                .map_err(|e| AppError::DataFetch(e.to_string()))?;
-            Ok(CapacityData {capacities: data})
-        }
+
+        PrometheusDataType::Capacity => {
+            let data = get_max_resource(
+                request.cluster,
+                Some(request.grouping), // get_max_resource expects an Option
+                request.resource,
+                Some(request.range), // This function also expects an Option
+                Some(&request.time_scale),
+            )
+            .map_err(|e| AppError::DataFetch(e.to_string()))?;
+
+            Ok(PrometheusDataResult::Capacity(CapacityData {
+                capacities: data,
+            }))
+        },
     }
-    
 }
 
 // --- CPU by Account ---
