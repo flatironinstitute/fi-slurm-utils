@@ -103,8 +103,6 @@ fn draw_dashboard(f: &mut Frame, app: &App) {
         )
         .split(f.area());
 
-    draw_tabs(f, main_chunks[0], app.current_view);
-
     let chart_data = match app.current_view {
         AppView::CpuByAccount => &app.cpu_by_account,
         AppView::CpuByNode => &app.cpu_by_node,
@@ -112,20 +110,39 @@ fn draw_dashboard(f: &mut Frame, app: &App) {
     };
 
     let page_info = draw_charts(f, main_chunks[1], chart_data, app.scroll_offset);
+    draw_tabs(f, main_chunks[0], app.current_view, Some(page_info));
     draw_footer(f, main_chunks[2], Some(page_info));
 }
 
-fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView) {
-    let titles: Vec<Line> = ["(1) CPU by Account", "(2) CPU by Node", "(3) GPU by Type"]
-        .iter()
-        .map(|t| Line::from(t.bold()))
-        .collect();
-
+fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView, page_info: Option<(usize, usize)>) {
+    let base_titles = ["(1) CPU by Account", "(2) CPU by Node", "(3) GPU by Type"];
+    
     let selected_index = match current_view {
         AppView::CpuByAccount => 0,
         AppView::CpuByNode => 1,
         AppView::GpuByType => 2,
     };
+
+    let titles: Vec<Line> = base_titles
+        .iter()
+        .enumerate()
+        .map(|(i, &title)| {
+            let title_str = if i == selected_index {
+                if let Some((current, total)) = page_info {
+                    if total > 1 {
+                        format!("{} ({}/{})", title, current, total)
+                    } else {
+                        title.to_string()
+                    }
+                } else {
+                    title.to_string()
+                }
+            } else {
+                title.to_string()
+            };
+            Line::from(title_str.bold())
+        })
+        .collect();
 
     let tabs = Tabs::new(titles)
         .block(
@@ -302,15 +319,12 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
 fn draw_footer(f: &mut Frame, area: Rect, page_info: Option<(usize, usize)>) {
     let base_text = "Use (q) to quit, (h/l, ←/→, Tab, or numbers) to switch views.";
     
-    let footer_text = if let Some((current, total)) = page_info {
+    let mut footer_text = base_text.to_string();
+    if let Some((_, total)) = page_info {
         if total > 1 {
-            format!("{} (k/j, ↑/↓ to scroll) Page {} / {}", base_text, current, total)
-        } else {
-            base_text.to_string()
+            footer_text.push_str(" (↑/↓ to scroll)");
         }
-    } else {
-        base_text.to_string()
-    };
+    }
 
     let footer_paragraph = Paragraph::new(footer_text)
         .style(Style::default().fg(Color::White).bg(Color::DarkGray))
