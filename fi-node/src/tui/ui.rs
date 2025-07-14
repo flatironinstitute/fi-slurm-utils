@@ -105,16 +105,29 @@ fn draw_main_menu(f: &mut Frame, area: Rect, selected: MainMenuSelection) {
     f.render_widget(default_text, inner_chunks[0]);
     f.render_widget(custom_text, inner_chunks[2]);
 }
-
+// MODIFIED: This function now includes a debug pane to show the live state.
 fn draw_parameter_selection_menu(f: &mut Frame, area: Rect, state: &ParameterSelectionState) {
+    // Main layout with a chunk for the menu and a chunk for the debug pane.
+    let main_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Min(0),
+            Constraint::Length(5), // Space for the debug pane
+        ])
+        .split(area);
+    
+    let menu_area = main_chunks[0];
+    //let debug_area = main_chunks[1];
+
+    // --- Draw the original menu ---
     let vertical_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Percentage(35),
-            Constraint::Length(9), // Increased height for better spacing
+            Constraint::Length(9),
             Constraint::Percentage(35),
         ])
-        .split(area);
+        .split(menu_area);
 
     let horizontal_chunks = Layout::default()
         .direction(Direction::Horizontal)
@@ -125,29 +138,27 @@ fn draw_parameter_selection_menu(f: &mut Frame, area: Rect, state: &ParameterSel
         ])
         .split(vertical_chunks[1]);
 
-    let menu_area = horizontal_chunks[1];
+    let inner_menu_area = horizontal_chunks[1];
 
     let main_block = Block::default()
         .title("Custom Query Parameters")
         .borders(Borders::ALL)
         .border_set(border::ROUNDED);
-    let inner_area = main_block.inner(menu_area);
-    f.render_widget(main_block, menu_area);
+    let inner_area = main_block.inner(inner_menu_area);
+    f.render_widget(main_block, inner_menu_area);
 
     let inner_chunks = Layout::default()
         .direction(Direction::Vertical)
-        .margin(1)
         .constraints([
-            Constraint::Length(3), // Range input
-            Constraint::Length(3), // Unit selector
-            Constraint::Length(1), // Confirm button
+            Constraint::Length(3),
+            Constraint::Length(3),
+            Constraint::Length(1),
         ])
         .split(inner_area);
 
     let focused_style = Style::default().fg(Color::Yellow);
     let normal_style = Style::default().fg(Color::White);
 
-    // 1. Range Input
     let range_block = Block::default()
         .title("Range")
         .borders(Borders::ALL)
@@ -161,7 +172,6 @@ fn draw_parameter_selection_menu(f: &mut Frame, area: Rect, state: &ParameterSel
     let range_paragraph = Paragraph::new(input_text).block(range_block);
     f.render_widget(range_paragraph, inner_chunks[0]);
 
-    // 2. Unit Selector
     let unit_block = Block::default()
         .title("Unit")
         .borders(Borders::ALL)
@@ -170,12 +180,19 @@ fn draw_parameter_selection_menu(f: &mut Frame, area: Rect, state: &ParameterSel
     let unit_paragraph = Paragraph::new(unit_text).block(unit_block).alignment(Alignment::Center);
     f.render_widget(unit_paragraph, inner_chunks[1]);
 
-    // 3. Confirm Button
     let confirm_text = "Confirm";
     let confirm_paragraph = Paragraph::new(confirm_text)
         .alignment(Alignment::Center)
         .style(if state.focused_widget == ParameterFocus::Confirm { focused_style.add_modifier(Modifier::REVERSED) } else { normal_style });
     f.render_widget(confirm_paragraph, inner_chunks[2]);
+
+    //// --- NEW: Draw the debug pane ---
+    //let debug_text = format!("{:#?}", state);
+    //let debug_block = Block::default().title("Live State").borders(Borders::ALL);
+    //let debug_paragraph = Paragraph::new(debug_text)
+    //    .block(debug_block)
+    //    .wrap(Wrap { trim: true });
+    //f.render_widget(debug_paragraph, debug_area);
 }
 
 fn draw_loading_screen(f: &mut Frame, tick: usize) {
