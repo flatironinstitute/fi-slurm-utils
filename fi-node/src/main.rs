@@ -9,7 +9,8 @@ use std::collections::{HashMap, HashSet};
 use fi_slurm::jobs::{SlurmJobs, enrich_jobs_with_node_ids};
 use fi_slurm::{jobs, nodes, utils::{SlurmConfig, initialize_slurm}};
 use fi_slurm::filter::{self, gather_all_features};
-use crate::tui::tui_execute;
+//use fi_prometheus::{get_max_resource, get_usage_by, Cluster, Grouping, Resource};
+use crate::tui::app::tui_execute;
 
 use std::time::Instant;
 use chrono::{DateTime, Utc};
@@ -27,6 +28,13 @@ fn main() -> Result<(), String> {
     let start = Instant::now();
 
     let args = Args::parse();
+
+    if args.test {
+        //let res = get_cpu_capacity_by_account();
+        //println!("{:?}", res.unwrap());
+
+        return Ok(())
+    }
 
     if args.terminal {
         let _ = tui_execute();

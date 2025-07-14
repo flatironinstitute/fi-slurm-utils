@@ -130,6 +130,7 @@ fn query(
 }
 
 /// Processes an instant query result.
+#[allow(dead_code)]
 fn group_by(result: PrometheusResponse, metric: Grouping) -> HashMap<String, u64> {
     let mut data_dict = HashMap::new();
     let metric_key = metric.to_string();
@@ -146,14 +147,14 @@ fn group_by(result: PrometheusResponse, metric: Grouping) -> HashMap<String, u64
     data_dict
 }
 
-/// Processes a range query result, ensuring all time series are aligned.
+
 fn range_group_by(result: PrometheusResponse, metric: Grouping) -> HashMap<String, Vec<u64>> {
-    // This is a simplified version. A full implementation would need the two-pass
-    // logic from the Python script to handle missing data points correctly.
     let mut data_dict = HashMap::new();
     let metric_key = metric.to_string();
 
     for series in result.data.result {
+        // First, try to get the group name from the metric object.
+        // This is the normal path for queries that return multiple series.
         if let Some(group) = series.metric.get(&metric_key) {
             if let Some(values) = series.values {
                 let parsed_values: Vec<u64> = values
@@ -163,6 +164,19 @@ fn range_group_by(result: PrometheusResponse, metric: Grouping) -> HashMap<Strin
                 data_dict.insert(group.clone(), parsed_values);
             }
         }
+        // NEW: If the metric object is empty, we've found our special case.
+        else if series.metric.is_empty() {
+            if let Some(values) = series.values {
+                let parsed_values: Vec<u64> = values
+                    .into_iter()
+                    .filter_map(|(_, val_str)| val_str.parse().ok())
+                    .collect();
+                // Since there's no group name, we'll use a default key.
+                // "Total" is a good, descriptive choice for this aggregate data.
+                data_dict.insert("Total".to_string(), parsed_values);
+            }
+        }
+        // If a series has metrics but not the one we're looking for, we ignore it.
     }
     data_dict
 }
@@ -192,15 +206,18 @@ pub fn get_max_resource(
     resource: Resource,
     days: Option<i64>,
     step: Option<&str>,
-) -> Result<HashMap<String, u64>, Box<dyn std::error::Error>> {
+) -> Result<HashMap<String, Vec<u64>>, Box<dyn std::error::Error>> {
     let now = Utc::now();
     let start_time = now - Duration::days(days.unwrap_or(0));
     
     let cap_query = capacity_query(grouping, resource); // Assuming Cpus
     let result = query(&cap_query, &cluster, start_time, Some(now), step)?;
+
+    // if days is none, then instantaneous regular grou by
+    // otherwise range groupby
     
     if let Some(g) = grouping {
-        Ok(group_by(result, g))
+        Ok(range_group_by(result, g))
     } else {
         // Handle case where there is no grouping
         let mut total = 0;
@@ -210,7 +227,7 @@ pub fn get_max_resource(
             }
         }
         let mut map = HashMap::new();
-        map.insert("total".to_string(), total);
+        map.insert("total".to_string(), vec![total]);
         Ok(map)
     }
 }
