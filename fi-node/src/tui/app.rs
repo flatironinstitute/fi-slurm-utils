@@ -232,51 +232,48 @@ async fn run_app<B: Backend>(
                             _ => {}
                         }
                     }
+                    // REFACTORED: This handler now uses a much cleaner and more robust pattern.
                     AppState::ParameterSelection(state) => {
-                        match key.code {
-                            KeyCode::Tab => {
-                                state.focused_widget = state.focused_widget.next();
+                        match (key.code, state.focused_widget) {
+                            // --- Global Keys for this state ---
+                            (KeyCode::Tab, _) => state.focused_widget = state.focused_widget.next(),
+                            
+                            // --- Range Input Keys ---
+                            (KeyCode::Char(c), ParameterFocus::Range) if c.is_ascii_digit() => {
+                                state.range_input.push(c);
                             }
-                            KeyCode::Char(c) if c.is_ascii_digit() => {
-                                if state.focused_widget == ParameterFocus::Range {
-                                    state.range_input.push(c);
-                                }
+                            (KeyCode::Backspace, ParameterFocus::Range) => {
+                                state.range_input.pop();
                             }
-                            KeyCode::Backspace => {
-                                if state.focused_widget == ParameterFocus::Range {
-                                    state.range_input.pop();
-                                }
-                            }
-                            KeyCode::Left => {
-                                if state.focused_widget == ParameterFocus::Unit {
-                                    state.selected_unit = state.selected_unit.prev();
-                                }
-                            }
-                            KeyCode::Right => {
-                                if state.focused_widget == ParameterFocus::Unit {
-                                    state.selected_unit = state.selected_unit.next();
-                                }
-                            }
-                            KeyCode::Enter => {
-                                if state.focused_widget == ParameterFocus::Confirm {
-                                    if let Ok(range) = state.range_input.parse::<i64>() {
-                                        if range > 0 {
-                                            let (tx_new, rx_new) = mpsc::channel(6);
-                                            rx = rx_new;
-                                            cpu_by_account_data = None;
-                                            cpu_by_node_data = None;
-                                            gpu_by_type_data = None;
-                                            cpu_by_account_capacity = None;
-                                            cpu_by_node_capacity = None;
-                                            gpu_by_type_capacity = None;
-                                            data_fetch_count = 0;
 
-                                            spawn_custom_data_fetch(tx_new, range, state.selected_unit);
-                                            app_state = AppState::Loading { tick: 0 };
-                                        }
+                            // --- Unit Selector Keys ---
+                            (KeyCode::Left, ParameterFocus::Unit) => {
+                                state.selected_unit = state.selected_unit.prev();
+                            }
+                            (KeyCode::Right, ParameterFocus::Unit) => {
+                                state.selected_unit = state.selected_unit.next();
+                            }
+
+                            // --- Confirm Button Keys ---
+                            (KeyCode::Enter, ParameterFocus::Confirm) => {
+                                if let Ok(range) = state.range_input.parse::<i64>() {
+                                    if range > 0 {
+                                        let (tx_new, rx_new) = mpsc::channel(6);
+                                        rx = rx_new;
+                                        cpu_by_account_data = None;
+                                        cpu_by_node_data = None;
+                                        gpu_by_type_data = None;
+                                        cpu_by_account_capacity = None;
+                                        cpu_by_node_capacity = None;
+                                        gpu_by_type_capacity = None;
+                                        data_fetch_count = 0;
+
+                                        spawn_custom_data_fetch(tx_new, range, state.selected_unit);
+                                        app_state = AppState::Loading { tick: 0 };
                                     }
                                 }
                             }
+                            // Ignore all other key presses
                             _ => {}
                         }
                     }
@@ -294,7 +291,6 @@ async fn run_app<B: Backend>(
                     }
                     _ => {} // No input for Loading or Error states.
                 }
-
 
                 // match &mut app_state {
                 //     AppState::MainMenu { selected } => {
