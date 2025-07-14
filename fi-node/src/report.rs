@@ -1,5 +1,6 @@
 use crate::nodes::{NodeState, Node};
 use crate::jobs::SlurmJobs;
+use fi_slurm::utils::count_blocks;
 use std::collections::HashMap;
 use colored::*;
 
@@ -200,28 +201,28 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
     // Print Headers
     let cpu_header = "CPU (A/T)";
     let gpu_header = "GPU (A/T)";
-    let cpu_col_width = max_alloc_cpu_width + max_total_cpu_width + 3; // +3 for " / "
+    let cpu_col_width = max_alloc_cpu_width + max_total_cpu_width + 2; // +3 for " / "
     let gpu_col_width = max_alloc_gpu_width + max_total_gpu_width + 3;
     
     println!(
-        "{:<width$} {:>5} {:>cpu_w$} {:>gpu_w$}",
+        "{:<width$} {:>5} {:>cpu_w$}  {:>gpu_w$}",
         "STATE".bold(), "COUNT".bold(), cpu_header.bold(), gpu_header.bold(),
         width = max_state_width,
         cpu_w = cpu_col_width,
         gpu_w = gpu_col_width,
     );
-    println!("{}", "-".repeat(max_state_width + cpu_col_width + gpu_col_width + 7));
+    println!("{}", "-".repeat(max_state_width + cpu_col_width + gpu_col_width + 9));
 
     // Generate and Print Report Body
     let total_line = generate_report_body(report_data, sorted_states, max_state_width, (max_alloc_cpu_width, max_total_cpu_width, max_alloc_gpu_width, max_total_gpu_width), no_color, show_node_names);
 
     // Print Totals and Utilization Bars
-    println!("{}", "-".repeat(max_state_width + cpu_col_width + gpu_col_width + 7));
+    println!("{}", "-".repeat(max_state_width + cpu_col_width + gpu_col_width + 9));
     let total_cpu_str = format_stat_column(total_line.alloc_cpus as u64, total_line.total_cpus as u64, max_alloc_cpu_width, max_total_cpu_width);
     let total_gpu_str = format_stat_column(total_line.alloc_gpus, total_line.total_gpus, max_alloc_gpu_width, max_total_gpu_width);
     let total_padding = " ".repeat(max_state_width - "TOTAL".len());
     print!("{}{}", "TOTAL".bold(), total_padding);
-    println!("{:>5} {} {}", total_line.node_count, total_cpu_str, total_gpu_str);
+    println!("{:>5}  {}  {}", total_line.node_count, total_cpu_str, total_gpu_str);
 
     let utilized_nodes = get_node_utilization(report_data);
     if total_line.node_count > 0 {
@@ -266,6 +267,7 @@ fn get_node_utilization(report_data: &HashMap<NodeState, ReportGroup>) -> f64 {
     utilized_nodes as f64
 }
 
+#[derive(Clone)]
 enum BarColor {
     Red,
     Green,
@@ -273,7 +275,7 @@ enum BarColor {
 }
 
 impl BarColor {
-    pub fn apply_color(self, text: String) -> ColoredString {
+    pub fn apply_color(&self, text: &str) -> ColoredString {
         match self {
             BarColor::Cyan => text.cyan(),
             BarColor::Red => text.red(),
@@ -283,13 +285,31 @@ impl BarColor {
 }
 
 fn print_utilization(utilization_percent: f64, bar_width: usize, bar_color: BarColor, name: &str, no_color: bool) {
-        let filled_chars = (bar_width as f64 * (utilization_percent / 100.0)).round() as usize;
+    // Call count_blocks to get the components of the bar
+    let (full, empty, partial_opt) = count_blocks(bar_width, utilization_percent / 100.0);
 
-        let filled_bar = if no_color {"█".repeat(filled_chars).white()} else {bar_color.apply_color("█".repeat(filled_chars))};
-        let empty_chars = bar_width.saturating_sub(filled_chars);        
-        let empty_bar = "░".repeat(empty_chars).normal();
+    // Create the string for the full blocks
+    let full_bar = "█".repeat(full);
 
-        println!("Overall {} Utilization: \n [{}{}] {:.1}%", name, filled_bar, empty_bar, utilization_percent);
+    // Get the partial block character, or an empty string if there isn't one
+    let partial_bar = partial_opt.unwrap_or_default();
+
+    // Create the string for the empty space. Using a simple space is often cleaner
+    let empty_bar = " ".repeat(empty);
+
+    // Apply color to the filled parts of the bar
+    let colored_full = if no_color { full_bar.white() } else { bar_color.apply_color(&full_bar) };
+    let colored_partial = if no_color { partial_bar.white() } else { bar_color.apply_color(&partial_bar) };
+
+    // Print the assembled bar
+    println!(
+        "Overall {} Utilization: \n [{}{}{}] {:.1}%",
+        name,
+        colored_full,
+        colored_partial,
+        empty_bar, // The empty part is not colored.
+        utilization_percent
+    );
 }
 
 fn generate_report_body(report_data: &HashMap<NodeState, ReportGroup>, 
@@ -350,11 +370,16 @@ fn generate_report_body(report_data: &HashMap<NodeState, ReportGroup>,
             // Use a two-step print to ensure alignment with colored text.
             print!("{}{}", colored_str, padding);
 
-            if show_node_names {
-                println!("{:>5} {} {}: {}", group.summary.node_count, cpu_str, gpu_str, fi_slurm::parser::compress_hostlist(&group.summary.node_names));
-            } else {
-                println!("{:>5} {} {}", group.summary.node_count, cpu_str, gpu_str);
-            }
+            println!("{:>5}  {}  {}  {}", 
+                group.summary.node_count, 
+                cpu_str, 
+                gpu_str, 
+                if show_node_names {
+                    fi_slurm::parser::compress_hostlist(&group.summary.node_names)
+                } else {
+                    "".to_string()
+                },
+            );
 
 
             let mut sorted_subgroups: Vec<&String> = group.subgroups.keys().collect();
@@ -375,11 +400,16 @@ fn generate_report_body(report_data: &HashMap<NodeState, ReportGroup>,
 
                     print!("{}{}", indented_name, sub_padding);
     
-                    if show_node_names {
-                        println!("{:>5} {} {}: {}", subgroup_line.node_count, sub_cpu_str, sub_gpu_str, fi_slurm::parser::compress_hostlist(&subgroup_line.node_names));
-                    } else {
-                        println!("{:>5} {} {}", subgroup_line.node_count, sub_cpu_str, sub_gpu_str);
-                    }
+                    println!("{:>5}  {}  {}  {}", 
+                        subgroup_line.node_count, 
+                        sub_cpu_str, 
+                        sub_gpu_str, 
+                        if show_node_names {
+                            fi_slurm::parser::compress_hostlist(&subgroup_line.node_names)
+                        } else {
+                            "".to_string()
+                        }
+                    );
                 }
             }
         }

@@ -1,5 +1,6 @@
 use crate::jobs::SlurmJobs;
 use crate::nodes::{Node, NodeState};
+use fi_slurm::utils::count_blocks;
 use colored::*;
 use std::collections::{HashMap, HashSet};
 
@@ -30,6 +31,7 @@ pub type TreeReportData = TreeNode;
 
 // Aggregation Logic
 
+// editing in order to conditionally take into account preempt 
 /// Helper function to determine if a node is available for new work
 fn is_node_available(state: &NodeState) -> bool {
     match state {
@@ -73,6 +75,13 @@ pub fn build_tree_report(
             0
         };
         let is_available = is_node_available(&node.state);
+        // need to also check whether any given job on that node is preempt
+        // what if a job is preempt, but it's a job on a mixed node with another non-preempt job?
+        // maybe the correct solution is further up the chain
+        // do we perhaps want to change Node state much further up, as part of creating the node to
+        // job mappings?
+        // would need to do it in a way we can reconstruct in case we don't want this behavior to
+        // be universal
 
         // Update Grand Total Stats
         root.stats.total_nodes += 1;
@@ -193,6 +202,7 @@ fn format_tree_stat_column(current: u32, total: u32, max_current_width: usize, m
     )
 }
 
+
 /// Creates a colored bar string for available resources (nodes or CPUs)
 fn create_avail_bar(current: u32, total: u32, width: usize, color: Color, no_color: bool) -> String {
     if total == 0 {
@@ -200,13 +210,22 @@ fn create_avail_bar(current: u32, total: u32, width: usize, color: Color, no_col
         let bar_content = " ".repeat(width);
         return format!("|{}|", bar_content);
     }
+
     let percentage = current as f64 / total as f64;
-    let filled_len = (width as f64 * percentage).round() as usize;
 
-    let filled = "■".repeat(filled_len).color(if no_color { Color::White} else { color });
-    let empty = " ".repeat(width.saturating_sub(filled_len));
+    let bars = count_blocks(20, percentage);
 
-    format!("|{}{}|", filled, empty)
+    //let filled_len = (width as f64 * percentage).round() as usize;
+
+    //let filled = "■".repeat(filled_len).color(if no_color { Color::White} else { color });
+    let filled = "█".repeat(bars.0).color(if no_color { Color::White} else { color });
+    let empty = " ".repeat(bars.1);
+
+    if let Some(remainder) = bars.2 {
+        format!("|{}{}{}|", filled, remainder.color(if no_color { Color::White} else { color }), empty)
+    } else {
+        format!("|{}{}|", filled, empty)
+    }
 }
 
 /// Recursively calculates the maximum width needed for the feature name column
@@ -270,13 +289,13 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
     let node_bar = create_avail_bar(top_level_node.stats.idle_nodes, top_level_node.stats.total_nodes, bar_width, Color::Green, no_color);
     let cpu_bar = create_avail_bar(top_level_node.stats.idle_cpus, top_level_node.stats.total_cpus, bar_width, Color::Cyan, no_color);
 
-    // Print Headers with Centered Alignment
+    // Print Headers with left-alignment
     println!(
-        "{:<feature_w$} {:^nodes_w$} {:^cpus_w$} {:^bar_w$} {:^bar_w$}",
+        "{:<feature_w$} {:<nodes_w$}   {:<bar_w$}{:<cpus_w$}   {:<bar_w$}",
         HEADER_FEATURE.bold(),
         HEADER_NODES.bold(),
-        HEADER_CPUS.bold(),
         HEADER_NODE_AVAIL.bold(),
+        HEADER_CPUS.bold(),
         HEADER_CPU_AVAIL.bold(),
         feature_w = max_feature_width,
         nodes_w = nodes_final_width,
@@ -292,8 +311,8 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
         "{:<feature_w$} {:>nodes_w$} {:>cpus_w$} {} {}",
         top_level_node.name.bold(),
         node_text,
-        cpu_text,
         node_bar,
+        cpu_text,
         cpu_bar,
         feature_w = max_feature_width,
         nodes_w = nodes_final_width,
@@ -343,32 +362,18 @@ fn print_node_recursive(
     let cpu_bar = create_avail_bar(current_node.stats.idle_cpus, current_node.stats.total_cpus, bar_width, Color::Cyan, no_color);
     let node_names = &current_node.stats.node_names.clone();
 
-    if show_node_names {
-        println!(
-            "{:<feature_w$} {:>nodes_w$} {:>cpus_w$} {} {}: {}",
-            display_name.bold(),
-            node_text,
-            cpu_text,
-            node_bar,
-            cpu_bar,
-            fi_slurm::parser::compress_hostlist(node_names),
-            feature_w = max_width,
-            nodes_w = nodes_final_width,
-            cpus_w = cpus_final_width,
-        );
-    } else {
-        println!(
-            "{:<feature_w$} {:>nodes_w$} {:>cpus_w$} {} {}",
-            display_name.bold(),
-            node_text,
-            cpu_text,
-            node_bar,
-            cpu_bar,
-            feature_w = max_width,
-            nodes_w = nodes_final_width,
-            cpus_w = cpus_final_width,
-        );
-    }
+    println!(
+        "{:<feature_w$} {:>nodes_w$} {:>cpus_w$} {} {} {}",
+        display_name.bold(),
+        node_text,
+        node_bar,
+        cpu_text,
+        cpu_bar,
+        if show_node_names {fi_slurm::parser::compress_hostlist(node_names)} else {"".to_string()},
+        feature_w = max_width,
+        nodes_w = nodes_final_width,
+        cpus_w = cpus_final_width,
+    );
 
     let full_child_prefix = format!("{}{}", prefix, if is_last { "   " } else { "│  " });
     let mut sorted_children: Vec<_> = current_node.children.values().collect();
@@ -379,4 +384,5 @@ fn print_node_recursive(
         print_node_recursive(child, &full_child_prefix, is_child_last, no_color, (max_width, bar_width, nodes_final_width, cpus_final_width), col_widths, show_node_names);
     }
 }
+
 

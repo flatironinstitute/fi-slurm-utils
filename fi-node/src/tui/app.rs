@@ -1,12 +1,9 @@
 use crate::tui::{
     interface::{
+        get_cpu_by_account_data_async, get_cpu_by_node_data_async,
+        get_gpu_by_type_data_async, get_cpu_capacity_by_account_async,
+        get_cpu_capacity_by_node_async, get_gpu_capacity_by_type_async,
         PrometheusTimeScale,
-        get_cpu_by_account_data_async,
-        get_cpu_by_node_data_async,
-        get_gpu_by_type_data_async,
-        get_cpu_capacity_by_account_async,
-        get_cpu_capacity_by_node_async,
-        get_gpu_capacity_by_type_async,
     },
     ui::ui,
 };
@@ -46,7 +43,6 @@ pub enum AppView {
     GpuByType,
 }
 
-// MODIFIED: This struct no longer holds a single max_capacity.
 #[derive(Debug)]
 pub struct ChartData {
     pub source_data: HashMap<String, Vec<u64>>,
@@ -70,7 +66,7 @@ impl App {
             AppView::CpuByNode => AppView::GpuByType,
             AppView::GpuByType => AppView::CpuByAccount,
         };
-        self.scroll_offset = 0
+        self.scroll_offset = 0;
     }
 
     fn prev_view(&mut self) {
@@ -79,12 +75,58 @@ impl App {
             AppView::CpuByNode => AppView::CpuByAccount,
             AppView::GpuByType => AppView::CpuByNode,
         };
-        self.scroll_offset = 0
+        self.scroll_offset = 0;
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub enum MainMenuSelection {
+    #[default]
+    Default,
+    Custom,
+}
+
+impl MainMenuSelection {
+    pub fn toggle(&self) -> Self {
+        match self {
+            MainMenuSelection::Default => MainMenuSelection::Custom,
+            MainMenuSelection::Custom => MainMenuSelection::Default,
+        }
+    }
+}
+
+// --- NEW: Structs and Enums for the Parameter Selection state ---
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub enum ParameterFocus {
+    #[default]
+    Range,
+    Unit,
+    Confirm,
+}
+
+impl ParameterFocus {
+    fn next(&self) -> Self {
+        match self {
+            ParameterFocus::Range => ParameterFocus::Unit,
+            ParameterFocus::Unit => ParameterFocus::Confirm,
+            ParameterFocus::Confirm => ParameterFocus::Range,
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct ParameterSelectionState {
+    pub range_input: String,
+    pub selected_unit: PrometheusTimeScale,
+    pub focused_widget: ParameterFocus,
+}
+
+
+// MODIFIED: The AppState enum now includes all application states.
 #[allow(clippy::large_enum_variant)]
 pub enum AppState {
+    MainMenu { selected: MainMenuSelection },
+    ParameterSelection(ParameterSelectionState),
     Loading { tick: usize },
     Loaded(App),
     Error(AppError),
@@ -95,7 +137,6 @@ pub struct UsageData {
     pub source_data: HashMap<String, Vec<u64>>,
 }
 
-// MODIFIED: This struct no longer holds a single max_capacity.
 #[derive(Debug)]
 pub struct CapacityData {
     pub capacities: HashMap<String, Vec<u64>>,
@@ -111,15 +152,29 @@ pub enum FetchedData {
     GpuCapacityByType(Result<CapacityData, AppError>),
 }
 
+// Helper function to spawn data fetching tasks for the default view.
+fn spawn_default_data_fetch(tx: mpsc::Sender<FetchedData>) {
+    spawn_custom_data_fetch(tx, 7, PrometheusTimeScale::Day);
+}
+
+// NEW: Helper function to spawn data fetching tasks with custom parameters.
+fn spawn_custom_data_fetch(tx: mpsc::Sender<FetchedData>, range: i64, unit: PrometheusTimeScale) {
+    tokio::spawn(get_cpu_by_account_data_async(tx.clone(), range, unit));
+    tokio::spawn(get_cpu_by_node_data_async(tx.clone(), range, unit));
+    tokio::spawn(get_gpu_by_type_data_async(tx.clone(), range, unit));
+    tokio::spawn(get_cpu_capacity_by_account_async(tx.clone(), range, unit));
+    tokio::spawn(get_cpu_capacity_by_node_async(tx.clone(), range, unit));
+    tokio::spawn(get_gpu_capacity_by_type_async(tx.clone(), range, unit));
+}
 
 
-
+// MODIFIED: The main application loop is now a state machine.
 async fn run_app<B: Backend>(
     terminal: &mut Terminal<B>,
-    mut rx: mpsc::Receiver<FetchedData>,
 ) -> io::Result<()> {
-    let mut app_state = AppState::Loading { tick: 0 };
-
+    // Start the app in the MainMenu state.
+    let mut app_state = AppState::MainMenu { selected: MainMenuSelection::Default };
+    
     let mut cpu_by_account_data: Option<Result<UsageData, AppError>> = None;
     let mut cpu_by_node_data: Option<Result<UsageData, AppError>> = None;
     let mut gpu_by_type_data: Option<Result<UsageData, AppError>> = None;
@@ -128,6 +183,7 @@ async fn run_app<B: Backend>(
     let mut gpu_by_type_capacity: Option<Result<CapacityData, AppError>> = None;
 
     let mut data_fetch_count = 0;
+    let mut rx: Option<mpsc::Receiver<FetchedData>> = None;
 
     loop {
         terminal.draw(|f| ui(f, &app_state))?;
@@ -141,38 +197,91 @@ async fn run_app<B: Backend>(
                         return Ok(());
                     }
                 }
-                
-                if let AppState::Loaded(ref mut app) = app_state {
-                    match key.code {
-                        KeyCode::Char('1') => app.current_view = AppView::CpuByAccount,
-                        KeyCode::Char('2') => app.current_view = AppView::CpuByNode,
-                        KeyCode::Char('3') => app.current_view = AppView::GpuByType,
-                        KeyCode::Right | KeyCode::Char('l') | KeyCode::Tab => app.next_view(),
-                        KeyCode::Left | KeyCode::Char('h') => app.prev_view(),
-                        KeyCode::Up | KeyCode::Char('k')=> app.scroll_offset = app.scroll_offset.saturating_sub(1),
-                        KeyCode::Down | KeyCode::Char('j')=> app.scroll_offset = app.scroll_offset.saturating_add(1),
-                        _ => {}
+
+                // State-specific input handling
+                match &mut app_state {
+                    AppState::MainMenu { selected } => {
+                        match key.code {
+                            KeyCode::Up | KeyCode::Down => *selected = selected.toggle(),
+                            KeyCode::Enter => {
+                                match selected {
+                                    MainMenuSelection::Default => {
+                                        let (tx_new, rx_new) = mpsc::channel(6);
+                                        rx = Some(rx_new);
+                                        spawn_default_data_fetch(tx_new);
+                                        app_state = AppState::Loading { tick: 0 };
+                                    },
+                                    MainMenuSelection::Custom => {
+                                        // Transition to the new ParameterSelection state.
+                                        app_state = AppState::ParameterSelection(ParameterSelectionState::default());
+                                    }
+                                }
+                            },
+                            _ => {}
+                        }
                     }
+                    AppState::ParameterSelection(state) => {
+                        match state.focused_widget {
+                            ParameterFocus::Range => match key.code {
+                                KeyCode::Char(c) if c.is_ascii_digit() => state.range_input.push(c),
+                                KeyCode::Backspace => { state.range_input.pop(); },
+                                KeyCode::Tab => state.focused_widget = state.focused_widget.next(),
+                                _ => {}
+                            },
+                            ParameterFocus::Unit => match key.code {
+                                KeyCode::Left => state.selected_unit = state.selected_unit.prev(),
+                                KeyCode::Right => state.selected_unit = state.selected_unit.next(),
+                                KeyCode::Tab => state.focused_widget = state.focused_widget.next(),
+                                _ => {}
+                            },
+                            ParameterFocus::Confirm => match key.code {
+                                KeyCode::Tab => state.focused_widget = state.focused_widget.next(),
+                                KeyCode::Enter => {
+                                    if let Ok(range) = state.range_input.parse::<i64>() {
+                                        let (tx_new, rx_new) = mpsc::channel(6);
+                                        rx = Some(rx_new);
+                                        spawn_custom_data_fetch(tx_new, range, state.selected_unit);
+                                        app_state = AppState::Loading { tick: 0 };
+                                    }
+                                    // Optional: Handle parse error, maybe by flashing the input box red.
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                    AppState::Loaded(ref mut app) => {
+                        match key.code {
+                            KeyCode::Char('1') => app.current_view = AppView::CpuByAccount,
+                            KeyCode::Char('2') => app.current_view = AppView::CpuByNode,
+                            KeyCode::Char('3') => app.current_view = AppView::GpuByType,
+                            KeyCode::Right | KeyCode::Char('l') | KeyCode::Tab => app.next_view(),
+                            KeyCode::Left | KeyCode::Char('h') => app.prev_view(),
+                            KeyCode::Up => app.scroll_offset = app.scroll_offset.saturating_sub(1),
+                            KeyCode::Down => app.scroll_offset = app.scroll_offset.saturating_add(1),
+                            _ => {}
+                        }
+                    }
+                    _ => {}
                 }
             }
         }
 
-        if let AppState::Loading {..} = app_state {
-            if let Ok(fetched_data) = rx.try_recv() {
-                data_fetch_count += 1;
-                match fetched_data {
-                    FetchedData::CpuByAccount(res) => cpu_by_account_data = Some(res),
-                    FetchedData::CpuByNode(res) => cpu_by_node_data = Some(res),
-                    FetchedData::GpuByType(res) => gpu_by_type_data = Some(res),
-                    FetchedData::CpuCapacityByAccount(res) => cpu_by_account_capacity = Some(res),
-                    FetchedData::CpuCapacityByNode(res) => cpu_by_node_capacity = Some(res),
-                    FetchedData::GpuCapacityByType(res) => gpu_by_type_capacity = Some(res),
-                }
-            }
-        }
-        
         if let AppState::Loading { ref mut tick } = app_state {
             *tick += 1;
+            
+            if let Some(ref mut receiver) = rx {
+                if let Ok(fetched_data) = receiver.try_recv() {
+                    data_fetch_count += 1;
+                    match fetched_data {
+                        FetchedData::CpuByAccount(res) => cpu_by_account_data = Some(res),
+                        FetchedData::CpuByNode(res) => cpu_by_node_data = Some(res),
+                        FetchedData::GpuByType(res) => gpu_by_type_data = Some(res),
+                        FetchedData::CpuCapacityByAccount(res) => cpu_by_account_capacity = Some(res),
+                        FetchedData::CpuCapacityByNode(res) => cpu_by_node_capacity = Some(res),
+                        FetchedData::GpuCapacityByType(res) => gpu_by_type_capacity = Some(res),
+                    }
+                }
+            }
 
             if data_fetch_count == 6 {
                 let mut first_error: Option<AppError> = None;
@@ -193,32 +302,20 @@ async fn run_app<B: Backend>(
                 if let Some(error) = first_error {
                     app_state = AppState::Error(error);
                 } else {
-                    // Combine usage and capacity data into the final ChartData structs.
                     let final_cpu_by_account = {
                         let usage = cpu_by_account_data.take().unwrap().unwrap();
                         let capacity = cpu_by_account_capacity.take().unwrap().unwrap();
-                        ChartData {
-                            source_data: usage.source_data,
-                            capacity_data: capacity.capacities,
-                        }
+                        ChartData { source_data: usage.source_data, capacity_data: capacity.capacities }
                     };
-
                     let final_cpu_by_node = {
                         let usage = cpu_by_node_data.take().unwrap().unwrap();
                         let capacity = cpu_by_node_capacity.take().unwrap().unwrap();
-                        ChartData {
-                            source_data: usage.source_data,
-                            capacity_data: capacity.capacities,
-                        }
+                        ChartData { source_data: usage.source_data, capacity_data: capacity.capacities }
                     };
-
                     let final_gpu_by_type = {
                         let usage = gpu_by_type_data.take().unwrap().unwrap();
                         let capacity = gpu_by_type_capacity.take().unwrap().unwrap();
-                        ChartData {
-                            source_data: usage.source_data,
-                            capacity_data: capacity.capacities,
-                        }
+                        ChartData { source_data: usage.source_data, capacity_data: capacity.capacities }
                     };
 
                     let app = App {
@@ -250,16 +347,7 @@ pub async fn tui_execute() -> Result<(), Box<dyn std::error::Error>> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    let (tx, rx) = mpsc::channel(6);
-
-    tokio::spawn(get_cpu_by_account_data_async(tx.clone(), 7, PrometheusTimeScale::Day));
-    tokio::spawn(get_cpu_by_node_data_async(tx.clone(), 7, PrometheusTimeScale::Day));
-    tokio::spawn(get_gpu_by_type_data_async(tx.clone(), 7, PrometheusTimeScale::Day));
-    tokio::spawn(get_cpu_capacity_by_account_async(tx.clone(), 7, PrometheusTimeScale::Day));
-    tokio::spawn(get_cpu_capacity_by_node_async(tx.clone(), 7, PrometheusTimeScale::Day));
-    tokio::spawn(get_gpu_capacity_by_type_async(tx.clone(), 7, PrometheusTimeScale::Day));
-
-    let res = run_app(&mut terminal, rx).await;
+    let res = run_app(&mut terminal).await;
 
     disable_raw_mode()?;
     execute!(
@@ -275,5 +363,3 @@ pub async fn tui_execute() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
-
-
