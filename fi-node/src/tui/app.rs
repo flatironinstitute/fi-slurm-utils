@@ -55,10 +55,32 @@ pub struct ChartData {
 
 pub struct App {
     pub current_view: AppView,
+    pub scroll_offset: usize,
     pub cpu_by_account: ChartData,
     pub cpu_by_node: ChartData,
     pub gpu_by_type: ChartData,
     pub should_quit: bool,
+}
+
+
+impl App {
+    fn next_view(&mut self) {
+        self.current_view = match self.current_view {
+            AppView::CpuByAccount => AppView::CpuByNode,
+            AppView::CpuByNode => AppView::GpuByType,
+            AppView::GpuByType => AppView::CpuByAccount,
+        };
+        self.scroll_offset = 0
+    }
+
+    fn prev_view(&mut self) {
+        self.current_view = match self.current_view {
+            AppView::CpuByAccount => AppView::GpuByType,
+            AppView::CpuByNode => AppView::CpuByAccount,
+            AppView::GpuByType => AppView::CpuByNode,
+        };
+        self.scroll_offset = 0
+    }
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -90,39 +112,6 @@ pub enum FetchedData {
 }
 
 
-#[tokio::main]
-pub async fn tui_execute() -> Result<(), Box<dyn std::error::Error>> {
-    enable_raw_mode()?;
-    let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
-    let backend = CrosstermBackend::new(stdout);
-    let mut terminal = Terminal::new(backend)?;
-
-    let (tx, rx) = mpsc::channel(6);
-
-    tokio::spawn(get_cpu_by_account_data_async(tx.clone(), 7, PrometheusTimeScale::Day));
-    tokio::spawn(get_cpu_by_node_data_async(tx.clone(), 7, PrometheusTimeScale::Day));
-    tokio::spawn(get_gpu_by_type_data_async(tx.clone(), 7, PrometheusTimeScale::Day));
-    tokio::spawn(get_cpu_capacity_by_account_async(tx.clone(), 7, PrometheusTimeScale::Day));
-    tokio::spawn(get_cpu_capacity_by_node_async(tx.clone(), 7, PrometheusTimeScale::Day));
-    tokio::spawn(get_gpu_capacity_by_type_async(tx.clone(), 7, PrometheusTimeScale::Day));
-
-    let res = run_app(&mut terminal, rx).await;
-
-    disable_raw_mode()?;
-    execute!(
-        terminal.backend_mut(),
-        LeaveAlternateScreen,
-        DisableMouseCapture
-    )?;
-    terminal.show_cursor()?;
-
-    if let Err(err) = res {
-        println!("Error in app: {:?}", err);
-    }
-
-    Ok(())
-}
 
 
 async fn run_app<B: Backend>(
@@ -160,6 +149,8 @@ async fn run_app<B: Backend>(
                         KeyCode::Char('3') => app.current_view = AppView::GpuByType,
                         KeyCode::Right | KeyCode::Char('l') | KeyCode::Tab => app.next_view(),
                         KeyCode::Left | KeyCode::Char('h') => app.prev_view(),
+                        KeyCode::Up => app.scroll_offset = app.scroll_offset.saturating_sub(1),
+                        KeyCode::Down => app.scroll_offset = app.scroll_offset.saturating_add(1),
                         _ => {}
                     }
                 }
@@ -232,6 +223,7 @@ async fn run_app<B: Backend>(
 
                     let app = App {
                         current_view: AppView::CpuByAccount,
+                        scroll_offset: 0,
                         cpu_by_account: final_cpu_by_account,
                         cpu_by_node: final_cpu_by_node,
                         gpu_by_type: final_gpu_by_type,
@@ -250,21 +242,38 @@ async fn run_app<B: Backend>(
     }
 }
 
-impl App {
-    fn next_view(&mut self) {
-        self.current_view = match self.current_view {
-            AppView::CpuByAccount => AppView::CpuByNode,
-            AppView::CpuByNode => AppView::GpuByType,
-            AppView::GpuByType => AppView::CpuByAccount,
-        }
+#[tokio::main]
+pub async fn tui_execute() -> Result<(), Box<dyn std::error::Error>> {
+    enable_raw_mode()?;
+    let mut stdout = io::stdout();
+    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+    let backend = CrosstermBackend::new(stdout);
+    let mut terminal = Terminal::new(backend)?;
+
+    let (tx, rx) = mpsc::channel(6);
+
+    tokio::spawn(get_cpu_by_account_data_async(tx.clone(), 7, PrometheusTimeScale::Day));
+    tokio::spawn(get_cpu_by_node_data_async(tx.clone(), 7, PrometheusTimeScale::Day));
+    tokio::spawn(get_gpu_by_type_data_async(tx.clone(), 7, PrometheusTimeScale::Day));
+    tokio::spawn(get_cpu_capacity_by_account_async(tx.clone(), 7, PrometheusTimeScale::Day));
+    tokio::spawn(get_cpu_capacity_by_node_async(tx.clone(), 7, PrometheusTimeScale::Day));
+    tokio::spawn(get_gpu_capacity_by_type_async(tx.clone(), 7, PrometheusTimeScale::Day));
+
+    let res = run_app(&mut terminal, rx).await;
+
+    disable_raw_mode()?;
+    execute!(
+        terminal.backend_mut(),
+        LeaveAlternateScreen,
+        DisableMouseCapture
+    )?;
+    terminal.show_cursor()?;
+
+    if let Err(err) = res {
+        println!("Error in app: {:?}", err);
     }
 
-    fn prev_view(&mut self) {
-        self.current_view = match self.current_view {
-            AppView::CpuByAccount => AppView::GpuByType,
-            AppView::CpuByNode => AppView::CpuByAccount,
-            AppView::GpuByType => AppView::CpuByNode,
-        }
-    }
+    Ok(())
 }
+
 

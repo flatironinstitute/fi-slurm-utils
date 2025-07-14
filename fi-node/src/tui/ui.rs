@@ -111,8 +111,8 @@ fn draw_dashboard(f: &mut Frame, app: &App) {
         AppView::GpuByType => &app.gpu_by_type,
     };
 
-    draw_charts(f, main_chunks[1], chart_data);
-    draw_footer(f, main_chunks[2]);
+    let page_info = draw_charts(f, main_chunks[1], chart_data, app.scroll_offset);
+    draw_footer(f, main_chunks[2], Some(page_info));
 }
 
 fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView) {
@@ -146,9 +146,9 @@ fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView) {
 }
 
 // REFACTORED: This function now scales each chart to its own capacity.
-fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData) {
+fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize) -> (usize, usize) {
     // --- Layout Constants ---
-    const DESIRED_CHART_WIDTH: u16 = 100;
+    const MINIMUM_CHART_WIDTH: u16 = 35;
     const CHART_HEIGHT: u16 = 10;
     const BAR_WIDTH: u16 = 6;
     const BAR_GAP: u16 = 1;
@@ -174,22 +174,25 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData) {
     // --- Grid Calculation ---
     let num_charts = sorted_series.len();
     if num_charts == 0 {
-        return;
+        return (1,1);
     }
 
-    let num_cols = (area.width / DESIRED_CHART_WIDTH).max(1) as usize;
-    let num_rows = num_charts.div_ceil(num_cols);
+    let num_cols = (area.width / MINIMUM_CHART_WIDTH).max(1) as usize;
+    let total_rows = num_charts.div_ceil(num_cols);
 
+    let num_visible_rows = (area.height / CHART_HEIGHT) as usize;
+    let max_scroll_offset = total_rows.saturating_sub(num_visible_rows);
+    let clamped_offset = scroll_offset.min(max_scroll_offset);
     // --- Create Row Layouts ---
-    let row_constraints = vec![Constraint::Length(CHART_HEIGHT); num_rows];
+    let row_constraints = vec![Constraint::Length(CHART_HEIGHT); num_visible_rows];
     let row_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints(row_constraints)
         .split(area);
 
     // --- Iterate and Draw Each Chart in a Grid ---
-    let mut chart_iter = sorted_series.iter();
-    for i in 0..num_rows {
+    let mut chart_iter = sorted_series.iter().skip(clamped_offset * num_cols);
+    for i in 0..num_visible_rows {
         if i >= row_chunks.len() {
             break;
         }
@@ -288,14 +291,29 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData) {
             }
         }
     }
+
+    // Return the current page and total pages for the footer.
+    let current_page = clamped_offset + 1;
+    let total_pages = max_scroll_offset + 1;
+    (current_page, total_pages)
 }
 
-fn draw_footer(f: &mut Frame, area: Rect) {
-    let footer_text = "Use (q) to quit, (h/l, ←/→, Tab, or numbers) to switch views.";
-    let footer = Block::default().style(Style::default().fg(Color::White).bg(Color::DarkGray));
-    f.render_widget(footer, area);
-    f.render_widget(
-        Line::from(footer_text).alignment(Alignment::Center),
-        area,
-    );
+fn draw_footer(f: &mut Frame, area: Rect, page_info: Option<(usize, usize)>) {
+    let base_text = "Use (q) to quit, (h/l, ←/→, Tab, or numbers) to switch views.";
+    
+    let footer_text = if let Some((current, total)) = page_info {
+        if total > 1 {
+            format!("{} (↑/↓ to scroll) Page {} / {}", base_text, current, total)
+        } else {
+            base_text.to_string()
+        }
+    } else {
+        base_text.to_string()
+    };
+
+    let footer_paragraph = Paragraph::new(footer_text)
+        .style(Style::default().fg(Color::White).bg(Color::DarkGray))
+        .alignment(Alignment::Center);
+        
+    f.render_widget(footer_paragraph, area);
 }
