@@ -162,7 +162,6 @@ fn spawn_custom_data_fetch(tx: mpsc::Sender<FetchedData>, range: i64, unit: Prom
     tokio::spawn(get_gpu_capacity_by_type_async(tx.clone(), range, unit));
 }
 
-
 async fn run_app<B: Backend>(
     terminal: &mut Terminal<B>,
     mut rx: mpsc::Receiver<FetchedData>,
@@ -182,8 +181,6 @@ async fn run_app<B: Backend>(
     loop {
         terminal.draw(|f| ui(f, &app_state))?;
 
-        // --- NEW: Handle pre-fetching on every tick ---
-        // This happens silently in the background, regardless of the current state.
         if data_fetch_count < 6 {
             if let Ok(fetched_data) = rx.try_recv() {
                 data_fetch_count += 1;
@@ -208,6 +205,7 @@ async fn run_app<B: Backend>(
                     }
                 }
 
+                // REFACTORED: This entire block is restructured for clarity and correctness.
                 match &mut app_state {
                     AppState::MainMenu { selected } => {
                         match key.code {
@@ -232,7 +230,6 @@ async fn run_app<B: Backend>(
                             _ => {}
                         }
                     }
-                    // REFACTORED: This handler now uses a much cleaner and more robust pattern.
                     AppState::ParameterSelection(state) => {
                         match (key.code, state.focused_widget) {
                             // --- Global Keys for this state ---
@@ -291,90 +288,9 @@ async fn run_app<B: Backend>(
                     }
                     _ => {} // No input for Loading or Error states.
                 }
-
-                // match &mut app_state {
-                //     AppState::MainMenu { selected } => {
-                //         match key.code {
-                //             KeyCode::Up | KeyCode::Down | KeyCode::Char('k') | KeyCode::Char('j')=> *selected = selected.toggle(),
-                //             KeyCode::Enter => {
-                //                 match selected {
-                //                     MainMenuSelection::Default => {
-                //                         // NEW: Smart transition logic.
-                //                         if data_fetch_count == 6 {
-                //                             // Data is ready, transition directly to Loaded.
-                //                             app_state = build_loaded_app(
-                //                                 &mut cpu_by_account_data, &mut cpu_by_node_data, &mut gpu_by_type_data,
-                //                                 &mut cpu_by_account_capacity, &mut cpu_by_node_capacity, &mut gpu_by_type_capacity
-                //                             );
-                //                         } else {
-                //                             // Data not ready, go to Loading screen to wait.
-                //                             app_state = AppState::Loading { tick: 0 };
-                //                         }
-                //                     },
-                //                     MainMenuSelection::Custom => {
-                //                         app_state = AppState::ParameterSelection(ParameterSelectionState::default());
-                //                     }
-                //                 }
-                //             },
-                //             _ => {}
-                //         }
-                //     }
-                //     AppState::ParameterSelection(state) => {
-                //         match state.focused_widget {
-                //             ParameterFocus::Range => match key.code {
-                //                 KeyCode::Char(c) if c.is_ascii_digit() => state.range_input.push(c),
-                //                 KeyCode::Backspace => { state.range_input.pop(); },
-                //                 KeyCode::Tab => state.focused_widget = state.focused_widget.next(),
-                //                 _ => {}
-                //             },
-                //             ParameterFocus::Unit => match key.code {
-                //                 KeyCode::Left => state.selected_unit = state.selected_unit.prev(),
-                //                 KeyCode::Right => state.selected_unit = state.selected_unit.next(),
-                //                 KeyCode::Tab => state.focused_widget = state.focused_widget.next(),
-                //                 _ => {}
-                //             },
-                //             ParameterFocus::Confirm => match key.code {
-                //                 KeyCode::Tab => state.focused_widget = state.focused_widget.next(),
-                //                 KeyCode::Enter => {
-                //                     if let Ok(range) = state.range_input.parse::<i64>() {
-                //                         // NEW: Start a new fetch for the custom query.
-                //                         let (tx_new, rx_new) = mpsc::channel(6);
-                //                         rx = rx_new; // Replace the receiver with the new one.
-                //                         // Reset all data state for the new fetch.
-                //                         cpu_by_account_data = None;
-                //                         cpu_by_node_data = None;
-                //                         gpu_by_type_data = None;
-                //                         cpu_by_account_capacity = None;
-                //                         cpu_by_node_capacity = None;
-                //                         gpu_by_type_capacity = None;
-                //                         data_fetch_count = 0;
-                //
-                //                         spawn_custom_data_fetch(tx_new, range, state.selected_unit);
-                //                         app_state = AppState::Loading { tick: 0 };
-                //                     }
-                //                 }
-                //                 _ => {}
-                //             }
-                //         }
-                //     }
-                //     AppState::Loaded(app) => {
-                //         match key.code {
-                //             KeyCode::Char('1') => app.current_view = AppView::CpuByAccount,
-                //             KeyCode::Char('2') => app.current_view = AppView::CpuByNode,
-                //             KeyCode::Char('3') => app.current_view = AppView::GpuByType,
-                //             KeyCode::Right | KeyCode::Char('l') | KeyCode::Tab => app.next_view(),
-                //             KeyCode::Left | KeyCode::Char('h') => app.prev_view(),
-                //             KeyCode::Up | KeyCode::Char('k') => app.scroll_offset = app.scroll_offset.saturating_sub(1),
-                //             KeyCode::Down | KeyCode::Char('j') => app.scroll_offset = app.scroll_offset.saturating_add(1),
-                //             _ => {}
-                //         }
-                //     }
-                //     _ => {}
-                // }
             }
         }
 
-        // The Loading state now just waits for the pre-fetch or custom fetch to finish.
         if let AppState::Loading { ref mut tick } = app_state {
             *tick += 1;
             if data_fetch_count == 6 {
@@ -392,6 +308,237 @@ async fn run_app<B: Backend>(
         }
     }
 }
+
+
+// async fn run_app<B: Backend>(
+//     terminal: &mut Terminal<B>,
+//     mut rx: mpsc::Receiver<FetchedData>,
+// ) -> io::Result<()> {
+//     // Start the app in the MainMenu state.
+//     let mut app_state = AppState::MainMenu { selected: MainMenuSelection::Default };
+//
+//     let mut cpu_by_account_data: Option<Result<UsageData, AppError>> = None;
+//     let mut cpu_by_node_data: Option<Result<UsageData, AppError>> = None;
+//     let mut gpu_by_type_data: Option<Result<UsageData, AppError>> = None;
+//     let mut cpu_by_account_capacity: Option<Result<CapacityData, AppError>> = None;
+//     let mut cpu_by_node_capacity: Option<Result<CapacityData, AppError>> = None;
+//     let mut gpu_by_type_capacity: Option<Result<CapacityData, AppError>> = None;
+//
+//     let mut data_fetch_count = 0;
+//
+//     loop {
+//         terminal.draw(|f| ui(f, &app_state))?;
+//
+//         // --- NEW: Handle pre-fetching on every tick ---
+//         // This happens silently in the background, regardless of the current state.
+//         if data_fetch_count < 6 {
+//             if let Ok(fetched_data) = rx.try_recv() {
+//                 data_fetch_count += 1;
+//                 match fetched_data {
+//                     FetchedData::CpuByAccount(res) => cpu_by_account_data = Some(res),
+//                     FetchedData::CpuByNode(res) => cpu_by_node_data = Some(res),
+//                     FetchedData::GpuByType(res) => gpu_by_type_data = Some(res),
+//                     FetchedData::CpuCapacityByAccount(res) => cpu_by_account_capacity = Some(res),
+//                     FetchedData::CpuCapacityByNode(res) => cpu_by_node_capacity = Some(res),
+//                     FetchedData::GpuCapacityByType(res) => gpu_by_type_capacity = Some(res),
+//                 }
+//             }
+//         }
+//
+//         if event::poll(Duration::from_millis(100))? {
+//             if let Event::Key(key) = event::read()? {
+//                 if key.code == KeyCode::Char('q') {
+//                     if let AppState::Loaded(ref mut app) = app_state {
+//                         app.should_quit = true;
+//                     } else {
+//                         return Ok(());
+//                     }
+//                 }
+//
+//                 match &mut app_state {
+//                     AppState::MainMenu { selected } => {
+//                         match key.code {
+//                             KeyCode::Up | KeyCode::Down | KeyCode::Char('k') | KeyCode::Char('j')=> *selected = selected.toggle(),
+//                             KeyCode::Enter => {
+//                                 match selected {
+//                                     MainMenuSelection::Default => {
+//                                         if data_fetch_count == 6 {
+//                                             app_state = build_loaded_app(
+//                                                 &mut cpu_by_account_data, &mut cpu_by_node_data, &mut gpu_by_type_data,
+//                                                 &mut cpu_by_account_capacity, &mut cpu_by_node_capacity, &mut gpu_by_type_capacity
+//                                             );
+//                                         } else {
+//                                             app_state = AppState::Loading { tick: 0 };
+//                                         }
+//                                     },
+//                                     MainMenuSelection::Custom => {
+//                                         app_state = AppState::ParameterSelection(ParameterSelectionState::default());
+//                                     }
+//                                 }
+//                             },
+//                             _ => {}
+//                         }
+//                     }
+//                     // REFACTORED: This handler now uses a much cleaner and more robust pattern.
+//                     AppState::ParameterSelection(state) => {
+//                         match (key.code, state.focused_widget) {
+//                             // --- Global Keys for this state ---
+//                             (KeyCode::Tab, _) => state.focused_widget = state.focused_widget.next(),
+//
+//                             // --- Range Input Keys ---
+//                             (KeyCode::Char(c), ParameterFocus::Range) if c.is_ascii_digit() => {
+//                                 state.range_input.push(c);
+//                             }
+//                             (KeyCode::Backspace, ParameterFocus::Range) => {
+//                                 state.range_input.pop();
+//                             }
+//
+//                             // --- Unit Selector Keys ---
+//                             (KeyCode::Left, ParameterFocus::Unit) => {
+//                                 state.selected_unit = state.selected_unit.prev();
+//                             }
+//                             (KeyCode::Right, ParameterFocus::Unit) => {
+//                                 state.selected_unit = state.selected_unit.next();
+//                             }
+//
+//                             // --- Confirm Button Keys ---
+//                             (KeyCode::Enter, ParameterFocus::Confirm) => {
+//                                 if let Ok(range) = state.range_input.parse::<i64>() {
+//                                     if range > 0 {
+//                                         let (tx_new, rx_new) = mpsc::channel(6);
+//                                         rx = rx_new;
+//                                         cpu_by_account_data = None;
+//                                         cpu_by_node_data = None;
+//                                         gpu_by_type_data = None;
+//                                         cpu_by_account_capacity = None;
+//                                         cpu_by_node_capacity = None;
+//                                         gpu_by_type_capacity = None;
+//                                         data_fetch_count = 0;
+//
+//                                         spawn_custom_data_fetch(tx_new, range, state.selected_unit);
+//                                         app_state = AppState::Loading { tick: 0 };
+//                                     }
+//                                 }
+//                             }
+//                             // Ignore all other key presses
+//                             _ => {}
+//                         }
+//                     }
+//                     AppState::Loaded(app) => {
+//                         match key.code {
+//                             KeyCode::Char('1') => app.current_view = AppView::CpuByAccount,
+//                             KeyCode::Char('2') => app.current_view = AppView::CpuByNode,
+//                             KeyCode::Char('3') => app.current_view = AppView::GpuByType,
+//                             KeyCode::Right | KeyCode::Char('l') | KeyCode::Tab => app.next_view(),
+//                             KeyCode::Left | KeyCode::Char('h') => app.prev_view(),
+//                             KeyCode::Up | KeyCode::Char('k') => app.scroll_offset = app.scroll_offset.saturating_sub(1),
+//                             KeyCode::Down | KeyCode::Char('j') => app.scroll_offset = app.scroll_offset.saturating_add(1),
+//                             _ => {}
+//                         }
+//                     }
+//                     _ => {} // No input for Loading or Error states.
+//                 }
+//
+//                 // match &mut app_state {
+//                 //     AppState::MainMenu { selected } => {
+//                 //         match key.code {
+//                 //             KeyCode::Up | KeyCode::Down | KeyCode::Char('k') | KeyCode::Char('j')=> *selected = selected.toggle(),
+//                 //             KeyCode::Enter => {
+//                 //                 match selected {
+//                 //                     MainMenuSelection::Default => {
+//                 //                         // NEW: Smart transition logic.
+//                 //                         if data_fetch_count == 6 {
+//                 //                             // Data is ready, transition directly to Loaded.
+//                 //                             app_state = build_loaded_app(
+//                 //                                 &mut cpu_by_account_data, &mut cpu_by_node_data, &mut gpu_by_type_data,
+//                 //                                 &mut cpu_by_account_capacity, &mut cpu_by_node_capacity, &mut gpu_by_type_capacity
+//                 //                             );
+//                 //                         } else {
+//                 //                             // Data not ready, go to Loading screen to wait.
+//                 //                             app_state = AppState::Loading { tick: 0 };
+//                 //                         }
+//                 //                     },
+//                 //                     MainMenuSelection::Custom => {
+//                 //                         app_state = AppState::ParameterSelection(ParameterSelectionState::default());
+//                 //                     }
+//                 //                 }
+//                 //             },
+//                 //             _ => {}
+//                 //         }
+//                 //     }
+//                 //     AppState::ParameterSelection(state) => {
+//                 //         match state.focused_widget {
+//                 //             ParameterFocus::Range => match key.code {
+//                 //                 KeyCode::Char(c) if c.is_ascii_digit() => state.range_input.push(c),
+//                 //                 KeyCode::Backspace => { state.range_input.pop(); },
+//                 //                 KeyCode::Tab => state.focused_widget = state.focused_widget.next(),
+//                 //                 _ => {}
+//                 //             },
+//                 //             ParameterFocus::Unit => match key.code {
+//                 //                 KeyCode::Left => state.selected_unit = state.selected_unit.prev(),
+//                 //                 KeyCode::Right => state.selected_unit = state.selected_unit.next(),
+//                 //                 KeyCode::Tab => state.focused_widget = state.focused_widget.next(),
+//                 //                 _ => {}
+//                 //             },
+//                 //             ParameterFocus::Confirm => match key.code {
+//                 //                 KeyCode::Tab => state.focused_widget = state.focused_widget.next(),
+//                 //                 KeyCode::Enter => {
+//                 //                     if let Ok(range) = state.range_input.parse::<i64>() {
+//                 //                         // NEW: Start a new fetch for the custom query.
+//                 //                         let (tx_new, rx_new) = mpsc::channel(6);
+//                 //                         rx = rx_new; // Replace the receiver with the new one.
+//                 //                         // Reset all data state for the new fetch.
+//                 //                         cpu_by_account_data = None;
+//                 //                         cpu_by_node_data = None;
+//                 //                         gpu_by_type_data = None;
+//                 //                         cpu_by_account_capacity = None;
+//                 //                         cpu_by_node_capacity = None;
+//                 //                         gpu_by_type_capacity = None;
+//                 //                         data_fetch_count = 0;
+//                 //
+//                 //                         spawn_custom_data_fetch(tx_new, range, state.selected_unit);
+//                 //                         app_state = AppState::Loading { tick: 0 };
+//                 //                     }
+//                 //                 }
+//                 //                 _ => {}
+//                 //             }
+//                 //         }
+//                 //     }
+//                 //     AppState::Loaded(app) => {
+//                 //         match key.code {
+//                 //             KeyCode::Char('1') => app.current_view = AppView::CpuByAccount,
+//                 //             KeyCode::Char('2') => app.current_view = AppView::CpuByNode,
+//                 //             KeyCode::Char('3') => app.current_view = AppView::GpuByType,
+//                 //             KeyCode::Right | KeyCode::Char('l') | KeyCode::Tab => app.next_view(),
+//                 //             KeyCode::Left | KeyCode::Char('h') => app.prev_view(),
+//                 //             KeyCode::Up | KeyCode::Char('k') => app.scroll_offset = app.scroll_offset.saturating_sub(1),
+//                 //             KeyCode::Down | KeyCode::Char('j') => app.scroll_offset = app.scroll_offset.saturating_add(1),
+//                 //             _ => {}
+//                 //         }
+//                 //     }
+//                 //     _ => {}
+//                 // }
+//             }
+//         }
+//
+//         // The Loading state now just waits for the pre-fetch or custom fetch to finish.
+//         if let AppState::Loading { ref mut tick } = app_state {
+//             *tick += 1;
+//             if data_fetch_count == 6 {
+//                 app_state = build_loaded_app(
+//                     &mut cpu_by_account_data, &mut cpu_by_node_data, &mut gpu_by_type_data,
+//                     &mut cpu_by_account_capacity, &mut cpu_by_node_capacity, &mut gpu_by_type_capacity
+//                 );
+//             }
+//         }
+//
+//         if let AppState::Loaded(app) = &app_state {
+//             if app.should_quit {
+//                 return Ok(());
+//             }
+//         }
+//     }
+// }
 
 fn build_loaded_app(
     cpu_by_account_data: &mut Option<Result<UsageData, AppError>>,
