@@ -164,7 +164,7 @@ fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView, page_info: Option
 
 fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize) -> (usize, usize) {
     // --- Layout Constants ---
-    const MINIMUM_CHART_WIDTH: u16 = 70;
+    const MINIMUM_CHART_WIDTH: u16 = 65;
     const CHART_HEIGHT: u16 = 10;
     const BAR_WIDTH: u16 = 6;
     const BAR_GAP: u16 = 1;
