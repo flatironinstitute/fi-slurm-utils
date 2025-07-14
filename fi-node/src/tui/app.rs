@@ -152,10 +152,6 @@ pub enum FetchedData {
     GpuCapacityByType(Result<CapacityData, AppError>),
 }
 
-// Helper function to spawn data fetching tasks for the default view.
-fn spawn_default_data_fetch(tx: mpsc::Sender<FetchedData>) {
-    spawn_custom_data_fetch(tx, 7, PrometheusTimeScale::Day);
-}
 
 fn spawn_custom_data_fetch(tx: mpsc::Sender<FetchedData>, range: i64, unit: PrometheusTimeScale) {
     tokio::spawn(get_cpu_by_account_data_async(tx.clone(), range, unit));
@@ -277,7 +273,7 @@ async fn run_app<B: Backend>(
                             }
                         }
                     }
-                    AppState::Loaded(ref mut app) => {
+                    AppState::Loaded(app) => {
                         match key.code {
                             KeyCode::Char('1') => app.current_view = AppView::CpuByAccount,
                             KeyCode::Char('2') => app.current_view = AppView::CpuByNode,
@@ -311,169 +307,60 @@ async fn run_app<B: Backend>(
             }
         }
     }
+}
 
+fn build_loaded_app(
+    cpu_by_account_data: &mut Option<Result<UsageData, AppError>>,
+    cpu_by_node_data: &mut Option<Result<UsageData, AppError>>,
+    gpu_by_type_data: &mut Option<Result<UsageData, AppError>>,
+    cpu_by_account_capacity: &mut Option<Result<CapacityData, AppError>>,
+    cpu_by_node_capacity: &mut Option<Result<CapacityData, AppError>>,
+    gpu_by_type_capacity: &mut Option<Result<CapacityData, AppError>>,
+) -> AppState {
+    let error_checks = [
+        cpu_by_account_data.as_ref().and_then(|r| r.as_ref().err().cloned()),
+        cpu_by_node_data.as_ref().and_then(|r| r.as_ref().err().cloned()),
+        gpu_by_type_data.as_ref().and_then(|r| r.as_ref().err().cloned()),
+        cpu_by_account_capacity.as_ref().and_then(|r| r.as_ref().err().cloned()),
+        cpu_by_node_capacity.as_ref().and_then(|r| r.as_ref().err().cloned()),
+        gpu_by_type_capacity.as_ref().and_then(|r| r.as_ref().err().cloned()),
+    ];
 
+    if let Some(err_opt) = error_checks.iter().flatten().next() {
+        return AppState::Error(err_opt.clone());
+    }
 
-    // let mut rx: Option<mpsc::Receiver<FetchedData>> = None;
-    //
-    // loop {
-    //     terminal.draw(|f| ui(f, &app_state))?;
-    //
-    //     if event::poll(Duration::from_millis(100))? {
-    //         if let Event::Key(key) = event::read()? {
-    //             if key.code == KeyCode::Char('q') {
-    //                 if let AppState::Loaded(ref mut app) = app_state {
-    //                     app.should_quit = true;
-    //                 } else {
-    //                     return Ok(());
-    //                 }
-    //             }
-    //
-    //             // State-specific input handling
-    //             match &mut app_state {
-    //                 AppState::MainMenu { selected } => {
-    //                     match key.code {
-    //                         KeyCode::Up | KeyCode::Down => *selected = selected.toggle(),
-    //                         KeyCode::Enter => {
-    //                             match selected {
-    //                                 MainMenuSelection::Default => {
-    //                                     let (tx_new, rx_new) = mpsc::channel(6);
-    //                                     rx = Some(rx_new);
-    //                                     spawn_default_data_fetch(tx_new);
-    //                                     app_state = AppState::Loading { tick: 0 };
-    //                                 },
-    //                                 MainMenuSelection::Custom => {
-    //                                     // Transition to the new ParameterSelection state.
-    //                                     app_state = AppState::ParameterSelection(ParameterSelectionState::default());
-    //                                 }
-    //                             }
-    //                         },
-    //                         _ => {}
-    //                     }
-    //                 }
-    //                 AppState::ParameterSelection(state) => {
-    //                     match state.focused_widget {
-    //                         ParameterFocus::Range => match key.code {
-    //                             KeyCode::Char(c) if c.is_ascii_digit() => state.range_input.push(c),
-    //                             KeyCode::Backspace => { state.range_input.pop(); },
-    //                             KeyCode::Tab => state.focused_widget = state.focused_widget.next(),
-    //                             _ => {}
-    //                         },
-    //                         ParameterFocus::Unit => match key.code {
-    //                             KeyCode::Left => state.selected_unit = state.selected_unit.prev(),
-    //                             KeyCode::Right => state.selected_unit = state.selected_unit.next(),
-    //                             KeyCode::Tab => state.focused_widget = state.focused_widget.next(),
-    //                             _ => {}
-    //                         },
-    //                         ParameterFocus::Confirm => match key.code {
-    //                             KeyCode::Tab => state.focused_widget = state.focused_widget.next(),
-    //                             KeyCode::Enter => {
-    //                                 if let Ok(range) = state.range_input.parse::<i64>() {
-    //                                     let (tx_new, rx_new) = mpsc::channel(6);
-    //                                     rx = Some(rx_new);
-    //                                     spawn_custom_data_fetch(tx_new, range, state.selected_unit);
-    //                                     app_state = AppState::Loading { tick: 0 };
-    //                                 }
-    //                                 // Optional: Handle parse error, maybe by flashing the input box red.
-    //                             }
-    //                             _ => {}
-    //                         }
-    //                     }
-    //                 }
-    //                 AppState::Loaded(app) => {
-    //                     match key.code {
-    //                         KeyCode::Char('1') => app.current_view = AppView::CpuByAccount,
-    //                         KeyCode::Char('2') => app.current_view = AppView::CpuByNode,
-    //                         KeyCode::Char('3') => app.current_view = AppView::GpuByType,
-    //                         KeyCode::Right | KeyCode::Char('l') | KeyCode::Tab => app.next_view(),
-    //                         KeyCode::Left | KeyCode::Char('h') => app.prev_view(),
-    //                         KeyCode::Up | KeyCode::Char('k') => app.scroll_offset = app.scroll_offset.saturating_sub(1),
-    //                         KeyCode::Down | KeyCode::Char('j') => app.scroll_offset = app.scroll_offset.saturating_add(1),
-    //                         _ => {}
-    //                     }
-    //                 }
-    //                 _ => {}
-    //             }
-    //         }
-    //     }
-    //
-    //     if let AppState::Loading { ref mut tick } = app_state {
-    //         *tick += 1;
-    //
-    //         if let Some(ref mut receiver) = rx {
-    //             if let Ok(fetched_data) = receiver.try_recv() {
-    //                 data_fetch_count += 1;
-    //                 match fetched_data {
-    //                     FetchedData::CpuByAccount(res) => cpu_by_account_data = Some(res),
-    //                     FetchedData::CpuByNode(res) => cpu_by_node_data = Some(res),
-    //                     FetchedData::GpuByType(res) => gpu_by_type_data = Some(res),
-    //                     FetchedData::CpuCapacityByAccount(res) => cpu_by_account_capacity = Some(res),
-    //                     FetchedData::CpuCapacityByNode(res) => cpu_by_node_capacity = Some(res),
-    //                     FetchedData::GpuCapacityByType(res) => gpu_by_type_capacity = Some(res),
-    //                 }
-    //             }
-    //         }
-    //
-    //         if data_fetch_count == 6 {
-    //             let mut first_error: Option<AppError> = None;
-    //
-    //             let error_checks = [
-    //                 cpu_by_account_data.as_ref().and_then(|r| r.as_ref().err().cloned()),
-    //                 cpu_by_node_data.as_ref().and_then(|r| r.as_ref().err().cloned()),
-    //                 gpu_by_type_data.as_ref().and_then(|r| r.as_ref().err().cloned()),
-    //                 cpu_by_account_capacity.as_ref().and_then(|r| r.as_ref().err().cloned()),
-    //                 cpu_by_node_capacity.as_ref().and_then(|r| r.as_ref().err().cloned()),
-    //                 gpu_by_type_capacity.as_ref().and_then(|r| r.as_ref().err().cloned()),
-    //             ];
-    //
-    //             if let Some(err_opt) = error_checks.iter().flatten().next() {
-    //                 first_error = Some(err_opt.clone());
-    //             }
-    //
-    //             if let Some(error) = first_error {
-    //                 app_state = AppState::Error(error);
-    //             } else {
-    //                 let final_cpu_by_account = {
-    //                     let usage = cpu_by_account_data.take().unwrap().unwrap();
-    //                     let capacity = cpu_by_account_capacity.take().unwrap().unwrap();
-    //                     ChartData { source_data: usage.source_data, capacity_data: capacity.capacities }
-    //                 };
-    //                 let final_cpu_by_node = {
-    //                     let usage = cpu_by_node_data.take().unwrap().unwrap();
-    //                     let capacity = cpu_by_node_capacity.take().unwrap().unwrap();
-    //                     ChartData { source_data: usage.source_data, capacity_data: capacity.capacities }
-    //                 };
-    //                 let final_gpu_by_type = {
-    //                     let usage = gpu_by_type_data.take().unwrap().unwrap();
-    //                     let capacity = gpu_by_type_capacity.take().unwrap().unwrap();
-    //                     ChartData { source_data: usage.source_data, capacity_data: capacity.capacities }
-    //                 };
-    //
-    //                 let app = App {
-    //                     current_view: AppView::CpuByAccount,
-    //                     scroll_offset: 0,
-    //                     cpu_by_account: final_cpu_by_account,
-    //                     cpu_by_node: final_cpu_by_node,
-    //                     gpu_by_type: final_gpu_by_type,
-    //                     should_quit: false,
-    //                 };
-    //                 app_state = AppState::Loaded(app);
-    //             }
-    //         }
-    //     }
-    //
-    //     if let AppState::Loaded(app) = &app_state {
-    //         if app.should_quit {
-    //             return Ok(());
-    //         }
-    //     }
-    // }
+    let final_cpu_by_account = {
+        let usage = cpu_by_account_data.take().unwrap().unwrap();
+        let capacity = cpu_by_account_capacity.take().unwrap().unwrap();
+        ChartData { source_data: usage.source_data, capacity_data: capacity.capacities }
+    };
+    let final_cpu_by_node = {
+        let usage = cpu_by_node_data.take().unwrap().unwrap();
+        let capacity = cpu_by_node_capacity.take().unwrap().unwrap();
+        ChartData { source_data: usage.source_data, capacity_data: capacity.capacities }
+    };
+    let final_gpu_by_type = {
+        let usage = gpu_by_type_data.take().unwrap().unwrap();
+        let capacity = gpu_by_type_capacity.take().unwrap().unwrap();
+        ChartData { source_data: usage.source_data, capacity_data: capacity.capacities }
+    };
+
+    let app = App {
+        current_view: AppView::CpuByAccount,
+        scroll_offset: 0,
+        cpu_by_account: final_cpu_by_account,
+        cpu_by_node: final_cpu_by_node,
+        gpu_by_type: final_gpu_by_type,
+        should_quit: false,
+    };
+    AppState::Loaded(app)
 }
 
 #[tokio::main]
 pub async fn tui_execute() -> Result<(), Box<dyn std::error::Error>> {
     enable_raw_mode()?;
-    let mut stdout = io.stdout();
+    let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
