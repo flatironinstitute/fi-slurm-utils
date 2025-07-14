@@ -114,7 +114,7 @@ impl ParameterFocus {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct ParameterSelectionState {
     pub range_input: String,
     pub selected_unit: PrometheusTimeScale,
