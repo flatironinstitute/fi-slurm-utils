@@ -211,7 +211,7 @@ async fn run_app<B: Backend>(
                 match &mut app_state {
                     AppState::MainMenu { selected } => {
                         match key.code {
-                            KeyCode::Up | KeyCode::Down => *selected = selected.toggle(),
+                            KeyCode::Up | KeyCode::Down | KeyCode::Char('k') | KeyCode::Char('j')=> *selected = selected.toggle(),
                             KeyCode::Enter => {
                                 match selected {
                                     MainMenuSelection::Default => {

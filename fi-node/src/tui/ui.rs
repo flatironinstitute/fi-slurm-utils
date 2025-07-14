@@ -95,7 +95,6 @@ fn draw_main_menu(f: &mut Frame, area: Rect, selected: MainMenuSelection) {
 
     let inner_chunks = Layout::default()
         .direction(Direction::Vertical)
-        .margin(1)
         .constraints([
             Constraint::Length(1),
             Constraint::Length(1), // Spacer
