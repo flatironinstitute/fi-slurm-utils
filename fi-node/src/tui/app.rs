@@ -215,15 +215,12 @@ async fn run_app<B: Backend>(
                             KeyCode::Enter => {
                                 match selected {
                                     MainMenuSelection::Default => {
-                                        // NEW: Smart transition logic.
                                         if data_fetch_count == 6 {
-                                            // Data is ready, transition directly to Loaded.
                                             app_state = build_loaded_app(
                                                 &mut cpu_by_account_data, &mut cpu_by_node_data, &mut gpu_by_type_data,
                                                 &mut cpu_by_account_capacity, &mut cpu_by_node_capacity, &mut gpu_by_type_capacity
                                             );
                                         } else {
-                                            // Data not ready, go to Loading screen to wait.
                                             app_state = AppState::Loading { tick: 0 };
                                         }
                                     },
@@ -236,40 +233,40 @@ async fn run_app<B: Backend>(
                         }
                     }
                     AppState::ParameterSelection(state) => {
-                        match state.focused_widget {
-                            ParameterFocus::Range => match key.code {
-                                KeyCode::Char(c) if c.is_ascii_digit() => state.range_input.push(c),
-                                KeyCode::Backspace => { state.range_input.pop(); },
-                                KeyCode::Tab => state.focused_widget = state.focused_widget.next(),
-                                _ => {}
-                            },
-                            ParameterFocus::Unit => match key.code {
-                                KeyCode::Left => state.selected_unit = state.selected_unit.prev(),
-                                KeyCode::Right => state.selected_unit = state.selected_unit.next(),
-                                KeyCode::Tab => state.focused_widget = state.focused_widget.next(),
-                                _ => {}
-                            },
-                            ParameterFocus::Confirm => match key.code {
-                                KeyCode::Tab => state.focused_widget = state.focused_widget.next(),
-                                KeyCode::Enter => {
-                                    if let Ok(range) = state.range_input.parse::<i64>() {
-                                        // NEW: Start a new fetch for the custom query.
-                                        let (tx_new, rx_new) = mpsc::channel(6);
-                                        rx = rx_new; // Replace the receiver with the new one.
-                                        // Reset all data state for the new fetch.
-                                        cpu_by_account_data = None;
-                                        cpu_by_node_data = None;
-                                        gpu_by_type_data = None;
-                                        cpu_by_account_capacity = None;
-                                        cpu_by_node_capacity = None;
-                                        gpu_by_type_capacity = None;
-                                        data_fetch_count = 0;
+                        // Handle Tab key separately to cycle focus.
+                        if key.code == KeyCode::Tab {
+                            state.focused_widget = state.focused_widget.next();
+                        } else {
+                            // Handle other keys based on which widget is focused.
+                            match state.focused_widget {
+                                ParameterFocus::Range => match key.code {
+                                    KeyCode::Char(c) if c.is_ascii_digit() => state.range_input.push(c),
+                                    KeyCode::Backspace => { state.range_input.pop(); },
+                                    _ => {}
+                                },
+                                ParameterFocus::Unit => match key.code {
+                                    KeyCode::Left => state.selected_unit = state.selected_unit.prev(),
+                                    KeyCode::Right => state.selected_unit = state.selected_unit.next(),
+                                    _ => {}
+                                },
+                                ParameterFocus::Confirm => {
+                                    if key.code == KeyCode::Enter {
+                                        if let Ok(range) = state.range_input.parse::<i64>() {
+                                            let (tx_new, rx_new) = mpsc::channel(6);
+                                            rx = rx_new;
+                                            cpu_by_account_data = None;
+                                            cpu_by_node_data = None;
+                                            gpu_by_type_data = None;
+                                            cpu_by_account_capacity = None;
+                                            cpu_by_node_capacity = None;
+                                            gpu_by_type_capacity = None;
+                                            data_fetch_count = 0;
 
-                                        spawn_custom_data_fetch(tx_new, range, state.selected_unit);
-                                        app_state = AppState::Loading { tick: 0 };
+                                            spawn_custom_data_fetch(tx_new, range, state.selected_unit);
+                                            app_state = AppState::Loading { tick: 0 };
+                                        }
                                     }
                                 }
-                                _ => {}
                             }
                         }
                     }
@@ -285,8 +282,88 @@ async fn run_app<B: Backend>(
                             _ => {}
                         }
                     }
-                    _ => {}
+                    _ => {} // No input for Loading or Error states.
                 }
+
+                // match &mut app_state {
+                //     AppState::MainMenu { selected } => {
+                //         match key.code {
+                //             KeyCode::Up | KeyCode::Down | KeyCode::Char('k') | KeyCode::Char('j')=> *selected = selected.toggle(),
+                //             KeyCode::Enter => {
+                //                 match selected {
+                //                     MainMenuSelection::Default => {
+                //                         // NEW: Smart transition logic.
+                //                         if data_fetch_count == 6 {
+                //                             // Data is ready, transition directly to Loaded.
+                //                             app_state = build_loaded_app(
+                //                                 &mut cpu_by_account_data, &mut cpu_by_node_data, &mut gpu_by_type_data,
+                //                                 &mut cpu_by_account_capacity, &mut cpu_by_node_capacity, &mut gpu_by_type_capacity
+                //                             );
+                //                         } else {
+                //                             // Data not ready, go to Loading screen to wait.
+                //                             app_state = AppState::Loading { tick: 0 };
+                //                         }
+                //                     },
+                //                     MainMenuSelection::Custom => {
+                //                         app_state = AppState::ParameterSelection(ParameterSelectionState::default());
+                //                     }
+                //                 }
+                //             },
+                //             _ => {}
+                //         }
+                //     }
+                //     AppState::ParameterSelection(state) => {
+                //         match state.focused_widget {
+                //             ParameterFocus::Range => match key.code {
+                //                 KeyCode::Char(c) if c.is_ascii_digit() => state.range_input.push(c),
+                //                 KeyCode::Backspace => { state.range_input.pop(); },
+                //                 KeyCode::Tab => state.focused_widget = state.focused_widget.next(),
+                //                 _ => {}
+                //             },
+                //             ParameterFocus::Unit => match key.code {
+                //                 KeyCode::Left => state.selected_unit = state.selected_unit.prev(),
+                //                 KeyCode::Right => state.selected_unit = state.selected_unit.next(),
+                //                 KeyCode::Tab => state.focused_widget = state.focused_widget.next(),
+                //                 _ => {}
+                //             },
+                //             ParameterFocus::Confirm => match key.code {
+                //                 KeyCode::Tab => state.focused_widget = state.focused_widget.next(),
+                //                 KeyCode::Enter => {
+                //                     if let Ok(range) = state.range_input.parse::<i64>() {
+                //                         // NEW: Start a new fetch for the custom query.
+                //                         let (tx_new, rx_new) = mpsc::channel(6);
+                //                         rx = rx_new; // Replace the receiver with the new one.
+                //                         // Reset all data state for the new fetch.
+                //                         cpu_by_account_data = None;
+                //                         cpu_by_node_data = None;
+                //                         gpu_by_type_data = None;
+                //                         cpu_by_account_capacity = None;
+                //                         cpu_by_node_capacity = None;
+                //                         gpu_by_type_capacity = None;
+                //                         data_fetch_count = 0;
+                //
+                //                         spawn_custom_data_fetch(tx_new, range, state.selected_unit);
+                //                         app_state = AppState::Loading { tick: 0 };
+                //                     }
+                //                 }
+                //                 _ => {}
+                //             }
+                //         }
+                //     }
+                //     AppState::Loaded(app) => {
+                //         match key.code {
+                //             KeyCode::Char('1') => app.current_view = AppView::CpuByAccount,
+                //             KeyCode::Char('2') => app.current_view = AppView::CpuByNode,
+                //             KeyCode::Char('3') => app.current_view = AppView::GpuByType,
+                //             KeyCode::Right | KeyCode::Char('l') | KeyCode::Tab => app.next_view(),
+                //             KeyCode::Left | KeyCode::Char('h') => app.prev_view(),
+                //             KeyCode::Up | KeyCode::Char('k') => app.scroll_offset = app.scroll_offset.saturating_sub(1),
+                //             KeyCode::Down | KeyCode::Char('j') => app.scroll_offset = app.scroll_offset.saturating_add(1),
+                //             _ => {}
+                //         }
+                //     }
+                //     _ => {}
+                // }
             }
         }
 
