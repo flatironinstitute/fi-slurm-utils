@@ -233,25 +233,34 @@ async fn run_app<B: Backend>(
                         }
                     }
                     AppState::ParameterSelection(state) => {
-                        // Handle Tab key separately to cycle focus.
-                        if key.code == KeyCode::Tab {
-                            state.focused_widget = state.focused_widget.next();
-                        } else {
-                            // Handle other keys based on which widget is focused.
-                            match state.focused_widget {
-                                ParameterFocus::Range => match key.code {
-                                    KeyCode::Char(c) if c.is_ascii_digit() => state.range_input.push(c),
-                                    KeyCode::Backspace => { state.range_input.pop(); },
-                                    _ => {}
-                                },
-                                ParameterFocus::Unit => match key.code {
-                                    KeyCode::Left => state.selected_unit = state.selected_unit.prev(),
-                                    KeyCode::Right => state.selected_unit = state.selected_unit.next(),
-                                    _ => {}
-                                },
-                                ParameterFocus::Confirm => {
-                                    if key.code == KeyCode::Enter {
-                                        if let Ok(range) = state.range_input.parse::<i64>() {
+                        match key.code {
+                            KeyCode::Tab => {
+                                state.focused_widget = state.focused_widget.next();
+                            }
+                            KeyCode::Char(c) if c.is_ascii_digit() => {
+                                if state.focused_widget == ParameterFocus::Range {
+                                    state.range_input.push(c);
+                                }
+                            }
+                            KeyCode::Backspace => {
+                                if state.focused_widget == ParameterFocus::Range {
+                                    state.range_input.pop();
+                                }
+                            }
+                            KeyCode::Left => {
+                                if state.focused_widget == ParameterFocus::Unit {
+                                    state.selected_unit = state.selected_unit.prev();
+                                }
+                            }
+                            KeyCode::Right => {
+                                if state.focused_widget == ParameterFocus::Unit {
+                                    state.selected_unit = state.selected_unit.next();
+                                }
+                            }
+                            KeyCode::Enter => {
+                                if state.focused_widget == ParameterFocus::Confirm {
+                                    if let Ok(range) = state.range_input.parse::<i64>() {
+                                        if range > 0 {
                                             let (tx_new, rx_new) = mpsc::channel(6);
                                             rx = rx_new;
                                             cpu_by_account_data = None;
@@ -268,6 +277,7 @@ async fn run_app<B: Backend>(
                                     }
                                 }
                             }
+                            _ => {}
                         }
                     }
                     AppState::Loaded(app) => {
@@ -284,6 +294,7 @@ async fn run_app<B: Backend>(
                     }
                     _ => {} // No input for Loading or Error states.
                 }
+
 
                 // match &mut app_state {
                 //     AppState::MainMenu { selected } => {
