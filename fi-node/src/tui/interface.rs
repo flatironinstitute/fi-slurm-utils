@@ -10,7 +10,6 @@ pub enum PrometheusTimeScale {
     Hour,
     Day,
     Week,
-    Month,
     Year,
 }
 
@@ -66,7 +65,6 @@ fn prometheus_data_request(
         PrometheusTimeScale::Hour => "1h".to_string(),
         PrometheusTimeScale::Day => "1d".to_string(),
         PrometheusTimeScale::Week => "1w".to_string(),
-        PrometheusTimeScale::Month => "1M".to_string(),
         PrometheusTimeScale::Year => "1Y".to_string(),
     };
 
