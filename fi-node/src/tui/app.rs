@@ -128,20 +128,12 @@ pub enum FetchedData {
 
 // NEW: Helper function to spawn all data fetching tasks.
 fn spawn_default_data_fetch(tx: mpsc::Sender<FetchedData>) {
-
     tokio::spawn(get_cpu_by_account_data_async(tx.clone(), 7, PrometheusTimeScale::Day));
     tokio::spawn(get_cpu_by_node_data_async(tx.clone(), 7, PrometheusTimeScale::Day));
     tokio::spawn(get_gpu_by_type_data_async(tx.clone(), 7, PrometheusTimeScale::Day));
     tokio::spawn(get_cpu_capacity_by_account_async(tx.clone(), 7, PrometheusTimeScale::Day));
     tokio::spawn(get_cpu_capacity_by_node_async(tx.clone(), 7, PrometheusTimeScale::Day));
     tokio::spawn(get_gpu_capacity_by_type_async(tx.clone(), 7, PrometheusTimeScale::Day));
-
-    // tokio::spawn(get_cpu_by_account_data_async(tx.clone()));
-    // tokio::spawn(get_cpu_by_node_data_async(tx.clone()));
-    // tokio::spawn(get_gpu_by_type_data_async(tx.clone()));
-    // tokio::spawn(get_cpu_capacity_by_account_async(tx.clone()));
-    // tokio::spawn(get_cpu_capacity_by_node_async(tx.clone()));
-    // tokio::spawn(get_gpu_capacity_by_type_async(tx.clone()));
 }
 
 
