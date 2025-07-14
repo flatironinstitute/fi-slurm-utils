@@ -148,7 +148,7 @@ fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView) {
 // REFACTORED: This function now scales each chart to its own capacity.
 fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize) -> (usize, usize) {
     // --- Layout Constants ---
-    const MINIMUM_CHART_WIDTH: u16 = 35;
+    const MINIMUM_CHART_WIDTH: u16 = 70;
     const CHART_HEIGHT: u16 = 10;
     const BAR_WIDTH: u16 = 6;
     const BAR_GAP: u16 = 1;
@@ -303,7 +303,7 @@ fn draw_footer(f: &mut Frame, area: Rect, page_info: Option<(usize, usize)>) {
     
     let footer_text = if let Some((current, total)) = page_info {
         if total > 1 {
-            format!("{} (↑/↓ to scroll) Page {} / {}", base_text, current, total)
+            format!("{} (k/j, ↑/↓ to scroll) Page {} / {}", base_text, current, total)
         } else {
             base_text.to_string()
         }

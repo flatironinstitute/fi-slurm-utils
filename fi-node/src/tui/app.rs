@@ -149,8 +149,8 @@ async fn run_app<B: Backend>(
                         KeyCode::Char('3') => app.current_view = AppView::GpuByType,
                         KeyCode::Right | KeyCode::Char('l') | KeyCode::Tab => app.next_view(),
                         KeyCode::Left | KeyCode::Char('h') => app.prev_view(),
-                        KeyCode::Up => app.scroll_offset = app.scroll_offset.saturating_sub(1),
-                        KeyCode::Down => app.scroll_offset = app.scroll_offset.saturating_add(1),
+                        KeyCode::Up | KeyCode::Char('k')=> app.scroll_offset = app.scroll_offset.saturating_sub(1),
+                        KeyCode::Down | KeyCode::Char('j')=> app.scroll_offset = app.scroll_offset.saturating_add(1),
                         _ => {}
                     }
                 }
