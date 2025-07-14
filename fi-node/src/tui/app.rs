@@ -238,6 +238,7 @@ async fn run_app<B: Backend>(
                             // --- Range Input Keys ---
                             (KeyCode::Char(c), ParameterFocus::Range) if c.is_ascii_digit() => {
                                 state.range_input.push(c);
+                                eprintln!("Input updated: {}", state.range_input);
                             }
                             (KeyCode::Backspace, ParameterFocus::Range) => {
                                 state.range_input.pop();
