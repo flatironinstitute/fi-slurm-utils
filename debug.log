@@ -1,0 +1,212 @@
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.70s
+     Running `target/debug/fi_node --terminal`
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- EVENT DETECTED ---
+Key pressed: Char('j')
+Handling event in MainMenu state.
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- EVENT DETECTED ---
+Key pressed: Enter
+Handling event in MainMenu state.
+Transitioning to ParameterSelection state.
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- EVENT DETECTED ---
+Key pressed: Char('5')
+Handling event in ParameterSelection state. Focus is on: Range
+Range input updated: 5
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- EVENT DETECTED ---
+Key pressed: Tab
+Handling event in ParameterSelection state. Focus is on: Range
+Focus changed to: Unit
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- EVENT DETECTED ---
+Key pressed: Tab
+Handling event in ParameterSelection state. Focus is on: Unit
+Focus changed to: Confirm
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- EVENT DETECTED ---
+Key pressed: Enter
+Handling event in ParameterSelection state. Focus is on: Confirm
+Enter pressed on Confirm.
+Spawning new data fetch for range 5 Day.
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- TOP OF LOOP: DRAWING FRAME ---
+
+--- EVENT DETECTED ---
+Key pressed: Char('q')
+Handling event in Loaded state.

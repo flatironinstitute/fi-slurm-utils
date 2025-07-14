@@ -124,7 +124,7 @@ pub struct ParameterSelectionState {
 
 // MODIFIED: The AppState enum now includes all application states.
 #[allow(clippy::large_enum_variant)]
-#[derive(Debug, Clone)]
+//#[derive(Debug, Clone)]
 pub enum AppState {
     MainMenu { selected: MainMenuSelection },
     ParameterSelection(ParameterSelectionState),
@@ -183,7 +183,7 @@ async fn run_app<B: Backend>(
     loop {
         // DEBUG: Print the state that is about to be rendered.
         eprintln!("\n--- TOP OF LOOP: DRAWING FRAME ---");
-        eprintln!("Current App State: {:?}", app_state);
+        //eprintln!("Current App State: {:?}", app_state);
         terminal.draw(|f| ui(f, &app_state))?;
 
         if data_fetch_count < 6 {
