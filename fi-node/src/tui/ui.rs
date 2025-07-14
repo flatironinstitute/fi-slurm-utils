@@ -13,10 +13,90 @@ use ratatui::{
 
 pub fn ui(f: &mut Frame, app_state: &AppState) {
     match app_state {
+        AppState::MainMenu { selected } => {
+            let chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([Constraint::Min(0), Constraint::Length(1)])
+                .split(f.area());
+            draw_main_menu(f, chunks[0], *selected);
+            draw_footer(f, chunks[1], None);
+        }
         AppState::Loading { tick } => draw_loading_screen(f, *tick),
-        AppState::Loaded(app) => draw_dashboard(f, app),
+        AppState::Loaded(app) => {
+            let main_chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Length(3), // For tabs
+                    Constraint::Min(0),    // For chart content
+                    Constraint::Length(1), // For footer
+                ])
+                .split(f.area());
+
+            draw_tabs(f, main_chunks[0], app.current_view, None);
+            let page_info = draw_charts(f, main_chunks[1], &get_chart_data(app), app.scroll_offset);
+            // Pass page info to both tabs and footer
+            draw_tabs(f, main_chunks[0], app.current_view, Some(page_info));
+            draw_footer(f, main_chunks[2], Some(page_info));
+        }
         AppState::Error(err) => draw_error_screen(f, err),
     }
+}
+
+
+// NEW: Function to draw the main menu screen.
+fn draw_main_menu(f: &mut Frame, area: Rect, selected: MainMenuSelection) {
+    // Create a layout to center the menu box.
+    let vertical_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Percentage(40),
+            Constraint::Length(5),
+            Constraint::Percentage(40),
+        ])
+        .split(area);
+
+    let horizontal_chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage(25),
+            Constraint::Percentage(50),
+            Constraint::Percentage(25),
+        ])
+        .split(vertical_chunks[1]);
+    
+    let menu_area = horizontal_chunks[1];
+
+    let selected_style = Style::default().bg(Color::Blue).fg(Color::White);
+    let normal_style = Style::default().fg(Color::White);
+
+    let default_text = Paragraph::new("View Default Dashboard (Last 7 Days)")
+        .alignment(Alignment::Center)
+        .style(if selected == MainMenuSelection::Default { selected_style } else { normal_style });
+    
+    let custom_text = Paragraph::new("Custom Query")
+        .alignment(Alignment::Center)
+        .style(if selected == MainMenuSelection::Custom { selected_style } else { normal_style });
+
+    let block = Block::default()
+        .title("Prometheus TUI")
+        .borders(Borders::ALL)
+        .border_set(border::ROUNDED);
+    
+    let inner_area = block.inner(menu_area);
+    f.render_widget(block, menu_area);
+
+    let inner_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .margin(1)
+        .constraints([
+            Constraint::Length(1),
+            Constraint::Length(1), // Spacer
+            Constraint::Length(1),
+        ])
+        .split(inner_area);
+
+    f.render_widget(default_text, inner_chunks[0]);
+    f.render_widget(custom_text, inner_chunks[2]);
 }
 
 fn draw_loading_screen(f: &mut Frame, tick: usize) {
@@ -90,29 +170,39 @@ fn draw_error_screen(f: &mut Frame, err: &AppError) {
     f.render_widget(paragraph, chunks[1]);
 }
 
-fn draw_dashboard(f: &mut Frame, app: &App) {
-    let main_chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints(
-            [
-                Constraint::Length(3), // For tabs
-                Constraint::Min(0),    // For chart content
-                Constraint::Length(1), // For footer
-            ]
-            .as_ref(),
-        )
-        .split(f.area());
-
-    let chart_data = match app.current_view {
+// NEW: Helper function to get the current chart data.
+fn get_chart_data(app: &App) -> &ChartData {
+    match app.current_view {
         AppView::CpuByAccount => &app.cpu_by_account,
         AppView::CpuByNode => &app.cpu_by_node,
         AppView::GpuByType => &app.gpu_by_type,
-    };
-
-    let page_info = draw_charts(f, main_chunks[1], chart_data, app.scroll_offset);
-    draw_tabs(f, main_chunks[0], app.current_view, Some(page_info));
-    draw_footer(f, main_chunks[2], Some(page_info));
+    }
 }
+
+
+// fn draw_dashboard(f: &mut Frame, app: &App) {
+//     let main_chunks = Layout::default()
+//         .direction(Direction::Vertical)
+//         .constraints(
+//             [
+//                 Constraint::Length(3), // For tabs
+//                 Constraint::Min(0),    // For chart content
+//                 Constraint::Length(1), // For footer
+//             ]
+//             .as_ref(),
+//         )
+//         .split(f.area());
+//
+//     let chart_data = match app.current_view {
+//         AppView::CpuByAccount => &app.cpu_by_account,
+//         AppView::CpuByNode => &app.cpu_by_node,
+//         AppView::GpuByType => &app.gpu_by_type,
+//     };
+//
+//     let page_info = draw_charts(f, main_chunks[1], chart_data, app.scroll_offset);
+//     draw_tabs(f, main_chunks[0], app.current_view, Some(page_info));
+//     draw_footer(f, main_chunks[2], Some(page_info));
+// }
 
 fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView, page_info: Option<(usize, usize)>) {
     let base_titles = ["(1) CPU by Account", "(2) CPU by Node", "(3) GPU by Type"];
@@ -317,18 +407,23 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
 }
 
 fn draw_footer(f: &mut Frame, area: Rect, page_info: Option<(usize, usize)>) {
-    let base_text = "Use (q) to quit, (h/l, ←/→, Tab, or numbers) to switch views.";
-    
-    let mut footer_text = base_text.to_string();
+    let mut instructions = vec![Span::from("Use (q) to quit")];
+
     if let Some((_, total)) = page_info {
+        // This is the dashboard view
+        instructions.push(Span::from(", (h/l, ←/→, Tab, or numbers) to switch views"));
         if total > 1 {
-            footer_text.push_str(" (↑/↓ to scroll)");
+            instructions.push(Span::from(", (↑/↓ to scroll)"));
         }
+    } else {
+        // This is the main menu view
+        instructions.push(Span::from(", (↑/↓ to select), (Enter) to confirm"));
     }
 
+    let footer_text = Line::from(instructions).alignment(Alignment::Center);
+
     let footer_paragraph = Paragraph::new(footer_text)
-        .style(Style::default().fg(Color::White).bg(Color::DarkGray))
-        .alignment(Alignment::Center);
+        .style(Style::default().fg(Color::White).bg(Color::DarkGray));
         
     f.render_widget(footer_paragraph, area);
 }
