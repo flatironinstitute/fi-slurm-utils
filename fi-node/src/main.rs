@@ -29,12 +29,12 @@ fn main() -> Result<(), String> {
 
     let args = Args::parse();
 
-    if args.test {
-        //let res = get_cpu_capacity_by_account();
-        //println!("{:?}", res.unwrap());
-
-        return Ok(())
-    }
+    //if args.test {
+    //    //let res = get_cpu_capacity_by_account();
+    //    //println!("{:?}", res.unwrap());
+    //
+    //    return Ok(())
+    //}
 
     if args.terminal {
         let _ = tui_execute();

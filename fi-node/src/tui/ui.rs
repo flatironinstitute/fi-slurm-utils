@@ -1,4 +1,5 @@
-use crate::tui::app::{App, AppError, AppState, AppView, ChartData};
+use crate::tui::app::{App, AppError, AppState, AppView, ChartData, MainMenuSelection, 
+    ParameterFocus, ParameterSelectionState};
 use ratatui::{
     prelude::*,
     layout::{Constraint, Direction, Layout, Rect},
@@ -19,7 +20,15 @@ pub fn ui(f: &mut Frame, app_state: &AppState) {
                 .constraints([Constraint::Min(0), Constraint::Length(1)])
                 .split(f.area());
             draw_main_menu(f, chunks[0], *selected);
-            draw_footer(f, chunks[1], None);
+            draw_footer(f, chunks[1], None, None);
+        }
+        AppState::ParameterSelection(state) => {
+            let chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([Constraint::Min(0), Constraint::Length(1)])
+                .split(f.area());
+            draw_parameter_selection_menu(f, chunks[0], state);
+            draw_footer(f, chunks[1], None, Some(state.focused_widget));
         }
         AppState::Loading { tick } => draw_loading_screen(f, *tick),
         AppState::Loaded(app) => {
@@ -33,17 +42,16 @@ pub fn ui(f: &mut Frame, app_state: &AppState) {
                 .split(f.area());
 
             draw_tabs(f, main_chunks[0], app.current_view, None);
-            let page_info = draw_charts(f, main_chunks[1], &get_chart_data(app), app.scroll_offset);
+            let page_info = draw_charts(f, main_chunks[1], get_chart_data(app), app.scroll_offset);
             // Pass page info to both tabs and footer
             draw_tabs(f, main_chunks[0], app.current_view, Some(page_info));
-            draw_footer(f, main_chunks[2], Some(page_info));
+            draw_footer(f, main_chunks[2], Some(page_info), None);
         }
         AppState::Error(err) => draw_error_screen(f, err),
     }
 }
 
 
-// NEW: Function to draw the main menu screen.
 fn draw_main_menu(f: &mut Frame, area: Rect, selected: MainMenuSelection) {
     // Create a layout to center the menu box.
     let vertical_chunks = Layout::default()
@@ -97,6 +105,78 @@ fn draw_main_menu(f: &mut Frame, area: Rect, selected: MainMenuSelection) {
 
     f.render_widget(default_text, inner_chunks[0]);
     f.render_widget(custom_text, inner_chunks[2]);
+}
+
+fn draw_parameter_selection_menu(f: &mut Frame, area: Rect, state: &ParameterSelectionState) {
+    let vertical_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Percentage(35),
+            Constraint::Length(9), // Increased height for better spacing
+            Constraint::Percentage(35),
+        ])
+        .split(area);
+
+    let horizontal_chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage(20),
+            Constraint::Percentage(60),
+            Constraint::Percentage(20),
+        ])
+        .split(vertical_chunks[1]);
+
+    let menu_area = horizontal_chunks[1];
+
+    let main_block = Block::default()
+        .title("Custom Query Parameters")
+        .borders(Borders::ALL)
+        .border_set(border::ROUNDED);
+    let inner_area = main_block.inner(menu_area);
+    f.render_widget(main_block, menu_area);
+
+    let inner_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .margin(1)
+        .constraints([
+            Constraint::Length(3), // Range input
+            Constraint::Length(3), // Unit selector
+            Constraint::Length(1), // Confirm button
+        ])
+        .split(inner_area);
+
+    let focused_style = Style::default().fg(Color::Yellow);
+    let normal_style = Style::default().fg(Color::White);
+
+    // 1. Range Input
+    let range_block = Block::default()
+        .title("Range")
+        .borders(Borders::ALL)
+        .border_style(if state.focused_widget == ParameterFocus::Range { focused_style } else { normal_style });
+    
+    let input_text = if state.focused_widget == ParameterFocus::Range {
+        format!("{}█", state.range_input)
+    } else {
+        state.range_input.clone()
+    };
+    let range_paragraph = Paragraph::new(input_text).block(range_block);
+    f.render_widget(range_paragraph, inner_chunks[0]);
+
+    // 2. Unit Selector
+    let unit_block = Block::default()
+        .title("Unit")
+        .borders(Borders::ALL)
+        .border_style(if state.focused_widget == ParameterFocus::Unit { focused_style } else { normal_style });
+    let unit_text = format!("< {} >", state.selected_unit);
+    let unit_paragraph = Paragraph::new(unit_text).block(unit_block).alignment(Alignment::Center);
+    f.render_widget(unit_paragraph, inner_chunks[1]);
+
+    // 3. Confirm Button
+    let confirm_text = "Confirm";
+    let confirm_paragraph = Paragraph::new(confirm_text)
+        .alignment(Alignment::Center)
+        .style(if state.focused_widget == ParameterFocus::Confirm { focused_style.add_modifier(Modifier::REVERSED) } else { normal_style });
+    f.render_widget(confirm_paragraph, inner_chunks[2]);
 }
 
 fn draw_loading_screen(f: &mut Frame, tick: usize) {
@@ -406,17 +486,22 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
     (current_page, total_pages)
 }
 
-fn draw_footer(f: &mut Frame, area: Rect, page_info: Option<(usize, usize)>) {
+fn draw_footer(f: &mut Frame, area: Rect, page_info: Option<(usize, usize)>, focus: Option<ParameterFocus>) {
     let mut instructions = vec![Span::from("Use (q) to quit")];
 
     if let Some((_, total)) = page_info {
-        // This is the dashboard view
         instructions.push(Span::from(", (h/l, ←/→, Tab, or numbers) to switch views"));
         if total > 1 {
             instructions.push(Span::from(", (↑/↓ to scroll)"));
         }
+    } else if let Some(focus_widget) = focus {
+        instructions.push(Span::from(", (Tab to switch focus)"));
+        match focus_widget {
+            ParameterFocus::Range => instructions.push(Span::from(", (Enter numbers)")),
+            ParameterFocus::Unit => instructions.push(Span::from(", (←/→ to change)")),
+            ParameterFocus::Confirm => instructions.push(Span::from(", (Enter to confirm)")),
+        }
     } else {
-        // This is the main menu view
         instructions.push(Span::from(", (↑/↓ to select), (Enter) to confirm"));
     }
 
