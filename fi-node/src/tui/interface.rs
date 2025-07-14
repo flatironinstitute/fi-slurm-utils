@@ -4,13 +4,42 @@ use tokio::sync::mpsc;
 
 // --- Prometheus Interface ---
 
-
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum PrometheusTimeScale {
     Minute,
     Hour,
+    #[default]
     Day,
     Week,
     Year,
+}
+
+impl std::fmt::Display for PrometheusTimeScale {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl PrometheusTimeScale {
+    pub fn next(&self) -> Self {
+        match self {
+            Self::Minute => Self::Hour,
+            Self::Hour => Self::Day,
+            Self::Day => Self::Week,
+            Self::Week => Self::Year,
+            Self::Year => Self::Minute, // Wraps around
+        }
+    }
+
+    pub fn prev(&self) -> Self {
+        match self {
+            Self::Minute => Self::Year, // Wraps around
+            Self::Hour => Self::Minute,
+            Self::Day => Self::Hour,
+            Self::Week => Self::Day,
+            Self::Year => Self::Week,
+        }
+    }
 }
 
 struct PrometheusRequest {
@@ -72,7 +101,7 @@ fn prometheus_data_request(
         PrometheusDataType::Usage => {
             let data = get_usage_by(
                 request.cluster,
-                request.grouping.unwrap(), // No longer needs .unwrap()
+                request.grouping, // No longer needs .unwrap()
                 request.resource,
                 request.range,
                 &time_scale,

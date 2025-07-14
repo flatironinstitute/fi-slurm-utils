@@ -1,9 +1,9 @@
 use crate::tui::{
     interface::{
-        PrometheusTimeScale,
         get_cpu_by_account_data_async, get_cpu_by_node_data_async,
         get_gpu_by_type_data_async, get_cpu_capacity_by_account_async,
         get_cpu_capacity_by_node_async, get_gpu_capacity_by_type_async,
+        PrometheusTimeScale,
     },
     ui::ui,
 };
@@ -79,7 +79,6 @@ impl App {
     }
 }
 
-// NEW: Enum to track the user's selection on the main menu.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum MainMenuSelection {
     #[default]
@@ -96,11 +95,38 @@ impl MainMenuSelection {
     }
 }
 
-// MODIFIED: The AppState enum now includes the MainMenu.
+// --- NEW: Structs and Enums for the Parameter Selection state ---
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub enum ParameterFocus {
+    #[default]
+    Range,
+    Unit,
+    Confirm,
+}
+
+impl ParameterFocus {
+    fn next(&self) -> Self {
+        match self {
+            ParameterFocus::Range => ParameterFocus::Unit,
+            ParameterFocus::Unit => ParameterFocus::Confirm,
+            ParameterFocus::Confirm => ParameterFocus::Range,
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct ParameterSelectionState {
+    pub range_input: String,
+    pub selected_unit: PrometheusTimeScale,
+    pub focused_widget: ParameterFocus,
+}
+
+
+// MODIFIED: The AppState enum now includes all application states.
 #[allow(clippy::large_enum_variant)]
 pub enum AppState {
     MainMenu { selected: MainMenuSelection },
-    // ParameterSelection, // Placeholder for Phase 2
+    ParameterSelection(ParameterSelectionState),
     Loading { tick: usize },
     Loaded(App),
     Error(AppError),
@@ -126,14 +152,19 @@ pub enum FetchedData {
     GpuCapacityByType(Result<CapacityData, AppError>),
 }
 
-// NEW: Helper function to spawn all data fetching tasks.
+// Helper function to spawn data fetching tasks for the default view.
 fn spawn_default_data_fetch(tx: mpsc::Sender<FetchedData>) {
-    tokio::spawn(get_cpu_by_account_data_async(tx.clone(), 7, PrometheusTimeScale::Day));
-    tokio::spawn(get_cpu_by_node_data_async(tx.clone(), 7, PrometheusTimeScale::Day));
-    tokio::spawn(get_gpu_by_type_data_async(tx.clone(), 7, PrometheusTimeScale::Day));
-    tokio::spawn(get_cpu_capacity_by_account_async(tx.clone(), 7, PrometheusTimeScale::Day));
-    tokio::spawn(get_cpu_capacity_by_node_async(tx.clone(), 7, PrometheusTimeScale::Day));
-    tokio::spawn(get_gpu_capacity_by_type_async(tx.clone(), 7, PrometheusTimeScale::Day));
+    spawn_custom_data_fetch(tx, 7, PrometheusTimeScale::Day);
+}
+
+// NEW: Helper function to spawn data fetching tasks with custom parameters.
+fn spawn_custom_data_fetch(tx: mpsc::Sender<FetchedData>, range: i64, unit: PrometheusTimeScale) {
+    tokio::spawn(get_cpu_by_account_data_async(tx.clone(), range, unit));
+    tokio::spawn(get_cpu_by_node_data_async(tx.clone(), range, unit));
+    tokio::spawn(get_gpu_by_type_data_async(tx.clone(), range, unit));
+    tokio::spawn(get_cpu_capacity_by_account_async(tx.clone(), range, unit));
+    tokio::spawn(get_cpu_capacity_by_node_async(tx.clone(), range, unit));
+    tokio::spawn(get_gpu_capacity_by_type_async(tx.clone(), range, unit));
 }
 
 
@@ -144,7 +175,6 @@ async fn run_app<B: Backend>(
     // Start the app in the MainMenu state.
     let mut app_state = AppState::MainMenu { selected: MainMenuSelection::Default };
     
-    // These will hold the data once it's fetched.
     let mut cpu_by_account_data: Option<Result<UsageData, AppError>> = None;
     let mut cpu_by_node_data: Option<Result<UsageData, AppError>> = None;
     let mut gpu_by_type_data: Option<Result<UsageData, AppError>> = None;
@@ -153,8 +183,6 @@ async fn run_app<B: Backend>(
     let mut gpu_by_type_capacity: Option<Result<CapacityData, AppError>> = None;
 
     let mut data_fetch_count = 0;
-    
-    // The receiver is now an Option, as it only exists during the Loading state.
     let mut rx: Option<mpsc::Receiver<FetchedData>> = None;
 
     loop {
@@ -162,7 +190,6 @@ async fn run_app<B: Backend>(
 
         if event::poll(Duration::from_millis(100))? {
             if let Event::Key(key) = event::read()? {
-                // Global quit handler
                 if key.code == KeyCode::Char('q') {
                     if let AppState::Loaded(ref mut app) = app_state {
                         app.should_quit = true;
@@ -185,11 +212,41 @@ async fn run_app<B: Backend>(
                                         app_state = AppState::Loading { tick: 0 };
                                     },
                                     MainMenuSelection::Custom => {
-                                        // Transition to ParameterSelection state in Phase 2
+                                        // Transition to the new ParameterSelection state.
+                                        app_state = AppState::ParameterSelection(ParameterSelectionState::default());
                                     }
                                 }
                             },
                             _ => {}
+                        }
+                    }
+                    AppState::ParameterSelection(state) => {
+                        match state.focused_widget {
+                            ParameterFocus::Range => match key.code {
+                                KeyCode::Char(c) if c.is_ascii_digit() => state.range_input.push(c),
+                                KeyCode::Backspace => { state.range_input.pop(); },
+                                KeyCode::Tab => state.focused_widget = state.focused_widget.next(),
+                                _ => {}
+                            },
+                            ParameterFocus::Unit => match key.code {
+                                KeyCode::Left => state.selected_unit = state.selected_unit.prev(),
+                                KeyCode::Right => state.selected_unit = state.selected_unit.next(),
+                                KeyCode::Tab => state.focused_widget = state.focused_widget.next(),
+                                _ => {}
+                            },
+                            ParameterFocus::Confirm => match key.code {
+                                KeyCode::Tab => state.focused_widget = state.focused_widget.next(),
+                                KeyCode::Enter => {
+                                    if let Ok(range) = state.range_input.parse::<i64>() {
+                                        let (tx_new, rx_new) = mpsc::channel(6);
+                                        rx = Some(rx_new);
+                                        spawn_custom_data_fetch(tx_new, range, state.selected_unit);
+                                        app_state = AppState::Loading { tick: 0 };
+                                    }
+                                    // Optional: Handle parse error, maybe by flashing the input box red.
+                                }
+                                _ => {}
+                            }
                         }
                     }
                     AppState::Loaded(ref mut app) => {
@@ -204,16 +261,14 @@ async fn run_app<B: Backend>(
                             _ => {}
                         }
                     }
-                    _ => {} // No input handling for Loading or Error states yet
+                    _ => {}
                 }
             }
         }
 
-        // State-specific tick logic
         if let AppState::Loading { ref mut tick } = app_state {
             *tick += 1;
             
-            // Only try to receive if the receiver exists.
             if let Some(ref mut receiver) = rx {
                 if let Ok(fetched_data) = receiver.try_recv() {
                     data_fetch_count += 1;
@@ -284,11 +339,10 @@ async fn run_app<B: Backend>(
     }
 }
 
-// MODIFIED: This function no longer spawns tasks directly.
 #[tokio::main]
 pub async fn tui_execute() -> Result<(), Box<dyn std::error::Error>> {
     enable_raw_mode()?;
-    let mut stdout = io.stdout();
+    let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
@@ -309,5 +363,3 @@ pub async fn tui_execute() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
-
-
