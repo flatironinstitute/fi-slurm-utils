@@ -101,7 +101,7 @@ fn prometheus_data_request(
         PrometheusDataType::Usage => {
             let data = get_usage_by(
                 request.cluster,
-                request.grouping, // No longer needs .unwrap()
+                request.grouping.unwrap(), // No longer needs .unwrap()
                 request.resource,
                 request.range,
                 &time_scale,

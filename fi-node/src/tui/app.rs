@@ -249,7 +249,7 @@ async fn run_app<B: Backend>(
                             }
                         }
                     }
-                    AppState::Loaded(ref mut app) => {
+                    AppState::Loaded(app) => {
                         match key.code {
                             KeyCode::Char('1') => app.current_view = AppView::CpuByAccount,
                             KeyCode::Char('2') => app.current_view = AppView::CpuByNode,
