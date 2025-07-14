@@ -145,7 +145,6 @@ fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView) {
     f.render_widget(tabs, area);
 }
 
-// REFACTORED: This function now scales each chart to its own capacity.
 fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize) -> (usize, usize) {
     // --- Layout Constants ---
     const MINIMUM_CHART_WIDTH: u16 = 70;
@@ -230,6 +229,10 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                 let labels_area = chart_chunks[0];
                 let chart_area = chart_chunks[1];
 
+                // ensuring that colors are consistent when scrolling
+                let absolute_chart_index = (clamped_offset + i) * num_cols + j;
+                let color = colors[absolute_chart_index % colors.len()];
+
                 // --- Create Bars (with original values) ---
                 let mut bar_data: Vec<Bar> = values
                     .iter()
@@ -238,9 +241,7 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                         Bar::default()
                             .value(val)
                             .label(time_labels[k % time_labels.len()].into())
-                            .style(
-                                Style::default().fg(colors[(i * num_cols + j) % colors.len()]),
-                            )
+                            .style(Style::default().fg(color))
                             .text_value("".to_string())
                     })
                     .collect();
