@@ -10,6 +10,8 @@ use ratatui::{
     Frame,
 };
 
+use super::interface::PrometheusTimeScale;
+
 // --- UI Drawing ---
 
 pub fn ui(f: &mut Frame, app_state: &AppState) {
@@ -42,7 +44,7 @@ pub fn ui(f: &mut Frame, app_state: &AppState) {
                 .split(f.area());
 
             draw_tabs(f, main_chunks[0], app.current_view, None);
-            let page_info = draw_charts(f, main_chunks[1], get_chart_data(app), app.scroll_offset);
+            let page_info = draw_charts(f, main_chunks[1], get_chart_data(app), app.scroll_offset, app.query_time_scale);
             // Pass page info to both tabs and footer
             draw_tabs(f, main_chunks[0], app.current_view, Some(page_info));
             draw_footer(f, main_chunks[2], Some(page_info), None);
@@ -314,7 +316,7 @@ fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView, page_info: Option
     f.render_widget(tabs, area);
 }
 
-fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize) -> (usize, usize) {
+fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize, time_scale: PrometheusTimeScale) -> (usize, usize) {
     // --- Layout Constants ---
     const MINIMUM_CHART_WIDTH: u16 = 65;
     const CHART_HEIGHT: u16 = 10;
@@ -334,7 +336,7 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
         Color::LightGreen,
         Color::LightRed,
     ];
-    let time_labels = ["-7d", "-6d", "-5d", "-4d", "-3d", "-2d", "-1d", "Now"];
+    // let time_labels = ["-7d", "-6d", "-5d", "-4d", "-3d", "-2d", "-1d", "Now"];
 
     let mut sorted_series: Vec<_> = data.source_data.iter().collect();
     sorted_series.sort_by_key(|(name, _)| *name);
@@ -401,6 +403,17 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                 // ensuring that colors are consistent when scrolling
                 let absolute_chart_index = (clamped_offset + i) * num_cols + j;
                 let color = colors[absolute_chart_index % colors.len()];
+
+                let num_points = values.len();
+                let unit_char = time_scale.to_string().chars().next().unwrap_or('?').to_lowercase();
+                let time_labels: Vec<String> = (0..num_points).map(|i| {
+                    let step = num_points - 1 - i;
+                    if step == 0 {
+                        "Now".to_string()
+                    } else {
+                        format!("-{}{}", step, unit_char)
+                    }
+                }).collect();
 
                 // --- Create Bars (with original values) ---
                 let mut bar_data: Vec<Bar> = values

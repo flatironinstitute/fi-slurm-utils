@@ -51,7 +51,6 @@ pub struct ChartData {
     pub source_data: HashMap<String, Vec<u64>>,
     pub capacity_data: HashMap<String, Vec<u64>>,
 }
-
 pub struct App {
     pub current_view: AppView,
     pub scroll_offset: usize,
@@ -59,8 +58,10 @@ pub struct App {
     pub cpu_by_node: ChartData,
     pub gpu_by_type: ChartData,
     pub should_quit: bool,
-}
 
+    pub query_range: i64,
+    pub query_time_scale: PrometheusTimeScale,
+}
 
 impl App {
     fn next_view(&mut self) {
@@ -184,6 +185,9 @@ async fn run_app<B: Backend>(
 
     let mut data_fetch_count = 0;
 
+    let mut current_query_range = 7;
+    let mut current_query_time_scale = PrometheusTimeScale::Day;
+
     loop {
         terminal.draw(|f| ui(f, &app_state))?;
 
@@ -222,7 +226,8 @@ async fn run_app<B: Backend>(
                                         if data_fetch_count == 6 {
                                             app_state = build_loaded_app(
                                                 &mut cpu_by_account_data, &mut cpu_by_node_data, &mut gpu_by_type_data,
-                                                &mut cpu_by_account_capacity, &mut cpu_by_node_capacity, &mut gpu_by_type_capacity
+                                                &mut cpu_by_account_capacity, &mut cpu_by_node_capacity, &mut gpu_by_type_capacity,
+                                                current_query_range, current_query_time_scale
                                             );
                                         } else {
                                             app_state = AppState::Loading { tick: 0 };
@@ -281,6 +286,9 @@ async fn run_app<B: Backend>(
                                         gpu_by_type_capacity = None;
                                         data_fetch_count = 0;
 
+                                        current_query_range = range;
+                                        current_query_time_scale = state.selected_unit;
+
                                         spawn_custom_data_fetch(tx_new, range, state.selected_unit);
                                         app_state = AppState::Loading { tick: 0 };
                                     }
@@ -321,7 +329,8 @@ async fn run_app<B: Backend>(
             if data_fetch_count == 6 {
                 app_state = build_loaded_app(
                     &mut cpu_by_account_data, &mut cpu_by_node_data, &mut gpu_by_type_data,
-                    &mut cpu_by_account_capacity, &mut cpu_by_node_capacity, &mut gpu_by_type_capacity
+                    &mut cpu_by_account_capacity, &mut cpu_by_node_capacity, &mut gpu_by_type_capacity,
+                    current_query_range, current_query_time_scale
                 );
             }
         }
@@ -343,6 +352,8 @@ fn build_loaded_app(
     cpu_by_account_capacity: &mut Option<Result<CapacityData, AppError>>,
     cpu_by_node_capacity: &mut Option<Result<CapacityData, AppError>>,
     gpu_by_type_capacity: &mut Option<Result<CapacityData, AppError>>,
+    query_range: i64,
+    query_time_scale: PrometheusTimeScale,
 ) -> AppState {
     let error_checks = [
         cpu_by_account_data.as_ref().and_then(|r| r.as_ref().err().cloned()),
@@ -380,6 +391,9 @@ fn build_loaded_app(
         cpu_by_node: final_cpu_by_node,
         gpu_by_type: final_gpu_by_type,
         should_quit: false,
+
+        query_range,
+        query_time_scale,
     };
     AppState::Loaded(app)
 }
