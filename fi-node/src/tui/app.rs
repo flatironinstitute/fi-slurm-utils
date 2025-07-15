@@ -219,7 +219,7 @@ async fn run_app<B: Backend>(
                 match &mut app_state {
                     AppState::MainMenu { selected } => {
                         match key.code {
-                            KeyCode::Up | KeyCode::Down | KeyCode::Char('k') | KeyCode::Char('j')=> *selected = selected.toggle(),
+                            KeyCode::Up | KeyCode::PageUp | KeyCode::Down | KeyCode::PageDown | KeyCode::Char('k') | KeyCode::Char('j')=> *selected = selected.toggle(),
                             KeyCode::Enter => {
                                 match selected {
                                     MainMenuSelection::Default => {
@@ -305,8 +305,8 @@ async fn run_app<B: Backend>(
                             KeyCode::Char('3') => app.current_view = AppView::GpuByType,
                             KeyCode::Right | KeyCode::Char('l') | KeyCode::Tab => app.next_view(),
                             KeyCode::Left | KeyCode::Char('h') => app.prev_view(),
-                            KeyCode::Up | KeyCode::Char('k') => app.scroll_offset = app.scroll_offset.saturating_sub(1),
-                            KeyCode::Down | KeyCode::Char('j') => app.scroll_offset = app.scroll_offset.saturating_add(1),
+                            KeyCode::Up | KeyCode::PageUp | KeyCode::Char('k') => app.scroll_offset = app.scroll_offset.saturating_sub(1),
+                            KeyCode::Down | KeyCode::PageDown | KeyCode::Char('j') => app.scroll_offset = app.scroll_offset.saturating_add(1),
                             _ => {}
                         }
                     }
