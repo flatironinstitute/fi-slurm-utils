@@ -7,12 +7,6 @@ use std::time::Duration;
 
 const TASK_TIMEOUT: Duration = Duration::from_secs(15);
 
-impl std::fmt::Display for PrometheusTimeScale {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
 struct PrometheusRequest {
     cluster: Cluster, //assume it's the one we're currently connected to? Try to get popeye info
     //from here?
