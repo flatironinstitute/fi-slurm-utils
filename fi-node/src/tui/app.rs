@@ -236,6 +236,10 @@ async fn run_app<B: Backend>(
                             // --- Global Keys for this state ---
                             (KeyCode::Tab, _) => state.focused_widget = state.focused_widget.next(),
                             
+                            // local navigation keys
+                            (KeyCode::Enter, ParameterFocus::Range) => state.focused_widget = state.focused_widget.next(),
+                            (KeyCode::Enter, ParameterFocus::Unit) => state.focused_widget = state.focused_widget.next(),
+                        
                             // --- Range Input Keys ---
                             (KeyCode::Char(c), ParameterFocus::Range) if c.is_ascii_digit() => {
                                 state.range_input.push(c);
@@ -248,7 +252,13 @@ async fn run_app<B: Backend>(
                             (KeyCode::Left, ParameterFocus::Unit) => {
                                 state.selected_unit = state.selected_unit.prev();
                             }
+                            (KeyCode::Char('h'), ParameterFocus::Unit) => {
+                                state.selected_unit = state.selected_unit.prev();
+                            }
                             (KeyCode::Right, ParameterFocus::Unit) => {
+                                state.selected_unit = state.selected_unit.next();
+                            }
+                            (KeyCode::Char('l'), ParameterFocus::Unit) => {
                                 state.selected_unit = state.selected_unit.next();
                             }
 
