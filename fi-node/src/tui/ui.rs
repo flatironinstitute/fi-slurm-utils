@@ -177,7 +177,18 @@ fn draw_parameter_selection_menu(f: &mut Frame, area: Rect, state: &ParameterSel
         .title("Unit")
         .borders(Borders::ALL)
         .border_style(if state.focused_widget == ParameterFocus::Unit { focused_style } else { normal_style });
-    let unit_text = format!("< {} >", state.selected_unit);
+
+
+    //let unit_char = state.selected_unit.to_string().chars().next().unwrap_or('?').next().unwrap_or().to_uppercase();
+
+    let unit_time = match state.selected_unit {
+        PrometheusTimeScale::Minutes => "Minutes",
+        PrometheusTimeScale::Hours => "Hours",
+        PrometheusTimeScale::Days => "Days",
+        PrometheusTimeScale::Weeks => "Weeks",
+        PrometheusTimeScale::Years => "Years",
+    };
+    let unit_text = format!("< {} >", unit_time);
     let unit_paragraph = Paragraph::new(unit_text).block(unit_block).alignment(Alignment::Center);
     f.render_widget(unit_paragraph, inner_chunks[1]);
 
@@ -316,7 +327,7 @@ fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView, page_info: Option
     f.render_widget(tabs, area);
 }
 
-fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize, time_scale: PrometheusTimeScale) -> (usize, usize) {
+fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize, _time_scale: PrometheusTimeScale) -> (usize, usize) {
     // --- Layout Constants ---
     const MINIMUM_CHART_WIDTH: u16 = 65;
     const CHART_HEIGHT: u16 = 10;
@@ -405,13 +416,14 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                 let color = colors[absolute_chart_index % colors.len()];
 
                 let num_points = values.len();
-                let unit_char = time_scale.to_string().chars().next().unwrap_or('?').to_lowercase();
+                //let unit_char = time_scale.to_string().chars().next().unwrap_or('?').to_lowercase();
                 let time_labels: Vec<String> = (0..num_points).map(|i| {
                     let step = num_points - 1 - i;
                     if step == 0 {
                         "Now".to_string()
                     } else {
-                        format!("-{}{}", step, unit_char)
+                        format!("-{step}")
+                    //    format!("-{}{}", step, unit_char)
                     }
                 }).collect();
 
