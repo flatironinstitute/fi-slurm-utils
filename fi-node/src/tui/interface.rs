@@ -120,13 +120,6 @@ pub async fn get_cpu_by_account_data_async(tx: mpsc::Sender<FetchedData>, range:
         Err(_) => FetchedData::CpuByAccount(Err(AppError::TimeOut)),
     };
     if tx.send(data_to_send).await.is_err() {}
-
-    //let result = tokio::task::spawn_blocking(move || get_cpu_by_account_data(range, time_scale)).await;
-    //let data_to_send = match result {
-    //    Ok(data_res) => FetchedData::CpuByAccount(data_res),
-    //    Err(e) => FetchedData::CpuByAccount(Err(AppError::TaskJoin(e.to_string()))),
-    //};
-    //if tx.send(data_to_send).await.is_err() {}
 }
 
 pub fn get_cpu_capacity_by_account(range: i64, time_scale: PrometheusTimeScale) -> Result<CapacityData, AppError> {
@@ -159,12 +152,6 @@ pub async fn get_cpu_capacity_by_account_async(tx: mpsc::Sender<FetchedData>, ra
         Err(_) => FetchedData::CpuCapacityByAccount(Err(AppError::TimeOut)),
     };
     if tx.send(data_to_send).await.is_err() {}
-    //let result = tokio::task::spawn_blocking(move || get_cpu_capacity_by_account(range, time_scale)).await;
-    //let data_to_send = match result {
-    //    Ok(data) => FetchedData::CpuCapacityByAccount(data),
-    //    Err(e) => FetchedData::CpuCapacityByAccount(Err(AppError::TaskJoin(e.to_string()))),
-    //};
-    //if tx.send(data_to_send).await.is_err() {}
 }
 
 // --- CPU by Node ---
@@ -199,12 +186,6 @@ pub async fn get_cpu_by_node_data_async(tx: mpsc::Sender<FetchedData>, range: i6
         Err(_) => FetchedData::CpuByNode(Err(AppError::TimeOut)),
     };
     if tx.send(data_to_send).await.is_err() {}
-    //let result = tokio::task::spawn_blocking(move || get_cpu_by_node_data(range, time_scale)).await;
-    //let data_to_send = match result {
-    //    Ok(data_res) => FetchedData::CpuByNode(data_res),
-    //    Err(e) => FetchedData::CpuByNode(Err(AppError::TaskJoin(e.to_string()))),
-    //};
-    //if tx.send(data_to_send).await.is_err() {}
 }
 
 pub fn get_cpu_capacity_by_node(range: i64, time_scale: PrometheusTimeScale) -> Result<CapacityData, AppError> {
@@ -237,12 +218,6 @@ pub async fn get_cpu_capacity_by_node_async(tx: mpsc::Sender<FetchedData>, range
         Err(_) => FetchedData::CpuCapacityByNode(Err(AppError::TimeOut)),
     };
     if tx.send(data_to_send).await.is_err() {}
-    //let result = tokio::task::spawn_blocking(move || get_cpu_capacity_by_node(range, time_scale)).await;
-    //let data_to_send = match result {
-    //    Ok(data) => FetchedData::CpuCapacityByNode(data),
-    //    Err(e) => FetchedData::CpuCapacityByNode(Err(AppError::TaskJoin(e.to_string()))),
-    //};
-    //if tx.send(data_to_send).await.is_err() {}
 }
 
 // --- GPU by Type ---
@@ -277,12 +252,6 @@ pub async fn get_gpu_by_type_data_async(tx: mpsc::Sender<FetchedData>, range: i6
         Err(_) => FetchedData::GpuByType(Err(AppError::TimeOut)),
     };
     if tx.send(data_to_send).await.is_err() {}
-    //let result = tokio::task::spawn_blocking(move || get_gpu_by_type_data(range, time_scale)).await;
-    //let data_to_send = match result {
-    //    Ok(data_res) => FetchedData::GpuByType(data_res),
-    //    Err(e) => FetchedData::GpuByType(Err(AppError::TaskJoin(e.to_string()))),
-    //};
-    //if tx.send(data_to_send).await.is_err() {}
 }
 
 pub fn get_gpu_capacity_by_type(range: i64, time_scale: PrometheusTimeScale) -> Result<CapacityData, AppError> {
@@ -315,11 +284,5 @@ pub async fn get_gpu_capacity_by_type_async(tx: mpsc::Sender<FetchedData>, range
         Err(_) => FetchedData::GpuCapacityByType(Err(AppError::TimeOut)),
     };
     if tx.send(data_to_send).await.is_err() {}
-    //let result = tokio::task::spawn_blocking(move || get_gpu_capacity_by_type(range, time_scale)).await;
-    //let data_to_send = match result {
-    //    Ok(data) => FetchedData::GpuCapacityByType(data),
-    //    Err(e) => FetchedData::GpuCapacityByType(Err(AppError::TaskJoin(e.to_string()))),
-    //};
-    //if tx.send(data_to_send).await.is_err() {}
 }
 

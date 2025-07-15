@@ -36,7 +36,6 @@ pub enum AppError {
     MaxFail(String),
     #[error("Data fetching timed out after 10 seconds")]
     TimeOut,
-
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -58,7 +57,6 @@ pub struct App {
     pub cpu_by_node: ChartData,
     pub gpu_by_type: ChartData,
     pub should_quit: bool,
-
     pub query_range: i64,
     pub query_time_scale: PrometheusTimeScale,
 }
@@ -156,7 +154,6 @@ pub enum FetchedData {
     CpuCapacityByNode(Result<CapacityData, AppError>),
     GpuCapacityByType(Result<CapacityData, AppError>),
 }
-
 
 fn spawn_custom_data_fetch(tx: mpsc::Sender<FetchedData>, range: i64, unit: PrometheusTimeScale) {
     tokio::spawn(get_cpu_by_account_data_async(tx.clone(), range, unit));
@@ -392,7 +389,6 @@ fn build_loaded_app(
         cpu_by_node: final_cpu_by_node,
         gpu_by_type: final_gpu_by_type,
         should_quit: false,
-
         query_range,
         query_time_scale,
     };

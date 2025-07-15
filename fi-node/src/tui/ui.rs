@@ -178,9 +178,6 @@ fn draw_parameter_selection_menu(f: &mut Frame, area: Rect, state: &ParameterSel
         .borders(Borders::ALL)
         .border_style(if state.focused_widget == ParameterFocus::Unit { focused_style } else { normal_style });
 
-
-    //let unit_char = state.selected_unit.to_string().chars().next().unwrap_or('?').next().unwrap_or().to_uppercase();
-
     let unit_time = match state.selected_unit {
         PrometheusTimeScale::Minutes => "Minutes",
         PrometheusTimeScale::Hours => "Hours",
@@ -347,7 +344,6 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
         Color::LightGreen,
         Color::LightRed,
     ];
-    // let time_labels = ["-7d", "-6d", "-5d", "-4d", "-3d", "-2d", "-1d", "Now"];
 
     let mut sorted_series: Vec<_> = data.source_data.iter().collect();
     sorted_series.sort_by_key(|(name, _)| *name);
@@ -423,7 +419,6 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                         "Now".to_string()
                     } else {
                         format!("-{step}")
-                    //    format!("-{}{}", step, unit_char)
                     }
                 }).collect();
 
