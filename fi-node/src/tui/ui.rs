@@ -1,5 +1,5 @@
 use crate::tui::app::{App, AppError, AppState, AppView, ChartData, MainMenuSelection, 
-    ParameterFocus, ParameterSelectionState};
+    ParameterFocus, ParameterSelectionState, ScrollMode};
 use ratatui::{
     prelude::*,
     layout::{Constraint, Direction, Layout, Rect},
@@ -44,7 +44,7 @@ pub fn ui(f: &mut Frame, app_state: &AppState) {
                 .split(f.area());
 
             draw_tabs(f, main_chunks[0], app.current_view, None);
-            let page_info = draw_charts(f, main_chunks[1], get_chart_data(app), app.scroll_offset, app.query_time_scale);
+            let page_info = draw_charts(f, main_chunks[1], get_chart_data(app), app.scroll_offset, app.query_time_scale, app.scroll_mode);
             // Pass page info to both tabs and footer
             draw_tabs(f, main_chunks[0], app.current_view, Some(page_info));
             draw_footer(f, main_chunks[2], Some(page_info), None);
@@ -324,10 +324,11 @@ fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView, page_info: Option
     f.render_widget(tabs, area);
 }
 
-fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize, _time_scale: PrometheusTimeScale) -> (usize, usize) {
+fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize, _time_scale: PrometheusTimeScale, scroll_mode: ScrollMode) -> (usize, usize) {
     // --- Layout Constants ---
     const MINIMUM_CHART_WIDTH: u16 = 65;
     const CHART_HEIGHT: u16 = 10;
+    const MAX_BARS_PER_CHART: usize = 7;
     const BAR_WIDTH: u16 = 6;
     const BAR_GAP: u16 = 1;
 
@@ -389,10 +390,17 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
             if let Some((name, values)) = chart_iter.next() {
                 let cell_area = col_chunks[j];
 
+                let border_style = if scroll_mode == ScrollMode::Chart {
+                    Style::default().fg(Color::Yellow)
+                } else {
+                    Style::default().fg(Color::White)
+                };
+                
                 let outer_block = Block::default()
                     .title(Span::from(*name).bold())
                     .borders(Borders::ALL)
-                    .border_set(border::ROUNDED);
+                    .border_set(border::ROUNDED)
+                    .border_style(border_style);
 
                 let inner_area = outer_block.inner(cell_area);
                 f.render_widget(outer_block, cell_area);
@@ -412,8 +420,13 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                 let color = colors[absolute_chart_index % colors.len()];
 
                 let num_points = values.len();
-                //let unit_char = time_scale.to_string().chars().next().unwrap_or('?').to_lowercase();
-                let time_labels: Vec<String> = (0..num_points).map(|i| {
+
+                let max_h_scroll = num_points.saturating_sub(MAX_BARS_PER_CHART);
+                let h_offset = data.horizontal_scroll_offset.min(max_h_scroll);
+
+                let visible_values: Vec<_> = values.iter().skip(h_offset).take(MAX_BARS_PER_CHART).collect();
+
+                let time_labels: Vec<String> = (h_offset..h_offset + visible_values.len()).map(|i| {
                     let step = num_points - 1 - i;
                     if step == 0 {
                         "Now".to_string()
@@ -471,6 +484,13 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                     }
                 }
 
+                if h_offset > 0 {
+                    f.render_widget(Paragraph::new("...").alignment(Alignment::Left), labels_area);
+                }
+                if h_offset < max_h_scroll {
+                    f.render_widget(Paragraph::new("...").alignment(Alignment::Right), labels_area);
+                }
+
                 // --- Render the BarChart ---
                 let bar_group = BarGroup::default().bars(&bar_data);
                 let barchart = BarChart::default()
@@ -497,6 +517,7 @@ fn draw_footer(f: &mut Frame, area: Rect, page_info: Option<(usize, usize)>, foc
         if total > 1 {
             instructions.push(Span::from(", (↑/↓ to scroll)"));
         }
+        instructions.push(Span::from(", (Enter to scroll charts)"));
     } else if let Some(focus_widget) = focus {
         instructions.push(Span::from(", (Tab to switch focus)"));
         match focus_widget {
