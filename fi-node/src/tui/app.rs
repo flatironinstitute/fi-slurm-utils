@@ -327,11 +327,33 @@ async fn run_app<B: Backend>(
                                     AppView::GpuByType => &mut app.gpu_by_type,
                                 };
                                 match key.code {
-                                    KeyCode::Right | KeyCode::Char('l') => current_chart_data.horizontal_scroll_offset = current_chart_data.horizontal_scroll_offset.saturating_add(1),
-                                    KeyCode::Left | KeyCode::Char('h') => current_chart_data.horizontal_scroll_offset = current_chart_data.horizontal_scroll_offset.saturating_sub(1),
+                                    KeyCode::Right | KeyCode::Char('l') => {
+                                        const MAX_BARS_PER_CHART: usize = 7; // Must match ui.rs
+                                        let max_points = current_chart_data.source_data.values()
+                                            .map(|v| v.len())
+                                            .max()
+                                            .unwrap_or(0);
+                                        
+                                        let max_h_scroll = max_points.saturating_sub(MAX_BARS_PER_CHART);
+
+                                        if current_chart_data.horizontal_scroll_offset < max_h_scroll {
+                                            current_chart_data.horizontal_scroll_offset = current_chart_data
+                                                .horizontal_scroll_offset.saturating_add(1);
+                                        }
+                                    },
+                                    KeyCode::Left | KeyCode::Char('h') => {
+                                        current_chart_data.horizontal_scroll_offset = current_chart_data
+                                            .horizontal_scroll_offset.saturating_sub(1);
+                                    },
                                     KeyCode::Esc => app.scroll_mode = ScrollMode::Page,
                                     _ => {}
                                 }
+                                // match key.code {
+                                //     KeyCode::Right | KeyCode::Char('l') => current_chart_data.horizontal_scroll_offset = current_chart_data.horizontal_scroll_offset.saturating_add(1),
+                                //     KeyCode::Left | KeyCode::Char('h') => current_chart_data.horizontal_scroll_offset = current_chart_data.horizontal_scroll_offset.saturating_sub(1),
+                                //     KeyCode::Esc => app.scroll_mode = ScrollMode::Page,
+                                //     _ => {}
+                                // }
                             }
                         }
                     }
