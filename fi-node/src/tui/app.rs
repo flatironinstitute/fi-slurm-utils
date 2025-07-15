@@ -347,29 +347,9 @@ async fn run_app<B: Backend>(
                                     KeyCode::Esc => app.scroll_mode = ScrollMode::Page,
                                     _ => {}
                                 }
-                                // match key.code {
-                                //     KeyCode::Right | KeyCode::Char('l') => current_chart_data.horizontal_scroll_offset = current_chart_data.horizontal_scroll_offset.saturating_add(1),
-                                //     KeyCode::Left | KeyCode::Char('h') => current_chart_data.horizontal_scroll_offset = current_chart_data.horizontal_scroll_offset.saturating_sub(1),
-                                //     KeyCode::Esc => app.scroll_mode = ScrollMode::Page,
-                                //     _ => {}
-                                // }
                             }
                         }
                     }
-
-
-                    // AppState::Loaded(app) => {
-                    //     match key.code {
-                    //         KeyCode::Char('1') => app.current_view = AppView::CpuByAccount,
-                    //         KeyCode::Char('2') => app.current_view = AppView::CpuByNode,
-                    //         KeyCode::Char('3') => app.current_view = AppView::GpuByType,
-                    //         KeyCode::Right | KeyCode::Char('l') | KeyCode::Tab => app.next_view(),
-                    //         KeyCode::Left | KeyCode::Char('h') => app.prev_view(),
-                    //         KeyCode::Up | KeyCode::PageUp | KeyCode::Char('k') => app.scroll_offset = app.scroll_offset.saturating_sub(1),
-                    //         KeyCode::Down | KeyCode::PageDown | KeyCode::Char('j') => app.scroll_offset = app.scroll_offset.saturating_add(1),
-                    //         _ => {}
-                    //     }
-                    // }
                     _ => {} // No input for Loading or Error states.
                 }
             }
@@ -432,17 +412,23 @@ fn build_loaded_app(
     let final_cpu_by_account = {
         let usage = cpu_by_account_data.take().unwrap().unwrap();
         let capacity = cpu_by_account_capacity.take().unwrap().unwrap();
-        ChartData { source_data: usage.source_data, capacity_data: capacity.capacities, horizontal_scroll_offset: 0 }
+        let max_points = usage.source_data.values().map(|v| v.len()).max().unwrap_or(0);
+        let initial_offset = max_points.saturating_sub(MAX_BARS_PER_CHART);
+        ChartData { source_data: usage.source_data, capacity_data: capacity.capacities, horizontal_scroll_offset: initial_offset }
     };
     let final_cpu_by_node = {
         let usage = cpu_by_node_data.take().unwrap().unwrap();
         let capacity = cpu_by_node_capacity.take().unwrap().unwrap();
-        ChartData { source_data: usage.source_data, capacity_data: capacity.capacities, horizontal_scroll_offset: 0 }
+        let max_points = usage.source_data.values().map(|v| v.len()).max().unwrap_or(0);
+        let initial_offset = max_points.saturating_sub(MAX_BARS_PER_CHART);
+        ChartData { source_data: usage.source_data, capacity_data: capacity.capacities, horizontal_scroll_offset: initial_offset }
     };
     let final_gpu_by_type = {
         let usage = gpu_by_type_data.take().unwrap().unwrap();
         let capacity = gpu_by_type_capacity.take().unwrap().unwrap();
-        ChartData { source_data: usage.source_data, capacity_data: capacity.capacities, horizontal_scroll_offset: 0}
+        let max_points = usage.source_data.values().map(|v| v.len()).max().unwrap_or(0);
+        let initial_offset = max_points.saturating_sub(MAX_BARS_PER_CHART);
+        ChartData { source_data: usage.source_data, capacity_data: capacity.capacities, horizontal_scroll_offset: initial_offset}
     };
 
     let app = App {
