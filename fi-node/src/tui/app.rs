@@ -307,6 +307,9 @@ async fn run_app<B: Backend>(
             }
         }
 
+        // should we be able to quit out of a loading screen to go back to the main menu?
+        // would it result in any other bugs to allow this?
+
         if let AppState::Loading { ref mut tick } = app_state {
             *tick += 1;
 
