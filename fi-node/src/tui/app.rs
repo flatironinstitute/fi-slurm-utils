@@ -45,14 +45,24 @@ pub enum AppView {
     GpuByType,
 }
 
+// #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy)]
+pub enum ScrollMode {
+    #[default]
+    Page,
+    Chart,
+}
+
 #[derive(Debug)]
 pub struct ChartData {
     pub source_data: HashMap<String, Vec<u64>>,
     pub capacity_data: HashMap<String, Vec<u64>>,
+    pub horizontal_scroll_offset: usize,
 }
 pub struct App {
     pub current_view: AppView,
     pub scroll_offset: usize,
+    pub scroll_mode: ScrollMode,
     pub cpu_by_account: ChartData,
     pub cpu_by_node: ChartData,
     pub gpu_by_type: ChartData,
@@ -295,18 +305,50 @@ async fn run_app<B: Backend>(
                             _ => {}
                         }
                     }
+
+                    // MODIFIED: Event handler is now a state machine based on scroll_mode.
                     AppState::Loaded(app) => {
-                        match key.code {
-                            KeyCode::Char('1') => app.current_view = AppView::CpuByAccount,
-                            KeyCode::Char('2') => app.current_view = AppView::CpuByNode,
-                            KeyCode::Char('3') => app.current_view = AppView::GpuByType,
-                            KeyCode::Right | KeyCode::Char('l') | KeyCode::Tab => app.next_view(),
-                            KeyCode::Left | KeyCode::Char('h') => app.prev_view(),
-                            KeyCode::Up | KeyCode::PageUp | KeyCode::Char('k') => app.scroll_offset = app.scroll_offset.saturating_sub(1),
-                            KeyCode::Down | KeyCode::PageDown | KeyCode::Char('j') => app.scroll_offset = app.scroll_offset.saturating_add(1),
-                            _ => {}
+                        match app.scroll_mode {
+                            ScrollMode::Page => match key.code {
+                                KeyCode::Char('1') => app.current_view = AppView::CpuByAccount,
+                                KeyCode::Char('2') => app.current_view = AppView::CpuByNode,
+                                KeyCode::Char('3') => app.current_view = AppView::GpuByType,
+                                KeyCode::Right | KeyCode::Char('l') | KeyCode::Tab => app.next_view(),
+                                KeyCode::Left | KeyCode::Char('h') => app.prev_view(),
+                                KeyCode::Up | KeyCode::PageUp | KeyCode::Char('k') => app.scroll_offset = app.scroll_offset.saturating_sub(1),
+                                KeyCode::Down | KeyCode::PageDown | KeyCode::Char('j') => app.scroll_offset = app.scroll_offset.saturating_add(1),
+                                KeyCode::Enter => app.scroll_mode = ScrollMode::Chart,
+                                _ => {}
+                            },
+                            ScrollMode::Chart => {
+                                let current_chart_data = match app.current_view {
+                                    AppView::CpuByAccount => &mut app.cpu_by_account,
+                                    AppView::CpuByNode => &mut app.cpu_by_node,
+                                    AppView::GpuByType => &mut app.gpu_by_type,
+                                };
+                                match key.code {
+                                    KeyCode::Right | KeyCode::Char('l') => current_chart_data.horizontal_scroll_offset = current_chart_data.horizontal_scroll_offset.saturating_add(1),
+                                    KeyCode::Left | KeyCode::Char('h') => current_chart_data.horizontal_scroll_offset = current_chart_data.horizontal_scroll_offset.saturating_sub(1),
+                                    KeyCode::Esc => app.scroll_mode = ScrollMode::Page,
+                                    _ => {}
+                                }
+                            }
                         }
                     }
+
+
+                    // AppState::Loaded(app) => {
+                    //     match key.code {
+                    //         KeyCode::Char('1') => app.current_view = AppView::CpuByAccount,
+                    //         KeyCode::Char('2') => app.current_view = AppView::CpuByNode,
+                    //         KeyCode::Char('3') => app.current_view = AppView::GpuByType,
+                    //         KeyCode::Right | KeyCode::Char('l') | KeyCode::Tab => app.next_view(),
+                    //         KeyCode::Left | KeyCode::Char('h') => app.prev_view(),
+                    //         KeyCode::Up | KeyCode::PageUp | KeyCode::Char('k') => app.scroll_offset = app.scroll_offset.saturating_sub(1),
+                    //         KeyCode::Down | KeyCode::PageDown | KeyCode::Char('j') => app.scroll_offset = app.scroll_offset.saturating_add(1),
+                    //         _ => {}
+                    //     }
+                    // }
                     _ => {} // No input for Loading or Error states.
                 }
             }
@@ -369,22 +411,23 @@ fn build_loaded_app(
     let final_cpu_by_account = {
         let usage = cpu_by_account_data.take().unwrap().unwrap();
         let capacity = cpu_by_account_capacity.take().unwrap().unwrap();
-        ChartData { source_data: usage.source_data, capacity_data: capacity.capacities }
+        ChartData { source_data: usage.source_data, capacity_data: capacity.capacities, horizontal_scroll_offset: 0 }
     };
     let final_cpu_by_node = {
         let usage = cpu_by_node_data.take().unwrap().unwrap();
         let capacity = cpu_by_node_capacity.take().unwrap().unwrap();
-        ChartData { source_data: usage.source_data, capacity_data: capacity.capacities }
+        ChartData { source_data: usage.source_data, capacity_data: capacity.capacities, horizontal_scroll_offset: 0 }
     };
     let final_gpu_by_type = {
         let usage = gpu_by_type_data.take().unwrap().unwrap();
         let capacity = gpu_by_type_capacity.take().unwrap().unwrap();
-        ChartData { source_data: usage.source_data, capacity_data: capacity.capacities }
+        ChartData { source_data: usage.source_data, capacity_data: capacity.capacities, horizontal_scroll_offset: 0}
     };
 
     let app = App {
         current_view: AppView::CpuByAccount,
         scroll_offset: 0,
+        scroll_mode: ScrollMode::default(),
         cpu_by_account: final_cpu_by_account,
         cpu_by_node: final_cpu_by_node,
         gpu_by_type: final_gpu_by_type,
