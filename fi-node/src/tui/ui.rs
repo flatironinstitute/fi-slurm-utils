@@ -436,7 +436,7 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                 }).collect();
 
                 // --- Create Bars (with original values) ---
-                let mut bar_data: Vec<Bar> = values
+                let mut bar_data: Vec<Bar> = visible_values
                     .iter()
                     .enumerate()
                     .map(|(k, &val)| {
@@ -465,7 +465,7 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
 
 
                 // --- Draw Usage Labels (with original values) ---
-                let label_constraints: Vec<Constraint> = (0..values.len())
+                let label_constraints: Vec<Constraint> = (0..visible_values.len())
                     .flat_map(|_| [Constraint::Length(BAR_WIDTH), Constraint::Length(BAR_GAP)])
                     .collect();
 
@@ -474,7 +474,7 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                     .constraints(label_constraints)
                     .split(labels_area);
 
-                for (k, &val) in values.iter().enumerate() {
+                for (k, &val) in visible_values.iter().enumerate() {
                     let label_chunk_index = k * 2;
                     if label_chunk_index < label_chunks.len() {
                         let label = Paragraph::new(val.to_string())
