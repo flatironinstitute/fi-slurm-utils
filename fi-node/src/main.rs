@@ -9,7 +9,7 @@ use std::collections::{HashMap, HashSet};
 use fi_slurm::jobs::{SlurmJobs, enrich_jobs_with_node_ids};
 use fi_slurm::{jobs, nodes, utils::{SlurmConfig, initialize_slurm}};
 use fi_slurm::filter::{self, gather_all_features};
-//use fi_prometheus::{get_max_resource, get_usage_by, Cluster, Grouping, Resource};
+use fi_prometheus::{Cluster, Grouping, Resource, test_usage_by};
 use crate::tui::app::tui_execute;
 
 use std::time::Instant;
@@ -29,12 +29,12 @@ fn main() -> Result<(), String> {
 
     let args = Args::parse();
 
-    //if args.test {
-    //    //let res = get_cpu_capacity_by_account();
-    //    //println!("{:?}", res.unwrap());
-    //
-    //    return Ok(())
-    //}
+    if args.test {
+        let res = test_usage_by(Cluster::Rusty, Grouping::Account, Resource::Cpus, 7, "1m");
+        println!("{:?}", res.unwrap());
+
+        return Ok(())
+    }
 
     if args.terminal {
         let _ = tui_execute();
@@ -201,6 +201,8 @@ struct Args {
     #[arg(short, long)]
     #[arg(help = "Classifies preemptable jobs as idle")]
     preempt: bool,
+    #[arg(long)]
+    test: bool,
 }
 
 

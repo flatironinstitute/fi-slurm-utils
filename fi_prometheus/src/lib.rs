@@ -130,6 +130,46 @@ fn query(
     Ok(result)
 }
 
+
+fn test_query(
+    query: &str,
+    cluster: &Cluster,
+    start: DateTime<Utc>,
+    end: Option<DateTime<Utc>>,
+    step: Option<&str>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let base_url = get_prometheus_url(cluster);
+    let _client = Client::builder()
+        .danger_accept_invalid_certs(true) // Equivalent to `verify=False`
+        .timeout(std::time::Duration::from_secs(10))
+        .build()?;
+
+    let mut params = HashMap::new();
+    params.insert("query".to_string(), query.to_string());
+    params.insert("start".to_string(), start.timestamp().to_string());
+
+    let url = if let (Some(end_time), Some(step_val)) = (end, step) {
+        params.insert("end".to_string(), end_time.timestamp().to_string());
+        params.insert("step".to_string(), step_val.to_string());
+        format!("{base_url}/api/v1/query_range")
+    } else {
+        format!("{base_url}/api/v1/query")
+    };
+
+    println!("The url is {url} and the query is {params:?}");
+
+    //let response = client.get(&url).query(&params).send()?;
+    //response.error_for_status_ref()?; // Check for HTTP errors like 4xx or 5xx
+    //
+    //let body_text = response.text()?;
+    //let result: PrometheusResponse = serde_json::from_str(&body_text)?;
+    //
+    //if result.status != "success" {
+    //    return Err("Prometheus query was not successful".into());
+    //}
+    Ok(())
+}
+
 /// Processes an instant query result.
 #[allow(dead_code)]
 fn group_by(result: PrometheusResponse, metric: Grouping) -> HashMap<String, u64> {
@@ -185,6 +225,19 @@ fn range_group_by(result: PrometheusResponse, metric: Grouping) -> HashMap<Strin
 
 // --- Public API Functions ---
 
+pub fn test_usage_by(
+    cluster: Cluster,
+    grouping: Grouping,
+    resource: Resource,
+    days: i64,
+    step: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let now = Utc::now();
+    let start_time = now - Duration::days(days);
+
+    let usage_query = usage_query(grouping, resource); // Assuming Cpus for now
+    test_query(&usage_query, &cluster, start_time, Some(now), Some(step))
+}
 pub fn get_usage_by(
     cluster: Cluster,
     grouping: Grouping,
