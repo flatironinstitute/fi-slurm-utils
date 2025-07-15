@@ -34,6 +34,9 @@ pub enum AppError {
     ChannelSend(String),
     #[error("Failed to get maximum capacity: {0}")]
     MaxFail(String),
+    #[error("Data fetching timed out after 10 seconds")]
+    TimeOut,
+
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -167,6 +170,8 @@ async fn run_app<B: Backend>(
     terminal: &mut Terminal<B>,
     mut rx: mpsc::Receiver<FetchedData>,
 ) -> io::Result<()> {
+
+    const LOADING_TIMEOUT_TICKS: usize = 100;
     // Start the app in the MainMenu state.
     let mut app_state = AppState::MainMenu { selected: MainMenuSelection::Default };
     
@@ -304,6 +309,12 @@ async fn run_app<B: Backend>(
 
         if let AppState::Loading { ref mut tick } = app_state {
             *tick += 1;
+
+            if *tick > LOADING_TIMEOUT_TICKS {
+                app_state = AppState::Error(AppError::TimeOut);
+                continue; // Skip the rest of the loop to immediately draw the error screen.
+            }
+
             if data_fetch_count == 6 {
                 app_state = build_loaded_app(
                     &mut cpu_by_account_data, &mut cpu_by_node_data, &mut gpu_by_type_data,
