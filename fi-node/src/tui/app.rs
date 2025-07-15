@@ -46,7 +46,7 @@ pub enum AppView {
 }
 
 // #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub enum ScrollMode {
     #[default]
     Page,
