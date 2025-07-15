@@ -10,7 +10,7 @@ use ratatui::{
     Frame,
 };
 
-use super::interface::PrometheusTimeScale;
+use fi_prometheus::PrometheusTimeScale;
 
 // --- UI Drawing ---
 

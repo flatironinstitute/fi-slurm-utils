@@ -54,12 +54,6 @@ fn prometheus_data_request(
     request: PrometheusRequest,
     data_type: PrometheusDataType,
 ) -> Result<PrometheusDataResult, AppError> {
-    let time_scale = match request.time_scale {
-        PrometheusTimeScale::Day => "1d".to_string(),
-        PrometheusTimeScale::Week => "1w".to_string(),
-        PrometheusTimeScale::Year => "1y".to_string(),
-    };
-
     match data_type {
         PrometheusDataType::Usage => {
             let data = get_usage_by(
@@ -67,7 +61,7 @@ fn prometheus_data_request(
                 request.grouping.unwrap(), // No longer needs .unwrap()
                 request.resource,
                 request.range,
-                &time_scale,
+                request.time_scale,
             )
             .map_err(|e| AppError::DataFetch(e.to_string()))?;
 
@@ -82,7 +76,7 @@ fn prometheus_data_request(
                 request.grouping, // get_max_resource expects an Option
                 request.resource,
                 request.range, // This function also expects an Option
-                Some(&time_scale),
+                request.time_scale,
             )
             .map_err(|e| AppError::DataFetch(e.to_string()))?;
 

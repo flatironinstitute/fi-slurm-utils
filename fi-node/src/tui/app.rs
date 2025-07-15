@@ -3,7 +3,6 @@ use crate::tui::{
         get_cpu_by_account_data_async, get_cpu_by_node_data_async,
         get_gpu_by_type_data_async, get_cpu_capacity_by_account_async,
         get_cpu_capacity_by_node_async, get_gpu_capacity_by_type_async,
-        PrometheusTimeScale,
     },
     ui::ui,
 };
@@ -16,6 +15,7 @@ use ratatui::{
     backend::{Backend, CrosstermBackend},
     Terminal,
 };
+use fi_prometheus::PrometheusTimeScale;
 use std::collections::HashMap;
 use std::io;
 use tokio::sync::mpsc;
@@ -186,7 +186,7 @@ async fn run_app<B: Backend>(
     let mut data_fetch_count = 0;
 
     let mut current_query_range = 7;
-    let mut current_query_time_scale = PrometheusTimeScale::Day;
+    let mut current_query_time_scale = PrometheusTimeScale::Days;
 
     loop {
         terminal.draw(|f| ui(f, &app_state))?;
@@ -409,7 +409,7 @@ pub async fn tui_execute() -> Result<(), Box<dyn std::error::Error>> {
 
     // MODIFIED: Start fetching default data immediately.
     let (tx, rx) = mpsc::channel(6);
-    spawn_custom_data_fetch(tx, 7, PrometheusTimeScale::Day);
+    spawn_custom_data_fetch(tx, 7, PrometheusTimeScale::Days);
 
     let res = run_app(&mut terminal, rx).await;
 

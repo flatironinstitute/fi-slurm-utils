@@ -9,7 +9,6 @@ use std::collections::{HashMap, HashSet};
 use fi_slurm::jobs::{SlurmJobs, enrich_jobs_with_node_ids};
 use fi_slurm::{jobs, nodes, utils::{SlurmConfig, initialize_slurm}};
 use fi_slurm::filter::{self, gather_all_features};
-use fi_prometheus::{Cluster, Grouping, Resource};
 use crate::tui::app::tui_execute;
 
 use std::time::Instant;
