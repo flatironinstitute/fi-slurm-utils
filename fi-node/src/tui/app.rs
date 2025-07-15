@@ -4,7 +4,7 @@ use crate::tui::{
         get_gpu_by_type_data_async, get_cpu_capacity_by_account_async,
         get_cpu_capacity_by_node_async, get_gpu_capacity_by_type_async,
     },
-    ui::ui,
+    ui::{ui, MAX_BARS_PER_CHART}
 };
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
@@ -328,7 +328,6 @@ async fn run_app<B: Backend>(
                                 };
                                 match key.code {
                                     KeyCode::Right | KeyCode::Char('l') => {
-                                        const MAX_BARS_PER_CHART: usize = 7; // Must match ui.rs
                                         let max_points = current_chart_data.source_data.values()
                                             .map(|v| v.len())
                                             .max()

@@ -12,6 +12,12 @@ use ratatui::{
 
 use fi_prometheus::PrometheusTimeScale;
 
+// --- Layout Constants ---
+const MINIMUM_CHART_WIDTH: u16 = 65;
+const CHART_HEIGHT: u16 = 10;
+pub const MAX_BARS_PER_CHART: usize = 10;
+const BAR_WIDTH: u16 = 6;
+const BAR_GAP: u16 = 1;
 // --- UI Drawing ---
 
 pub fn ui(f: &mut Frame, app_state: &AppState) {
@@ -325,12 +331,6 @@ fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView, page_info: Option
 }
 
 fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize, _time_scale: PrometheusTimeScale, scroll_mode: ScrollMode) -> (usize, usize) {
-    // --- Layout Constants ---
-    const MINIMUM_CHART_WIDTH: u16 = 65;
-    const CHART_HEIGHT: u16 = 10;
-    const MAX_BARS_PER_CHART: usize = 10;
-    const BAR_WIDTH: u16 = 6;
-    const BAR_GAP: u16 = 1;
 
     // --- Data Preparation ---
     let colors = [
