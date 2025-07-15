@@ -9,8 +9,6 @@ const TASK_TIMEOUT: Duration = Duration::from_secs(15);
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum PrometheusTimeScale {
-    Minute,
-    Hour,
     #[default]
     Day,
     Week,
@@ -26,19 +24,15 @@ impl std::fmt::Display for PrometheusTimeScale {
 impl PrometheusTimeScale {
     pub fn next(&self) -> Self {
         match self {
-            Self::Minute => Self::Hour,
-            Self::Hour => Self::Day,
             Self::Day => Self::Week,
             Self::Week => Self::Year,
-            Self::Year => Self::Minute, // Wraps around
+            Self::Year => Self::Day, // Wraps around
         }
     }
 
     pub fn prev(&self) -> Self {
         match self {
-            Self::Minute => Self::Year, // Wraps around
-            Self::Hour => Self::Minute,
-            Self::Day => Self::Hour,
+            Self::Day => Self::Year,
             Self::Week => Self::Day,
             Self::Year => Self::Week,
         }
@@ -93,8 +87,6 @@ fn prometheus_data_request(
     data_type: PrometheusDataType,
 ) -> Result<PrometheusDataResult, AppError> {
     let time_scale = match request.time_scale {
-        PrometheusTimeScale::Minute => "1m".to_string(),
-        PrometheusTimeScale::Hour => "1h".to_string(),
         PrometheusTimeScale::Day => "1d".to_string(),
         PrometheusTimeScale::Week => "1w".to_string(),
         PrometheusTimeScale::Year => "1y".to_string(),
