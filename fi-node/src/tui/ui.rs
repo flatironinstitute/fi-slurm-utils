@@ -328,7 +328,7 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
     // --- Layout Constants ---
     const MINIMUM_CHART_WIDTH: u16 = 65;
     const CHART_HEIGHT: u16 = 10;
-    const MAX_BARS_PER_CHART: usize = 7;
+    const MAX_BARS_PER_CHART: usize = 10;
     const BAR_WIDTH: u16 = 6;
     const BAR_GAP: u16 = 1;
 
@@ -441,7 +441,7 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                     .enumerate()
                     .map(|(k, &val)| {
                         Bar::default()
-                            .value(val)
+                            .value(*val)
                             .label(time_labels[k % time_labels.len()].clone().into())
                             //.label(time_labels[k % time_labels.len()].into())
                             .style(Style::default().fg(color))
