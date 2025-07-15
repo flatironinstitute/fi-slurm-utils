@@ -105,7 +105,7 @@ fn draw_main_menu(f: &mut Frame, area: Rect, selected: MainMenuSelection) {
     f.render_widget(default_text, inner_chunks[0]);
     f.render_widget(custom_text, inner_chunks[2]);
 }
-// MODIFIED: This function now includes a debug pane to show the live state.
+
 fn draw_parameter_selection_menu(f: &mut Frame, area: Rect, state: &ParameterSelectionState) {
     // Main layout with a chunk for the menu and a chunk for the debug pane.
     let main_chunks = Layout::default()
@@ -117,7 +117,6 @@ fn draw_parameter_selection_menu(f: &mut Frame, area: Rect, state: &ParameterSel
         .split(area);
     
     let menu_area = main_chunks[0];
-    //let debug_area = main_chunks[1];
 
     // --- Draw the original menu ---
     let vertical_chunks = Layout::default()
@@ -185,14 +184,6 @@ fn draw_parameter_selection_menu(f: &mut Frame, area: Rect, state: &ParameterSel
         .alignment(Alignment::Center)
         .style(if state.focused_widget == ParameterFocus::Confirm { focused_style.add_modifier(Modifier::REVERSED) } else { normal_style });
     f.render_widget(confirm_paragraph, inner_chunks[2]);
-
-    //// --- NEW: Draw the debug pane ---
-    //let debug_text = format!("{:#?}", state);
-    //let debug_block = Block::default().title("Live State").borders(Borders::ALL);
-    //let debug_paragraph = Paragraph::new(debug_text)
-    //    .block(debug_block)
-    //    .wrap(Wrap { trim: true });
-    //f.render_widget(debug_paragraph, debug_area);
 }
 
 fn draw_loading_screen(f: &mut Frame, tick: usize) {
@@ -274,31 +265,6 @@ fn get_chart_data(app: &App) -> &ChartData {
         AppView::GpuByType => &app.gpu_by_type,
     }
 }
-
-
-// fn draw_dashboard(f: &mut Frame, app: &App) {
-//     let main_chunks = Layout::default()
-//         .direction(Direction::Vertical)
-//         .constraints(
-//             [
-//                 Constraint::Length(3), // For tabs
-//                 Constraint::Min(0),    // For chart content
-//                 Constraint::Length(1), // For footer
-//             ]
-//             .as_ref(),
-//         )
-//         .split(f.area());
-//
-//     let chart_data = match app.current_view {
-//         AppView::CpuByAccount => &app.cpu_by_account,
-//         AppView::CpuByNode => &app.cpu_by_node,
-//         AppView::GpuByType => &app.gpu_by_type,
-//     };
-//
-//     let page_info = draw_charts(f, main_chunks[1], chart_data, app.scroll_offset);
-//     draw_tabs(f, main_chunks[0], app.current_view, Some(page_info));
-//     draw_footer(f, main_chunks[2], Some(page_info));
-// }
 
 fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView, page_info: Option<(usize, usize)>) {
     let base_titles = ["(1) CPU by Account", "(2) CPU by Node", "(3) GPU by Type"];
