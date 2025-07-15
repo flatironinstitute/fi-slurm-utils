@@ -1,5 +1,5 @@
 use crate::tui::app::{AppError, CapacityData, FetchedData, UsageData};
-use fi_prometheus::{get_max_resource, get_usage_by, Cluster, Grouping, Resource};
+use fi_prometheus::{get_max_resource, get_usage_by, Cluster, Grouping, Resource, PrometheusTimeScale};
 use tokio::sync::mpsc;
 use std::time::Duration;
 
@@ -7,35 +7,9 @@ use std::time::Duration;
 
 const TASK_TIMEOUT: Duration = Duration::from_secs(15);
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum PrometheusTimeScale {
-    #[default]
-    Day,
-    Week,
-    Year,
-}
-
 impl std::fmt::Display for PrometheusTimeScale {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self)
-    }
-}
-
-impl PrometheusTimeScale {
-    pub fn next(&self) -> Self {
-        match self {
-            Self::Day => Self::Week,
-            Self::Week => Self::Year,
-            Self::Year => Self::Day, // Wraps around
-        }
-    }
-
-    pub fn prev(&self) -> Self {
-        match self {
-            Self::Day => Self::Year,
-            Self::Week => Self::Day,
-            Self::Year => Self::Week,
-        }
     }
 }
 
@@ -113,7 +87,7 @@ fn prometheus_data_request(
                 request.cluster,
                 request.grouping, // get_max_resource expects an Option
                 request.resource,
-                Some(request.range), // This function also expects an Option
+                request.range, // This function also expects an Option
                 Some(&time_scale),
             )
             .map_err(|e| AppError::DataFetch(e.to_string()))?;

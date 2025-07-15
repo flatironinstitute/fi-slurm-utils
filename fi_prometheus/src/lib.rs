@@ -55,26 +55,49 @@ impl std::fmt::Display for Resource {
     }
 }
 
-pub enum TimeScale {
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum PrometheusTimeScale {
     Minutes,
     Hours,
+    #[default]
     Days,
     Weeks,
     Years,
 }
 
-impl std::fmt::Display for TimeScale {
+impl std::fmt::Display for PrometheusTimeScale {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            TimeScale::Minutes => write!(f, "1m"),
-            TimeScale::Hours => write!(f, "1h"),
-            TimeScale::Days => write!(f, "1d"), 
-            TimeScale::Weeks => write!(f, "1w"),
-            TimeScale::Years => write!(f, "1y"),
+            PrometheusTimeScale::Minutes => write!(f, "1m"),
+            PrometheusTimeScale::Hours => write!(f, "1h"),
+            PrometheusTimeScale::Days => write!(f, "1d"), 
+            PrometheusTimeScale::Weeks => write!(f, "1w"),
+            PrometheusTimeScale::Years => write!(f, "1y"),
         }
     }
 }
 
+impl PrometheusTimeScale {
+    pub fn next(&self) -> Self {
+        match self {
+            Self::Minutes => Self::Hours,
+            Self::Hours => Self::Days,
+            Self::Days => Self::Weeks,
+            Self::Weeks => Self::Years,
+            Self::Years=> Self::Minutes, // Wraps around
+        }
+    }
+
+    pub fn prev(&self) -> Self {
+        match self {
+            Self::Minutes => Self::Years,
+            Self::Hours => Self::Minutes,
+            Self::Days => Self::Hours,
+            Self::Weeks => Self::Days,
+            Self::Years => Self::Weeks,
+        }
+    }
+}
 
 struct TimeRangeReturn {
     now: DateTime<Utc>,
@@ -83,18 +106,18 @@ struct TimeRangeReturn {
 
 fn get_time_range(
     increments: i64,
-    step: &TimeScale,
+    step: &PrometheusTimeScale,
 ) -> TimeRangeReturn {
 
     let now = Utc::now();
 
     let start_time = match step {
-        TimeScale::Minutes => {now - Duration::minutes(increments)},
-        TimeScale::Hours => {now - Duration::hours(increments)},
-        TimeScale::Days => now.checked_sub_days(Days::new(increments as u64)).unwrap(),
-        TimeScale::Weeks => now.checked_sub_days(Days::new(increments as u64 * 7)).unwrap(),
-        // TimeScale::Months => now.checked_sub_months(Months::new(increments as u32)).unwrap(),
-        TimeScale::Years => {
+        PrometheusTimeScale::Minutes => {now - Duration::minutes(increments)},
+        PrometheusTimeScale::Hours => {now - Duration::hours(increments)},
+        PrometheusTimeScale::Days => now.checked_sub_days(Days::new(increments as u64)).unwrap(),
+        PrometheusTimeScale::Weeks => now.checked_sub_days(Days::new(increments as u64 * 7)).unwrap(),
+        // PrometheusTimeScale::Months => now.checked_sub_months(Months::new(increments as u32)).unwrap(),
+        PrometheusTimeScale::Years => {
             let current_year = now.year();
             now.with_year(current_year - increments as i32).unwrap()
         }
@@ -147,7 +170,7 @@ fn query(
     cluster: &Cluster,
     start: DateTime<Utc>,
     end: Option<DateTime<Utc>>,
-    step: Option<TimeScale>,
+    step: Option<PrometheusTimeScale>,
 ) -> Result<PrometheusResponse, Box<dyn std::error::Error>> {
     let base_url = get_prometheus_url(cluster);
     let client = Client::builder()
@@ -280,7 +303,7 @@ fn range_group_by(result: PrometheusResponse, metric: Grouping) -> HashMap<Strin
 //     grouping: Grouping,
 //     resource: Resource,
 //     increments: i64,
-//     step: TimeScale,
+//     step: PrometheusTimeScale,
 // ) -> Result<(), Box<dyn std::error::Error>> {
 //
 //     let time_return = get_time_range(increments, step);
@@ -296,7 +319,7 @@ pub fn get_usage_by(
     grouping: Grouping,
     resource: Resource,
     increments: i64,
-    step: TimeScale,
+    step: PrometheusTimeScale,
 ) -> Result<HashMap<String, Vec<u64>>, Box<dyn std::error::Error>> {
     let time_return = get_time_range(increments, &step);
     let now = time_return.now;
@@ -315,7 +338,7 @@ pub fn get_max_resource(
     grouping: Option<Grouping>,
     resource: Resource,
     increments: i64,
-    step: TimeScale,
+    step: PrometheusTimeScale,
 ) -> Result<HashMap<String, Vec<u64>>, Box<dyn std::error::Error>> {
     let time_return = get_time_range(increments, &step);
     let now = time_return.now;
