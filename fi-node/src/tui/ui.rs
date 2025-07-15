@@ -28,7 +28,7 @@ pub fn ui(f: &mut Frame, app_state: &AppState) {
                 .constraints([Constraint::Min(0), Constraint::Length(1)])
                 .split(f.area());
             draw_main_menu(f, chunks[0], *selected);
-            draw_footer(f, chunks[1], None, None);
+            draw_footer(f, chunks[1], None, None, None);
         }
         AppState::ParameterSelection(state) => {
             let chunks = Layout::default()
@@ -36,7 +36,7 @@ pub fn ui(f: &mut Frame, app_state: &AppState) {
                 .constraints([Constraint::Min(0), Constraint::Length(1)])
                 .split(f.area());
             draw_parameter_selection_menu(f, chunks[0], state);
-            draw_footer(f, chunks[1], None, Some(state.focused_widget));
+            draw_footer(f, chunks[1], None, Some(state.focused_widget), None);
         }
         AppState::Loading { tick } => draw_loading_screen(f, *tick),
         AppState::Loaded(app) => {
@@ -53,7 +53,7 @@ pub fn ui(f: &mut Frame, app_state: &AppState) {
             let page_info = draw_charts(f, main_chunks[1], get_chart_data(app), app.scroll_offset, app.query_time_scale, app.scroll_mode);
             // Pass page info to both tabs and footer
             draw_tabs(f, main_chunks[0], app.current_view, Some(page_info));
-            draw_footer(f, main_chunks[2], Some(page_info), None);
+            draw_footer(f, main_chunks[2], Some(page_info), None, Some(app.scroll_mode));
         }
         AppState::Error(err) => draw_error_screen(f, err),
     }
@@ -509,7 +509,13 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
     (current_page, total_pages)
 }
 
-fn draw_footer(f: &mut Frame, area: Rect, page_info: Option<(usize, usize)>, focus: Option<ParameterFocus>) {
+fn draw_footer(
+    f: &mut Frame, 
+    area: Rect, 
+    page_info: Option<(usize, usize)>, 
+    focus: Option<ParameterFocus>, 
+    scroll_mode: Option<ScrollMode>
+) {
     let mut instructions = vec![Span::from("Use (q) to quit")];
 
     if let Some((_, total)) = page_info {
@@ -517,7 +523,13 @@ fn draw_footer(f: &mut Frame, area: Rect, page_info: Option<(usize, usize)>, foc
         if total > 1 {
             instructions.push(Span::from(", (↑/↓ to scroll)"));
         }
-        instructions.push(Span::from(", (Enter to scroll charts)"));
+
+        if let Some(mode) = scroll_mode {
+            match mode {
+                ScrollMode::Page => instructions.push(Span::from(", (Enter to scroll charts)")),
+                ScrollMode::Chart => instructions.push(Span::from(", (Esc to scroll pages)")),
+            }
+        }
     } else if let Some(focus_widget) = focus {
         instructions.push(Span::from(", (Tab to switch focus)"));
         match focus_widget {
