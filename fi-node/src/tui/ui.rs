@@ -422,7 +422,8 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                     .map(|(k, &val)| {
                         Bar::default()
                             .value(val)
-                            .label(time_labels[k % time_labels.len()].into())
+                            .label(time_labels[k % time_labels.len()].clone().into())
+                            //.label(time_labels[k % time_labels.len()].into())
                             .style(Style::default().fg(color))
                             .text_value("".to_string())
                     })

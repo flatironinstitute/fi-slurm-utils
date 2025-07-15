@@ -345,6 +345,7 @@ async fn run_app<B: Backend>(
 
 
 
+#[allow(clippy::too_many_arguments)]
 fn build_loaded_app(
     cpu_by_account_data: &mut Option<Result<UsageData, AppError>>,
     cpu_by_node_data: &mut Option<Result<UsageData, AppError>>,
