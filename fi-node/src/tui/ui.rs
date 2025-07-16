@@ -6,7 +6,7 @@ use crate::tui::app::{
 use fi_prometheus::PrometheusTimeScale;
 use ratatui::{
     prelude::*,
-    layout::{Constraint, Direction, Layout, Padding, Rect},
+    layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style, Stylize},
     symbols::border,
     text::{Line, Span, Text},
@@ -51,7 +51,6 @@ pub fn ui(f: &mut Frame, app_state: &AppState) {
                 main_chunks[1],
                 chart_data,
                 app.scroll_offset,
-                app.query_time_scale,
                 app.scroll_mode,
             );
             
@@ -159,6 +158,7 @@ fn draw_parameter_selection_menu(f: &mut Frame, area: Rect, state: &ParameterSel
     let range_block = Block::default()
         .title("Range")
         .borders(Borders::ALL)
+        //.padding(Padding::new(1, 1, 1, 1))
         .border_style(if state.focused_widget == ParameterFocus::Range { focused_style } else { normal_style });
     
     let input_text = if state.focused_widget == ParameterFocus::Range {
@@ -166,7 +166,9 @@ fn draw_parameter_selection_menu(f: &mut Frame, area: Rect, state: &ParameterSel
     } else {
         state.range_input.clone()
     };
-    let range_paragraph = Paragraph::new(input_text).block(range_block.clone()).padding(Padding::new(1, 1, 1, 1));
+
+    let range_paragraph = Paragraph::new(input_text).block(range_block);
+
     f.render_widget(range_paragraph, inner_chunks[0]);
 
     let unit_block = Block::default()
@@ -320,7 +322,7 @@ fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView, page_info: Option
 }
 
 // MODIFIED: This function now correctly renders the capacity line and hidden bar.
-fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize, time_scale: PrometheusTimeScale, scroll_mode: ScrollMode) -> (usize, usize) {
+fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize, scroll_mode: ScrollMode) -> (usize, usize) {
     let colors = [
         Color::Cyan,
         Color::Magenta,
@@ -403,7 +405,6 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                 let color = colors[absolute_chart_index % colors.len()];
 
                 let num_points = values.len();
-                let unit_char = time_scale.to_string().chars().next().unwrap_or('?').to_lowercase();
 
                 let max_h_scroll = num_points.saturating_sub(MAX_BARS_PER_CHART);
                 let h_offset = data.horizontal_scroll_offset.min(max_h_scroll);
@@ -412,7 +413,7 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
 
                 let time_labels: Vec<String> = (h_offset..h_offset + visible_values.len()).map(|i| {
                     let step = num_points - 1 - i;
-                    if step == 0 { "Now".to_string() } else { format!("-{}{}", step, unit_char) }
+                    if step == 0 { "Now".to_string() } else { format!("-{}", step) }
                 }).collect();
 
                 let mut bar_data: Vec<Bar> = visible_values
