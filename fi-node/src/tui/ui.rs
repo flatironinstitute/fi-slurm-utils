@@ -474,13 +474,17 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                 // Render ellipses on top of bars if there's horizontal overflow
                 if h_offset > 0 {
                     f.render_widget(
-                        Paragraph::new("...").alignment(Alignment::Left),
+                        Paragraph::new("...")
+                            .style(Style::default().fg(Color::White))
+                            .alignment(Alignment::Left),
                         chart_area_inner,
                     );
                 }
                 if h_offset < max_h_scroll {
                     f.render_widget(
-                        Paragraph::new("...").alignment(Alignment::Right),
+                        Paragraph::new("...")
+                            .style(Style::default().fg(Color::White))
+                            .alignment(Alignment::Right),
                         chart_area_inner,
                     );
                 }
