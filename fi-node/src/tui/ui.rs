@@ -52,6 +52,7 @@ pub fn ui(f: &mut Frame, app_state: &AppState) {
                 chart_data,
                 app.scroll_offset,
                 app.scroll_mode,
+                app.current_view,
             );
             
             draw_tabs(f, main_chunks[0], app.current_view, Some(page_info));
@@ -321,7 +322,7 @@ fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView, page_info: Option
     f.render_widget(tabs, area);
 }
 
-fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize, scroll_mode: ScrollMode) -> (usize, usize) {
+fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize, scroll_mode: ScrollMode, current_view: AppView) -> (usize, usize) {
     let colors = [
         Color::Cyan,
         Color::Magenta,
@@ -387,18 +388,15 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                 let inner_area = outer_block.inner(cell_area);
                 f.render_widget(outer_block, cell_area);
 
-                // NEW: 3-row layout to make space for the capacity line.
                 let chart_chunks = Layout::default()
                     .direction(Direction::Vertical)
                     .constraints([
-                        Constraint::Length(1), // For capacity line
                         Constraint::Length(1), // For usage numbers
                         Constraint::Min(0),    // For the bar chart
                     ])
                     .split(inner_area);
-                let capacity_area = chart_chunks[0];
-                let labels_area = chart_chunks[1];
-                let chart_area = chart_chunks[2];
+                let labels_area = chart_chunks[0];
+                let chart_area = chart_chunks[1];
 
                 let absolute_chart_index = (clamped_offset + i) * num_cols + j;
                 let color = colors[absolute_chart_index % colors.len()];
@@ -427,33 +425,32 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                     })
                     .collect();
 
-                let capacity_vec = data.capacity_data.get(*name);
-                let chart_specific_max = capacity_vec.and_then(|v| v.iter().max()).cloned().unwrap_or(0);
+                let chart_specific_max = if current_view == AppView::CpuByAccount {
+                    data.capacity_data.get("Total").and_then(|v| v.iter().max()).cloned().unwrap_or(0)
+                } else {
+                    data.capacity_data.get(*name).and_then(|v| v.iter().max()).cloned().unwrap_or(0)
+                };
                 
-                // NEW: Draw the capacity line.
-                let line_char = "─";
-                let capacity_line = Paragraph::new(line_char.repeat(capacity_area.width as usize))
-                    .style(Style::default().fg(Color::DarkGray));
-                f.render_widget(capacity_line, capacity_area);
-
+                // MODIFIED: The MAX bar no longer has a text_value.
                 bar_data.push(
                     Bar::default()
                         .value(chart_specific_max)
-                        .label("".into())
-                        .style(Style::default().add_modifier(Modifier::HIDDEN)),
+                        .label("MAX".into())
+                        .style(Style::default().fg(Color::White))
+                        .text_value("".to_string()),
                 );
 
-                // MODIFIED: This layout is now based on the full bar_data length to avoid mismatches.
-                let label_constraints: Vec<Constraint> = (0..bar_data.len())
+                let mut label_constraints: Vec<Constraint> = visible_values
+                    .iter()
                     .flat_map(|_| [Constraint::Length(BAR_WIDTH), Constraint::Length(BAR_GAP)])
                     .collect();
-
+                label_constraints.push(Constraint::Length(BAR_WIDTH));
+                
                 let label_chunks = Layout::default()
                     .direction(Direction::Horizontal)
                     .constraints(label_constraints)
                     .split(labels_area);
 
-                // This loop still only iterates over visible values to draw the numbers.
                 for (k, &val) in visible_values.iter().enumerate() {
                     let label_chunk_index = k * 2;
                     if label_chunk_index < label_chunks.len() {
@@ -463,6 +460,16 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                         f.render_widget(label, label_chunks[label_chunk_index]);
                     }
                 }
+
+                // NEW: Draw the numeric label for the MAX bar in the correct position.
+                let max_label_chunk_index = visible_values.len() * 2;
+                if max_label_chunk_index < label_chunks.len() {
+                    let max_label = Paragraph::new(chart_specific_max.to_string())
+                        .style(Style::default().fg(Color::White))
+                        .alignment(Alignment::Center);
+                    f.render_widget(max_label, label_chunks[max_label_chunk_index]);
+                }
+
 
                 if h_offset > 0 {
                     f.render_widget(Paragraph::new("...").alignment(Alignment::Left), labels_area);
