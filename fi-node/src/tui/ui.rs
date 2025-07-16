@@ -1,18 +1,18 @@
-use crate::tui::app::{App, AppError, AppState, AppView, ChartData, MainMenuSelection, 
-    ParameterFocus, ParameterSelectionState, ScrollMode, MINIMUM_CHART_WIDTH, MAX_BARS_PER_CHART, BAR_GAP, BAR_WIDTH, CHART_HEIGHT};
+use crate::tui::app::{
+    App, AppError, AppState, AppView, ChartData, MainMenuSelection, ParameterFocus,
+    ParameterSelectionState, ScrollMode, BAR_GAP, BAR_WIDTH, CHART_HEIGHT, MAX_BARS_PER_CHART,
+    MINIMUM_CHART_WIDTH,
+};
+use fi_prometheus::PrometheusTimeScale;
 use ratatui::{
     prelude::*,
-    layout::{Constraint, Direction, Layout, Rect},
+    layout::{Constraint, Direction, Layout, Padding, Rect},
     style::{Color, Modifier, Style, Stylize},
     symbols::border,
     text::{Line, Span, Text},
     widgets::{Bar, BarChart, BarGroup, Block, Borders, Paragraph, Tabs, Wrap},
     Frame,
 };
-
-use fi_prometheus::PrometheusTimeScale;
-
-// for layout constants, see app.rs
 
 // --- UI Drawing ---
 
@@ -45,9 +45,16 @@ pub fn ui(f: &mut Frame, app_state: &AppState) {
                 ])
                 .split(f.area());
 
-            draw_tabs(f, main_chunks[0], app.current_view, None);
-            let page_info = draw_charts(f, main_chunks[1], get_chart_data(app), app.scroll_offset, app.query_time_scale, app.scroll_mode);
-            // Pass page info to both tabs and footer
+            let chart_data = get_chart_data(app);
+            let page_info = draw_charts(
+                f,
+                main_chunks[1],
+                chart_data,
+                app.scroll_offset,
+                app.query_time_scale,
+                app.scroll_mode,
+            );
+            
             draw_tabs(f, main_chunks[0], app.current_view, Some(page_info));
             draw_footer(f, main_chunks[2], Some(page_info), None, Some(app.scroll_mode));
         }
@@ -57,7 +64,6 @@ pub fn ui(f: &mut Frame, app_state: &AppState) {
 
 
 fn draw_main_menu(f: &mut Frame, area: Rect, selected: MainMenuSelection) {
-    // Create a layout to center the menu box.
     let vertical_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -101,7 +107,7 @@ fn draw_main_menu(f: &mut Frame, area: Rect, selected: MainMenuSelection) {
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(1),
-            Constraint::Length(1), // Spacer
+            Constraint::Length(1),
             Constraint::Length(1),
         ])
         .split(inner_area);
@@ -111,18 +117,6 @@ fn draw_main_menu(f: &mut Frame, area: Rect, selected: MainMenuSelection) {
 }
 
 fn draw_parameter_selection_menu(f: &mut Frame, area: Rect, state: &ParameterSelectionState) {
-    // Main layout with a chunk for the menu and a chunk for the debug pane.
-    let main_chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Min(0),
-            Constraint::Length(5), // Space for the debug pane
-        ])
-        .split(area);
-    
-    let menu_area = main_chunks[0];
-
-    // --- Draw the original menu ---
     let vertical_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -130,7 +124,7 @@ fn draw_parameter_selection_menu(f: &mut Frame, area: Rect, state: &ParameterSel
             Constraint::Length(9),
             Constraint::Percentage(35),
         ])
-        .split(menu_area);
+        .split(area);
 
     let horizontal_chunks = Layout::default()
         .direction(Direction::Horizontal)
@@ -141,14 +135,14 @@ fn draw_parameter_selection_menu(f: &mut Frame, area: Rect, state: &ParameterSel
         ])
         .split(vertical_chunks[1]);
 
-    let inner_menu_area = horizontal_chunks[1];
+    let menu_area = horizontal_chunks[1];
 
     let main_block = Block::default()
         .title("Custom Query Parameters")
         .borders(Borders::ALL)
         .border_set(border::ROUNDED);
-    let inner_area = main_block.inner(inner_menu_area);
-    f.render_widget(main_block, inner_menu_area);
+    let inner_area = main_block.inner(menu_area);
+    f.render_widget(main_block, menu_area);
 
     let inner_chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -172,7 +166,7 @@ fn draw_parameter_selection_menu(f: &mut Frame, area: Rect, state: &ParameterSel
     } else {
         state.range_input.clone()
     };
-    let range_paragraph = Paragraph::new(input_text).block(range_block);
+    let range_paragraph = Paragraph::new(input_text).block(range_block.clone()).padding(Padding::new(1, 1, 1, 1));
     f.render_widget(range_paragraph, inner_chunks[0]);
 
     let unit_block = Block::default()
@@ -269,7 +263,6 @@ fn draw_error_screen(f: &mut Frame, err: &AppError) {
     f.render_widget(paragraph, chunks[1]);
 }
 
-// NEW: Helper function to get the current chart data.
 fn get_chart_data(app: &App) -> &ChartData {
     match app.current_view {
         AppView::CpuByAccount => &app.cpu_by_account,
@@ -326,9 +319,8 @@ fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView, page_info: Option
     f.render_widget(tabs, area);
 }
 
-fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize, _time_scale: PrometheusTimeScale, scroll_mode: ScrollMode) -> (usize, usize) {
-
-    // --- Data Preparation ---
+// MODIFIED: This function now correctly renders the capacity line and hidden bar.
+fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize, time_scale: PrometheusTimeScale, scroll_mode: ScrollMode) -> (usize, usize) {
     let colors = [
         Color::Cyan,
         Color::Magenta,
@@ -345,7 +337,6 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
     let mut sorted_series: Vec<_> = data.source_data.iter().collect();
     sorted_series.sort_by_key(|(name, _)| *name);
 
-    // --- Grid Calculation ---
     let num_charts = sorted_series.len();
     if num_charts == 0 {
         return (1,1);
@@ -357,23 +348,18 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
     let num_visible_rows = (area.height / CHART_HEIGHT) as usize;
     let max_scroll_offset = total_rows.saturating_sub(num_visible_rows);
     let clamped_offset = scroll_offset.min(max_scroll_offset);
-
-    // --- Create Row Layouts ---
+    
     let row_constraints = vec![Constraint::Length(CHART_HEIGHT); num_visible_rows];
     let row_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints(row_constraints)
         .split(area);
 
-    // --- Iterate and Draw Each Chart in a Grid ---
     let mut chart_iter = sorted_series.iter().skip(clamped_offset * num_cols);
     for i in 0..num_visible_rows {
-        if i >= row_chunks.len() {
-            break;
-        }
+        if i >= row_chunks.len() { break; }
         let row_area = row_chunks[i];
 
-        // --- Create Column Layouts for the current row ---
         let col_constraints = vec![Constraint::Percentage(100 / num_cols as u16); num_cols];
         let col_chunks = Layout::default()
             .direction(Direction::Horizontal)
@@ -381,9 +367,7 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
             .split(row_area);
 
         for j in 0..num_cols {
-            if j >= col_chunks.len() {
-                break;
-            }
+            if j >= col_chunks.len() { break; }
             if let Some((name, values)) = chart_iter.next() {
                 let cell_area = col_chunks[j];
 
@@ -402,6 +386,7 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                 let inner_area = outer_block.inner(cell_area);
                 f.render_widget(outer_block, cell_area);
 
+                // NEW: 3-row layout to make space for the capacity line.
                 let chart_chunks = Layout::default()
                     .direction(Direction::Vertical)
                     .constraints([
@@ -414,21 +399,11 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                 let labels_area = chart_chunks[1];
                 let chart_area = chart_chunks[2];
 
-                // let chart_chunks = Layout::default()
-                //     .direction(Direction::Vertical)
-                //     .constraints([
-                //         Constraint::Length(1), // For usage numbers
-                //         Constraint::Min(0),    // For the bar chart
-                //     ])
-                //     .split(inner_area);
-                // let labels_area = chart_chunks[0];
-                // let chart_area = chart_chunks[1];
-
-                // ensuring that colors are consistent when scrolling
                 let absolute_chart_index = (clamped_offset + i) * num_cols + j;
                 let color = colors[absolute_chart_index % colors.len()];
 
                 let num_points = values.len();
+                let unit_char = time_scale.to_string().chars().next().unwrap_or('?').to_lowercase();
 
                 let max_h_scroll = num_points.saturating_sub(MAX_BARS_PER_CHART);
                 let h_offset = data.horizontal_scroll_offset.min(max_h_scroll);
@@ -437,39 +412,30 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
 
                 let time_labels: Vec<String> = (h_offset..h_offset + visible_values.len()).map(|i| {
                     let step = num_points - 1 - i;
-                    if step == 0 {
-                        "Now".to_string()
-                    } else {
-                        format!("-{step}")
-                    }
+                    if step == 0 { "Now".to_string() } else { format!("-{}{}", step, unit_char) }
                 }).collect();
 
-                // --- Create Bars (with original values) ---
                 let mut bar_data: Vec<Bar> = visible_values
                     .iter()
                     .enumerate()
                     .map(|(k, &val)| {
                         Bar::default()
                             .value(*val)
-                            .label(time_labels[k % time_labels.len()].clone().into())
+                            .label(time_labels.get(k).cloned().unwrap_or_default().into())
                             .style(Style::default().fg(color))
                             .text_value("".to_string())
                     })
                     .collect();
 
-                // Get the specific capacity vector for this chart.
                 let capacity_vec = data.capacity_data.get(*name);
-                
-                // Find the maximum capacity for this specific chart.
                 let chart_specific_max = capacity_vec.and_then(|v| v.iter().max()).cloned().unwrap_or(0);
-
-
+                
+                // NEW: Draw the capacity line.
                 let line_char = "─";
                 let capacity_line = Paragraph::new(line_char.repeat(labels_area.width as usize))
                     .style(Style::default().fg(Color::DarkGray));
                 f.render_widget(capacity_line, capacity_area);
 
-                // Add an invisible bar with this chart's specific max capacity.
                 bar_data.push(
                     Bar::default()
                         .value(chart_specific_max)
@@ -477,8 +443,7 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                         .style(Style::default().add_modifier(Modifier::HIDDEN)),
                 );
 
-
-                // --- Draw Usage Labels (with original values) ---
+                // This layout is now based on the number of *visible* bars.
                 let label_constraints: Vec<Constraint> = (0..visible_values.len())
                     .flat_map(|_| [Constraint::Length(BAR_WIDTH), Constraint::Length(BAR_GAP)])
                     .collect();
@@ -505,7 +470,6 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                     f.render_widget(Paragraph::new("...").alignment(Alignment::Right), labels_area);
                 }
 
-                // --- Render the BarChart ---
                 let bar_group = BarGroup::default().bars(&bar_data);
                 let barchart = BarChart::default()
                     .data(bar_group)
@@ -517,31 +481,28 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
         }
     }
 
-    // Return the current page and total pages for the footer.
     let current_page = clamped_offset + 1;
     let total_pages = max_scroll_offset + 1;
     (current_page, total_pages)
 }
 
-fn draw_footer(
-    f: &mut Frame, 
-    area: Rect, 
-    page_info: Option<(usize, usize)>, 
-    focus: Option<ParameterFocus>, 
-    scroll_mode: Option<ScrollMode>
-) {
+fn draw_footer(f: &mut Frame, area: Rect, page_info: Option<(usize, usize)>, focus: Option<ParameterFocus>, scroll_mode: Option<ScrollMode>) {
     let mut instructions = vec![Span::from("Use (q) to quit")];
 
     if let Some((_, total)) = page_info {
-        instructions.push(Span::from(", (h/l, ←/→, Tab, or numbers) to switch views"));
-        if total > 1 {
-            instructions.push(Span::from(", (k/j, ↑/↓ to scroll)"));
-        }
-
         if let Some(mode) = scroll_mode {
             match mode {
-                ScrollMode::Page => instructions.push(Span::from(", (Enter to scroll charts)")),
-                ScrollMode::Chart => instructions.push(Span::from(", (Esc to scroll pages)")),
+                ScrollMode::Page => {
+                    instructions.push(Span::from(", (h/l, ←/→, Tab, or numbers) to switch views"));
+                    if total > 1 {
+                        instructions.push(Span::from(", (k/j, ↑/↓ to scroll pages)"));
+                    }
+                    instructions.push(Span::from(", (Enter to scroll charts)"));
+                }
+                ScrollMode::Chart => {
+                    instructions.push(Span::from(", (h/l, ←/→ to scroll charts)"));
+                    instructions.push(Span::from(", (Esc to scroll pages)"));
+                }
             }
         }
     } else if let Some(focus_widget) = focus {
