@@ -274,7 +274,7 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
         } else {
             (idle_nodes / total_nodes) * 100.0
         };
-        print_utilization(utilization_percent, 50, BarColor::Green, "Node", no_color);
+        print_utilization(utilization_percent, 50, BarColor::Green, "Node", no_color, allocated);
     }
     if total_line.total_cpus > 0 {
         let total_cpus = total_line.total_cpus as f64;
@@ -285,7 +285,7 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
         } else {
             (idle_cpus / total_cpus) * 100.0
         };
-        print_utilization(utilization_percent, 50, BarColor::Cyan, "CPU", no_color);
+        print_utilization(utilization_percent, 50, BarColor::Cyan, "CPU", no_color, allocated);
     }
     if total_line.total_gpus > 0 {
         let total_gpus = total_line.total_gpus as f64;
@@ -296,7 +296,7 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
         } else {
             (idle_gpus / total_gpus) * 100.0
         };
-        print_utilization(utilization_percent, 50, BarColor::Red, "GPU", no_color);
+        print_utilization(utilization_percent, 50, BarColor::Red, "GPU", no_color, allocated);
     }
 }
 
@@ -345,7 +345,7 @@ impl BarColor {
     }
 }
 
-fn print_utilization(utilization_percent: f64, bar_width: usize, bar_color: BarColor, name: &str, no_color: bool) {
+fn print_utilization(utilization_percent: f64, bar_width: usize, bar_color: BarColor, name: &str, no_color: bool, allocated: bool) {
     // Call count_blocks to get the components of the bar
     let (full, empty, partial_opt) = count_blocks(bar_width, utilization_percent / 100.0);
 
@@ -364,7 +364,7 @@ fn print_utilization(utilization_percent: f64, bar_width: usize, bar_color: BarC
 
     // Print the assembled bar
     println!(
-        "Overall {} Utilization: \n [{}{}{}] {:.1}%",
+        if allocated { "Overall {} Utilization: \n [{}{}{}] {:.1}%"} else {"Overall {} Availability: \n [{}{}{}] {:.1}%"},
         name,
         colored_full,
         colored_partial,
