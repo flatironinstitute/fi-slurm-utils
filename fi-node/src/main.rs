@@ -139,8 +139,20 @@ fn main() -> Result<(), String> {
         return Ok(())
     } else {
         // Aggregate data into the tree report 
-        let tree_report = tree_report::build_tree_report(&filtered_nodes, &jobs_collection, &node_to_job_map, &args.feature, args.verbose, args.names);
-        tree_report::print_tree_report(&tree_report, args.no_color, args.names);
+        let tree_report = tree_report::build_tree_report(
+            &filtered_nodes,
+            &jobs_collection,
+            &node_to_job_map,
+            &args.feature,
+            args.verbose,
+            args.names,
+        );
+        tree_report::print_tree_report(
+            &tree_report,
+            args.no_color,
+            args.names,
+            args.sort,
+        );
 
         if args.debug { println!("Finished building tree report: {:?}", start.elapsed()); }
     }
@@ -202,6 +214,9 @@ struct Args {
     preempt: bool,
     #[arg(long)]
     test: bool,
+    /// Sort tree report hierarchy by node count (descending)
+    #[arg(long, help = "Sort tree report hierarchy by node count (descending)")]
+    sort: bool,
 }
 
 

@@ -250,7 +250,7 @@ fn calculate_max_width(tree_node: &TreeNode, prefix_len: usize) -> usize {
 }
 
 
-pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names: bool) {
+pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names: bool, sort: bool) {
     // --- Define Headers ---
     const HEADER_FEATURE: &str = "FEATURE (Avail/Total)";
     const HEADER_NODES: &str = "NODES";
@@ -321,22 +321,36 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
 
     // Print the children recursively
     let mut sorted_children: Vec<_> = children_to_iterate.values().collect();
-    sorted_children.sort_by(|a, b| a.name.cmp(&b.name));
+    if sort {
+        sorted_children.sort_by(|a, b| b.stats.total_nodes.cmp(&a.stats.total_nodes));
+    } else {
+        sorted_children.sort_by(|a, b| a.name.cmp(&b.name));
+    }
     for (i, child) in sorted_children.iter().enumerate() {
         let is_last = i == sorted_children.len() - 1;
-        print_node_recursive(child, "", is_last, no_color, (max_feature_width, bar_width, nodes_final_width, cpus_final_width), &col_widths, show_node_names);
+        print_node_recursive(
+            child,
+            "",
+            is_last,
+            no_color,
+            (max_feature_width, bar_width, nodes_final_width, cpus_final_width),
+            &col_widths,
+            show_node_names,
+            sort,
+        );
     }
 }
 
 /// Recursively prints a node and its children to form the tree structure
 fn print_node_recursive(
-    tree_node: &TreeNode, 
-    prefix: &str, 
-    is_last: bool, 
-    no_color: bool, 
+    tree_node: &TreeNode,
+    prefix: &str,
+    is_last: bool,
+    no_color: bool,
     widths: (usize, usize, usize, usize),
     col_widths: &ColumnWidths,
     show_node_names: bool,
+    sort: bool,
 ) {
     let mut path_parts = vec![tree_node.name.as_str()];
     let mut current_node = tree_node;
@@ -377,11 +391,24 @@ fn print_node_recursive(
 
     let full_child_prefix = format!("{}{}", prefix, if is_last { "   " } else { "│  " });
     let mut sorted_children: Vec<_> = current_node.children.values().collect();
-    sorted_children.sort_by(|a, b| a.name.cmp(&b.name));
+    if sort {
+        sorted_children.sort_by(|a, b| b.stats.total_nodes.cmp(&a.stats.total_nodes));
+    } else {
+        sorted_children.sort_by(|a, b| a.name.cmp(&b.name));
+    }
 
     for (i, child) in sorted_children.iter().enumerate() {
         let is_child_last = i == sorted_children.len() - 1;
-        print_node_recursive(child, &full_child_prefix, is_child_last, no_color, (max_width, bar_width, nodes_final_width, cpus_final_width), col_widths, show_node_names);
+        print_node_recursive(
+            child,
+            &full_child_prefix,
+            is_child_last,
+            no_color,
+            (max_width, bar_width, nodes_final_width, cpus_final_width),
+            col_widths,
+            show_node_names,
+            sort,
+        );
     }
 }
 
