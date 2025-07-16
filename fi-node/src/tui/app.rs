@@ -345,6 +345,11 @@ async fn run_app<B: Backend>(
                                             .horizontal_scroll_offset.saturating_sub(1);
                                     },
                                     KeyCode::Esc => app.scroll_mode = ScrollMode::Page,
+
+                                    KeyCode::Up | KeyCode::PageUp | KeyCode::Char('k') => app.scroll_offset = app.scroll_offset.saturating_sub(1),
+                                    KeyCode::Down | KeyCode::PageDown | KeyCode::Char('j') => app.scroll_offset = app.scroll_offset.saturating_add(1),
+
+
                                     _ => {}
                                 }
                             }
