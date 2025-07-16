@@ -321,7 +321,7 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
 
     // Print the children recursively
     let mut sorted_children: Vec<_> = children_to_iterate.values().collect();
-    if sort {
+    if !sort {
         sorted_children.sort_by(|a, b| b.stats.total_nodes.cmp(&a.stats.total_nodes));
     } else {
         sorted_children.sort_by(|a, b| a.name.cmp(&b.name));
@@ -391,7 +391,7 @@ fn print_node_recursive(
 
     let full_child_prefix = format!("{}{}", prefix, if is_last { "   " } else { "│  " });
     let mut sorted_children: Vec<_> = current_node.children.values().collect();
-    if sort {
+    if !sort {
         sorted_children.sort_by(|a, b| b.stats.total_nodes.cmp(&a.stats.total_nodes));
     } else {
         sorted_children.sort_by(|a, b| a.name.cmp(&b.name));
