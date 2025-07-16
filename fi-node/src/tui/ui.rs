@@ -274,7 +274,7 @@ fn get_chart_data(app: &App) -> &ChartData {
     }
 }
 
-fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView, page_info: Option<(usize, usize)>) {
+fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView, page_info: Option<(TabCount, TabArea)>) {
     let base_titles = ["(1) CPU by Account", "(2) CPU by Node", "(3) GPU by Type"];
     
     let selected_index = match current_view {
@@ -322,7 +322,10 @@ fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView, page_info: Option
     f.render_widget(tabs, area);
 }
 
-fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize, scroll_mode: ScrollMode, current_view: AppView) -> (usize, usize) {
+type CurrentPageIdx = usize;
+type TotalPagesCnt = usize;
+
+fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize, scroll_mode: ScrollMode, current_view: AppView) -> (CurrentPageIdx, TotalPagesCnt) {
     let colors = [
         Color::Cyan,
         Color::Magenta,
@@ -350,7 +353,7 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
     let num_visible_rows = (area.height / CHART_HEIGHT) as usize;
     let max_scroll_offset = total_rows.saturating_sub(num_visible_rows);
     let clamped_offset = scroll_offset.min(max_scroll_offset);
-    let total_pages = max_scroll_offset + 1;
+    let total_pages: TotalPagesCnt = max_scroll_offset + 1;
     
     // --- MODIFIED: Layout logic for stable scroll indicators ---
     let chart_area: Rect;
@@ -516,11 +519,11 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
         }
     }
 
-    let current_page = clamped_offset + 1;
+    let current_page: CurrentPageIdx = clamped_offset + 1;
     (current_page, total_pages)
 }
 
-fn draw_footer(f: &mut Frame, area: Rect, page_info: Option<(usize, usize)>, focus: Option<ParameterFocus>, scroll_mode: Option<ScrollMode>) {
+fn draw_footer(f: &mut Frame, area: Rect, page_info: Option<(CurrentPageIdx, TotalPagesCnt)>, focus: Option<ParameterFocus>, scroll_mode: Option<ScrollMode>) {
     let mut instructions = vec![Span::from("Use (q) to quit")];
 
     if let Some((_, total)) = page_info {
