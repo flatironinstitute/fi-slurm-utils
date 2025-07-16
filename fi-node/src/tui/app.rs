@@ -4,7 +4,7 @@ use crate::tui::{
         get_gpu_by_type_data_async, get_cpu_capacity_by_account_async,
         get_cpu_capacity_by_node_async, get_gpu_capacity_by_type_async,
     },
-    ui::{ui, MAX_BARS_PER_CHART}
+    ui::ui
 };
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
