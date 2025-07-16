@@ -321,7 +321,6 @@ fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView, page_info: Option
     f.render_widget(tabs, area);
 }
 
-// MODIFIED: This function now correctly renders the capacity line and hidden bar.
 fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize, scroll_mode: ScrollMode) -> (usize, usize) {
     let colors = [
         Color::Cyan,
@@ -433,7 +432,7 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                 
                 // NEW: Draw the capacity line.
                 let line_char = "─";
-                let capacity_line = Paragraph::new(line_char.repeat(labels_area.width as usize))
+                let capacity_line = Paragraph::new(line_char.repeat(capacity_area.width as usize))
                     .style(Style::default().fg(Color::DarkGray));
                 f.render_widget(capacity_line, capacity_area);
 
@@ -444,8 +443,8 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                         .style(Style::default().add_modifier(Modifier::HIDDEN)),
                 );
 
-                // This layout is now based on the number of *visible* bars.
-                let label_constraints: Vec<Constraint> = (0..visible_values.len())
+                // MODIFIED: This layout is now based on the full bar_data length to avoid mismatches.
+                let label_constraints: Vec<Constraint> = (0..bar_data.len())
                     .flat_map(|_| [Constraint::Length(BAR_WIDTH), Constraint::Length(BAR_GAP)])
                     .collect();
 
@@ -454,6 +453,7 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                     .constraints(label_constraints)
                     .split(labels_area);
 
+                // This loop still only iterates over visible values to draw the numbers.
                 for (k, &val) in visible_values.iter().enumerate() {
                     let label_chunk_index = k * 2;
                     if label_chunk_index < label_chunks.len() {
