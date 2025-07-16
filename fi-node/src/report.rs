@@ -222,21 +222,32 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
     // Determine headers and column widths based on mode (allocated or idle)
     let cpu_header = if allocated { "CPU (A/T)" } else { "CPU (I/T)" };
     let gpu_header = if allocated { "GPU (A/T)" } else { "GPU (I/T)" };
-    let cpu_col_width = if allocated {
-        max_alloc_cpu_width + max_total_cpu_width + 2
+    // Determine column widths: ensure data fits and header labels also fit
+    let mut cpu_col_width = if allocated {
+        max_alloc_cpu_width + 1 /* slash */ + max_total_cpu_width
     } else {
-        max_idle_cpu_width + max_total_cpu_width + 2
+        max_idle_cpu_width + 1 /* slash */ + max_total_cpu_width
     };
-    let gpu_col_width = if allocated {
-        max_alloc_gpu_width + max_total_gpu_width + 3
+    let mut gpu_col_width = if allocated {
+        max_alloc_gpu_width + 1 /* slash */ + max_total_gpu_width
     } else {
-        max_idle_gpu_width + max_total_gpu_width + 3
+        max_idle_gpu_width + 1 /* slash */ + max_total_gpu_width
     };
+    // Add padding around slash for display "A/T" or "I/T"
+    // We want one space before and after slash in header printed as e.g. "CPU (A/T)"
+    // But for column width, ensure it's at least header length
+    cpu_col_width = cpu_col_width.max(cpu_header.len());
+    gpu_col_width = gpu_col_width.max(gpu_header.len());
     
+    // Print header row with adjusted widths
     println!(
-        "{:<width$} {:>5} {:>cpu_w$}  {:>gpu_w$}",
-        "STATE".bold(), "COUNT".bold(), cpu_header.bold(), gpu_header.bold(),
-        width = max_state_width,
+        "{:<state_w$} {:>count_w$} {:>cpu_w$}  {:>gpu_w$}",
+        "STATE".bold(),
+        "COUNT".bold(),
+        cpu_header.bold(),
+        gpu_header.bold(),
+        state_w = max_state_width,
+        count_w = 5, // fixed width for COUNT column
         cpu_w = cpu_col_width,
         gpu_w = gpu_col_width,
     );
@@ -399,6 +410,21 @@ fn generate_report_body(
 
 
     let mut total_line = ReportLine::default();
+    // Recompute column widths locally to align with header and body
+    let cpu_header = if allocated { "CPU (A/T)" } else { "CPU (I/T)" };
+    let gpu_header = if allocated { "GPU (A/T)" } else { "GPU (I/T)" };
+    let mut cpu_col_width = if allocated {
+        max_alloc_cpu_width + 1 /* slash */ + max_total_cpu_width
+    } else {
+        max_idle_cpu_width + 1 /* slash */ + max_total_cpu_width
+    };
+    let mut gpu_col_width = if allocated {
+        max_alloc_gpu_width + 1 /* slash */ + max_total_gpu_width
+    } else {
+        max_idle_gpu_width + 1 /* slash */ + max_total_gpu_width
+    };
+    cpu_col_width = cpu_col_width.max(cpu_header.len());
+    gpu_col_width = gpu_col_width.max(gpu_header.len());
     for state in sorted_states {
         if let Some(group) = report_data.get(state) {
             total_line.node_count += group.summary.node_count;
@@ -407,8 +433,8 @@ fn generate_report_body(
             total_line.total_gpus += group.summary.total_gpus;
             total_line.alloc_gpus += group.summary.alloc_gpus;
 
-            let uncolored_str = state.to_string();
-            let padding = " ".repeat(max_state_width.saturating_sub(uncolored_str.len()));
+            let state_str = state.to_string();
+            // Color and format state name
             
             let colored_str = {
                 let colorize = |s: &NodeState, text: String| -> ColoredString {
@@ -443,18 +469,23 @@ fn generate_report_body(
                 format!("{:^width$}", " -  ", width = total_width)
             };
             
-            // Use a two-step print to ensure alignment with colored text.
-            print!("{}{}", colored_str, padding);
-
-            println!("{:>5}  {}  {}  {}", 
-                group.summary.node_count, 
-                cpu_str, 
-                gpu_str, 
-                if show_node_names {
-                    fi_slurm::parser::compress_hostlist(&group.summary.node_names)
-                } else {
-                    "".to_string()
-                },
+            // Print summary line with aligned columns
+            let names = if show_node_names {
+                fi_slurm::parser::compress_hostlist(&group.summary.node_names)
+            } else {
+                String::new()
+            };
+            println!(
+                "{:<state_w$} {:>count_w$} {:>cpu_w$}  {:>gpu_w$}  {}",
+                colored_str,
+                group.summary.node_count,
+                cpu_str,
+                gpu_str,
+                names,
+                state_w = max_state_width,
+                count_w = 5,
+                cpu_w = cpu_col_width,
+                gpu_w = gpu_col_width,
             );
 
 
@@ -474,20 +505,25 @@ fn generate_report_body(
                         format!("{:^width$}", " -  ", width = total_width)
                     };
                     
-                    let indented_name = format!("  {}", subgroup_name);
-                    let sub_padding = " ".repeat(max_state_width.saturating_sub(indented_name.len()));
-
-                    print!("{}{}", indented_name, sub_padding);
-    
-                    println!("{:>5}  {}  {}  {}", 
-                        subgroup_line.node_count, 
-                        sub_cpu_str, 
-                        sub_gpu_str, 
-                        if show_node_names {
-                            fi_slurm::parser::compress_hostlist(&subgroup_line.node_names)
-                        } else {
-                            "".to_string()
-                        }
+                    // Print subgroup line with indentation and aligned columns
+                    let name_indent = 2;
+                    let indented = format!("{}{}", " ".repeat(name_indent), subgroup_name);
+                    let names = if show_node_names {
+                        fi_slurm::parser::compress_hostlist(&subgroup_line.node_names)
+                    } else {
+                        String::new()
+                    };
+                    println!(
+                        "{:<state_w$} {:>count_w$} {:>cpu_w$}  {:>gpu_w$}  {}",
+                        indented,
+                        subgroup_line.node_count,
+                        sub_cpu_str,
+                        sub_gpu_str,
+                        names,
+                        state_w = max_state_width,
+                        count_w = 5,
+                        cpu_w = cpu_col_width,
+                        gpu_w = gpu_col_width,
                     );
                 }
             }
