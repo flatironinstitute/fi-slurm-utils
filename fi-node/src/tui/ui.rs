@@ -419,16 +419,8 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
 
                 let inner_area = outer_block.inner(cell_area);
                 f.render_widget(outer_block, cell_area);
-
-                let chart_chunks = Layout::default()
-                    .direction(Direction::Vertical)
-                    .constraints([
-                        Constraint::Length(1), // For usage numbers
-                        Constraint::Min(0),    // For the bar chart
-                    ])
-                    .split(inner_area);
-                let labels_area = chart_chunks[0];
-                let chart_area_inner = chart_chunks[1];
+                // Simplify layout: use full inner area for bar chart without labels above
+                let chart_area_inner = inner_area;
 
                 let absolute_chart_index = (clamped_offset + i) * num_cols + j;
                 let color = colors[absolute_chart_index % colors.len()];
@@ -471,42 +463,6 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                         .text_value("".to_string()),
                 );
 
-                let mut label_constraints: Vec<Constraint> = visible_values
-                    .iter()
-                    .flat_map(|_| [Constraint::Length(BAR_WIDTH), Constraint::Length(BAR_GAP)])
-                    .collect();
-                label_constraints.push(Constraint::Length(BAR_WIDTH));
-                
-                let label_chunks = Layout::default()
-                    .direction(Direction::Horizontal)
-                    .constraints(label_constraints)
-                    .split(labels_area);
-
-                for (k, &val) in visible_values.iter().enumerate() {
-                    let label_chunk_index = k * 2;
-                    if label_chunk_index < label_chunks.len() {
-                        let label = Paragraph::new(val.to_string())
-                            .style(Style::default().fg(Color::White))
-                            .alignment(Alignment::Center);
-                        f.render_widget(label, label_chunks[label_chunk_index]);
-                    }
-                }
-
-                let max_label_chunk_index = visible_values.len() * 2;
-                if max_label_chunk_index < label_chunks.len() {
-                    let max_label = Paragraph::new(chart_specific_max.to_string())
-                        .style(Style::default().fg(Color::White))
-                        .alignment(Alignment::Center);
-                    f.render_widget(max_label, label_chunks[max_label_chunk_index]);
-                }
-
-
-                if h_offset > 0 {
-                    f.render_widget(Paragraph::new("...").alignment(Alignment::Left), labels_area);
-                }
-                if h_offset < max_h_scroll {
-                    f.render_widget(Paragraph::new("...").alignment(Alignment::Right), labels_area);
-                }
 
                 let bar_group = BarGroup::default().bars(&bar_data);
                 let barchart = BarChart::default()
