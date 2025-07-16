@@ -10,6 +10,8 @@ use ratatui::{
     Frame,
 };
 
+use fi_prometheus::PrometheusTimeScale;
+
 // for layout constants, see app.rs
 
 // --- UI Drawing ---
