@@ -351,11 +351,42 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
     let max_scroll_offset = total_rows.saturating_sub(num_visible_rows);
     let clamped_offset = scroll_offset.min(max_scroll_offset);
     
+    // --- NEW: Layout for scroll indicators ---
+    let mut main_layout_constraints = vec![];
+    let show_top_ellipsis = clamped_offset > 0;
+    let show_bottom_ellipsis = clamped_offset < max_scroll_offset;
+
+    if show_top_ellipsis {
+        main_layout_constraints.push(Constraint::Length(1));
+    }
+    main_layout_constraints.push(Constraint::Min(0)); // Main content area
+    if show_bottom_ellipsis {
+        main_layout_constraints.push(Constraint::Length(1));
+    }
+
+    let main_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(main_layout_constraints)
+        .split(area);
+
+    let mut content_chunk_index = 0;
+    if show_top_ellipsis {
+        f.render_widget(Paragraph::new("...").alignment(Alignment::Center), main_chunks[0]);
+        content_chunk_index = 1;
+    }
+    
+    let chart_area = main_chunks[content_chunk_index];
+
+    if show_bottom_ellipsis {
+        f.render_widget(Paragraph::new("...").alignment(Alignment::Center), main_chunks[main_chunks.len() - 1]);
+    }
+    // --- End of new layout logic ---
+
     let row_constraints = vec![Constraint::Length(CHART_HEIGHT); num_visible_rows];
     let row_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints(row_constraints)
-        .split(area);
+        .split(chart_area); // Use the new chart_area
 
     let mut chart_iter = sorted_series.iter().skip(clamped_offset * num_cols);
     for i in 0..num_visible_rows {
@@ -396,7 +427,7 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                     ])
                     .split(inner_area);
                 let labels_area = chart_chunks[0];
-                let chart_area = chart_chunks[1];
+                let chart_area_inner = chart_chunks[1];
 
                 let absolute_chart_index = (clamped_offset + i) * num_cols + j;
                 let color = colors[absolute_chart_index % colors.len()];
@@ -418,7 +449,7 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                     .enumerate()
                     .map(|(k, &val)| {
                         Bar::default()
-                            .value(*val)
+                            .value(**val)
                             .label(time_labels.get(k).cloned().unwrap_or_default().into())
                             .style(Style::default().fg(color))
                             .text_value("".to_string())
@@ -431,7 +462,6 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                     data.capacity_data.get(*name).and_then(|v| v.iter().max()).cloned().unwrap_or(0)
                 };
                 
-                // MODIFIED: The MAX bar no longer has a text_value.
                 bar_data.push(
                     Bar::default()
                         .value(chart_specific_max)
@@ -461,7 +491,6 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                     }
                 }
 
-                // NEW: Draw the numeric label for the MAX bar in the correct position.
                 let max_label_chunk_index = visible_values.len() * 2;
                 if max_label_chunk_index < label_chunks.len() {
                     let max_label = Paragraph::new(chart_specific_max.to_string())
@@ -484,7 +513,7 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                     .bar_width(BAR_WIDTH)
                     .bar_gap(BAR_GAP);
 
-                f.render_widget(barchart, chart_area);
+                f.render_widget(barchart, chart_area_inner);
             }
         }
     }
