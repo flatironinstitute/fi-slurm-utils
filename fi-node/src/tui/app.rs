@@ -25,8 +25,8 @@ use thiserror::Error;
 // --- Layout Constants ---
 pub const MINIMUM_CHART_WIDTH: u16 = 65;
 pub const CHART_HEIGHT: u16 = 10;
-pub const MAX_BARS_PER_CHART: usize = 10;
-pub const BAR_WIDTH: u16 = 2;
+pub const MAX_BARS_PER_CHART: usize = 18;
+pub const BAR_WIDTH: u16 = 3;
 pub const BAR_GAP: u16 = 1;
 
 // --- Data Structures ---
