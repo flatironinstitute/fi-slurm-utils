@@ -264,17 +264,38 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
     print!("{}{}", "TOTAL".bold(), total_padding);
     println!("{:>5}  {}  {}", total_line.node_count, total_cpu_str, total_gpu_str);
 
+    // Utilization bars: show allocated or idle based on flag
     let utilized_nodes = get_node_utilization(report_data);
+    let total_nodes = total_line.node_count as f64;
+    let idle_nodes = total_nodes - utilized_nodes;
     if total_line.node_count > 0 {
-        let utilization_percent = (utilized_nodes / total_line.node_count as f64) * 100.0;
+        let utilization_percent = if allocated {
+            (utilized_nodes / total_nodes) * 100.0
+        } else {
+            (idle_nodes / total_nodes) * 100.0
+        };
         print_utilization(utilization_percent, 50, BarColor::Green, "Node", no_color);
     }
     if total_line.total_cpus > 0 {
-        let utilization_percent = (total_line.alloc_cpus as f64 / total_line.total_cpus as f64) * 100.0;
+        let total_cpus = total_line.total_cpus as f64;
+        let utilized_cpus = total_line.alloc_cpus as f64;
+        let idle_cpus = total_cpus - utilized_cpus;
+        let utilization_percent = if allocated {
+            (utilized_cpus / total_cpus) * 100.0
+        } else {
+            (idle_cpus / total_cpus) * 100.0
+        };
         print_utilization(utilization_percent, 50, BarColor::Cyan, "CPU", no_color);
     }
     if total_line.total_gpus > 0 {
-        let utilization_percent = (total_line.alloc_gpus as f64 / total_line.total_gpus as f64) * 100.0;
+        let total_gpus = total_line.total_gpus as f64;
+        let utilized_gpus = total_line.alloc_gpus as f64;
+        let idle_gpus = total_gpus - utilized_gpus;
+        let utilization_percent = if allocated {
+            (utilized_gpus / total_gpus) * 100.0
+        } else {
+            (idle_gpus / total_gpus) * 100.0
+        };
         print_utilization(utilization_percent, 50, BarColor::Red, "GPU", no_color);
     }
 }
