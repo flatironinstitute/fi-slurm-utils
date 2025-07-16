@@ -419,8 +419,19 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
 
                 let inner_area = outer_block.inner(cell_area);
                 f.render_widget(outer_block, cell_area);
-                // Simplify layout: use full inner area for bar chart without labels above
-                let chart_area_inner = inner_area;
+                // Reserve the top line for horizontal overflow indicators, remaining area for the bar chart
+                let labels_area = Rect {
+                    x: inner_area.x,
+                    y: inner_area.y,
+                    width: inner_area.width,
+                    height: 1,
+                };
+                let chart_area_inner = Rect {
+                    x: inner_area.x,
+                    y: inner_area.y + 1,
+                    width: inner_area.width,
+                    height: inner_area.height.saturating_sub(1),
+                };
 
                 let absolute_chart_index = (clamped_offset + i) * num_cols + j;
                 let color = colors[absolute_chart_index % colors.len()];
@@ -464,20 +475,20 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                 );
 
 
+                // Render the bar chart in the lower sub-area
                 let bar_group = BarGroup::default().bars(&bar_data);
                 let barchart = BarChart::default()
                     .data(bar_group)
                     .bar_width(BAR_WIDTH)
                     .bar_gap(BAR_GAP);
-
                 f.render_widget(barchart, chart_area_inner);
-                // Render ellipses on top of bars if there's horizontal overflow
+                // Render horizontal overflow indicators in the top 1-line slot
                 if h_offset > 0 {
                     f.render_widget(
                         Paragraph::new("...")
                             .style(Style::default().fg(Color::White))
                             .alignment(Alignment::Left),
-                        chart_area_inner,
+                        labels_area,
                     );
                 }
                 if h_offset < max_h_scroll {
@@ -485,7 +496,7 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                         Paragraph::new("...")
                             .style(Style::default().fg(Color::White))
                             .alignment(Alignment::Right),
-                        chart_area_inner,
+                        labels_area,
                     );
                 }
             }
