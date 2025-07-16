@@ -350,35 +350,33 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
     let num_visible_rows = (area.height / CHART_HEIGHT) as usize;
     let max_scroll_offset = total_rows.saturating_sub(num_visible_rows);
     let clamped_offset = scroll_offset.min(max_scroll_offset);
+    let total_pages = max_scroll_offset + 1;
     
-    // --- NEW: Layout for scroll indicators ---
-    let mut main_layout_constraints = vec![];
-    let show_top_ellipsis = clamped_offset > 0;
-    let show_bottom_ellipsis = clamped_offset < max_scroll_offset;
+    // --- MODIFIED: Layout logic for stable scroll indicators ---
+    let chart_area: Rect;
+    if total_pages > 1 {
+        // If there are multiple pages, create a layout that reserves space for indicators.
+        let main_chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Length(1), // Top ellipsis
+                Constraint::Min(0),    // Main content
+                Constraint::Length(1), // Bottom ellipsis
+            ])
+            .split(area);
 
-    if show_top_ellipsis {
-        main_layout_constraints.push(Constraint::Length(1));
-    }
-    main_layout_constraints.push(Constraint::Min(0)); // Main content area
-    if show_bottom_ellipsis {
-        main_layout_constraints.push(Constraint::Length(1));
-    }
+        chart_area = main_chunks[1]; // The charts will always be drawn in the middle chunk.
 
-    let main_chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints(main_layout_constraints)
-        .split(area);
-
-    let mut content_chunk_index = 0;
-    if show_top_ellipsis {
-        f.render_widget(Paragraph::new("...").alignment(Alignment::Center), main_chunks[0]);
-        content_chunk_index = 1;
-    }
-    
-    let chart_area = main_chunks[content_chunk_index];
-
-    if show_bottom_ellipsis {
-        f.render_widget(Paragraph::new("...").alignment(Alignment::Center), main_chunks[main_chunks.len() - 1]);
+        // Conditionally render the ellipses in their reserved spaces.
+        if clamped_offset > 0 {
+            f.render_widget(Paragraph::new("...").alignment(Alignment::Center), main_chunks[0]);
+        }
+        if clamped_offset < max_scroll_offset {
+            f.render_widget(Paragraph::new("...").alignment(Alignment::Center), main_chunks[2]);
+        }
+    } else {
+        // If there's only one page, use the whole area for charts.
+        chart_area = area;
     }
     // --- End of new layout logic ---
 
@@ -449,7 +447,7 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                     .enumerate()
                     .map(|(k, &val)| {
                         Bar::default()
-                            .value(**val)
+                            .value(*val)
                             .label(time_labels.get(k).cloned().unwrap_or_default().into())
                             .style(Style::default().fg(color))
                             .text_value("".to_string())
@@ -519,7 +517,6 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
     }
 
     let current_page = clamped_offset + 1;
-    let total_pages = max_scroll_offset + 1;
     (current_page, total_pages)
 }
 
