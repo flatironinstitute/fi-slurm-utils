@@ -22,6 +22,13 @@ use tokio::sync::mpsc;
 use std::time::Duration;
 use thiserror::Error;
 
+// --- Layout Constants ---
+pub const MINIMUM_CHART_WIDTH: u16 = 65;
+pub const CHART_HEIGHT: u16 = 10;
+pub const MAX_BARS_PER_CHART: usize = 10;
+pub const BAR_WIDTH: u16 = 6;
+pub const BAR_GAP: u16 = 1;
+
 // --- Data Structures ---
 
 #[derive(Error, Debug, Clone)]
@@ -316,7 +323,23 @@ async fn run_app<B: Backend>(
                                 KeyCode::Right | KeyCode::Char('l') | KeyCode::Tab => app.next_view(),
                                 KeyCode::Left | KeyCode::Char('h') => app.prev_view(),
                                 KeyCode::Up | KeyCode::PageUp | KeyCode::Char('k') => app.scroll_offset = app.scroll_offset.saturating_sub(1),
-                                KeyCode::Down | KeyCode::PageDown | KeyCode::Char('j') => app.scroll_offset = app.scroll_offset.saturating_add(1),
+                                // KeyCode::Down | KeyCode::PageDown | KeyCode::Char('j') => app.scroll_offset = app.scroll_offset.saturating_add(1),
+                                KeyCode::Down | KeyCode::PageDown | KeyCode::Char('j') => {
+                                    let terminal_size = terminal.size()?;
+                                    let num_cols = (terminal_size.width / MINIMUM_CHART_WIDTH).max(1) as usize;
+                                    let num_charts = match app.current_view {
+                                        AppView::CpuByAccount => app.cpu_by_account.source_data.len(),
+                                        AppView::CpuByNode => app.cpu_by_node.source_data.len(),
+                                        AppView::GpuByType => app.gpu_by_type.source_data.len(),
+                                    };
+                                    let total_rows = num_charts.div_ceil(num_cols);
+                                    let num_visible_rows = (terminal_size.height / CHART_HEIGHT) as usize;
+                                    let max_scroll_offset = total_rows.saturating_sub(num_visible_rows);
+
+                                    if app.scroll_offset < max_scroll_offset {
+                                        app.scroll_offset = app.scroll_offset.saturating_add(1);
+                                    }
+                                },
                                 KeyCode::Enter => app.scroll_mode = ScrollMode::Chart,
                                 _ => {}
                             },
@@ -347,8 +370,23 @@ async fn run_app<B: Backend>(
                                     KeyCode::Esc => app.scroll_mode = ScrollMode::Page,
 
                                     KeyCode::Up | KeyCode::PageUp | KeyCode::Char('k') => app.scroll_offset = app.scroll_offset.saturating_sub(1),
-                                    KeyCode::Down | KeyCode::PageDown | KeyCode::Char('j') => app.scroll_offset = app.scroll_offset.saturating_add(1),
+                                    // KeyCode::Down | KeyCode::PageDown | KeyCode::Char('j') => app.scroll_offset = app.scroll_offset.saturating_add(1),
+                                    KeyCode::Down | KeyCode::PageDown | KeyCode::Char('j') => {
+                                        let terminal_size = terminal.size()?;
+                                        let num_cols = (terminal_size.width / MINIMUM_CHART_WIDTH).max(1) as usize;
+                                        let num_charts = match app.current_view {
+                                            AppView::CpuByAccount => app.cpu_by_account.source_data.len(),
+                                            AppView::CpuByNode => app.cpu_by_node.source_data.len(),
+                                            AppView::GpuByType => app.gpu_by_type.source_data.len(),
+                                        };
+                                        let total_rows = num_charts.div_ceil(num_cols);
+                                        let num_visible_rows = (terminal_size.height / CHART_HEIGHT) as usize;
+                                        let max_scroll_offset = total_rows.saturating_sub(num_visible_rows);
 
+                                        if app.scroll_offset < max_scroll_offset {
+                                            app.scroll_offset = app.scroll_offset.saturating_add(1);
+                                        }
+                                    },
 
                                     _ => {}
                                 }

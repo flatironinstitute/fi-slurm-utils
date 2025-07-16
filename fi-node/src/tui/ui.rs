@@ -1,5 +1,5 @@
 use crate::tui::app::{App, AppError, AppState, AppView, ChartData, MainMenuSelection, 
-    ParameterFocus, ParameterSelectionState, ScrollMode};
+    ParameterFocus, ParameterSelectionState, ScrollMode, MINIMUM_CHART_WIDTH, MAX_BARS_PER_CHART, BAR_GAP, BAR_WIDTH, CHART_HEIGHT};
 use ratatui::{
     prelude::*,
     layout::{Constraint, Direction, Layout, Rect},
@@ -10,14 +10,8 @@ use ratatui::{
     Frame,
 };
 
-use fi_prometheus::PrometheusTimeScale;
+// for layout constants, see app.rs
 
-// --- Layout Constants ---
-const MINIMUM_CHART_WIDTH: u16 = 65;
-const CHART_HEIGHT: u16 = 10;
-pub const MAX_BARS_PER_CHART: usize = 10;
-const BAR_WIDTH: u16 = 6;
-const BAR_GAP: u16 = 1;
 // --- UI Drawing ---
 
 pub fn ui(f: &mut Frame, app_state: &AppState) {
@@ -521,7 +515,7 @@ fn draw_footer(
     if let Some((_, total)) = page_info {
         instructions.push(Span::from(", (h/l, ←/→, Tab, or numbers) to switch views"));
         if total > 1 {
-            instructions.push(Span::from(", (↑/↓ to scroll)"));
+            instructions.push(Span::from(", (k/j, ↑/↓ to scroll)"));
         }
 
         if let Some(mode) = scroll_mode {
