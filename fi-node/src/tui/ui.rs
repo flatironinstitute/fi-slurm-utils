@@ -357,6 +357,7 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
     let num_visible_rows = (area.height / CHART_HEIGHT) as usize;
     let max_scroll_offset = total_rows.saturating_sub(num_visible_rows);
     let clamped_offset = scroll_offset.min(max_scroll_offset);
+
     // --- Create Row Layouts ---
     let row_constraints = vec![Constraint::Length(CHART_HEIGHT); num_visible_rows];
     let row_chunks = Layout::default()
@@ -404,12 +405,24 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                 let chart_chunks = Layout::default()
                     .direction(Direction::Vertical)
                     .constraints([
+                        Constraint::Length(1), // For capacity line
                         Constraint::Length(1), // For usage numbers
                         Constraint::Min(0),    // For the bar chart
                     ])
                     .split(inner_area);
-                let labels_area = chart_chunks[0];
-                let chart_area = chart_chunks[1];
+                let capacity_area = chart_chunks[0];
+                let labels_area = chart_chunks[1];
+                let chart_area = chart_chunks[2];
+
+                // let chart_chunks = Layout::default()
+                //     .direction(Direction::Vertical)
+                //     .constraints([
+                //         Constraint::Length(1), // For usage numbers
+                //         Constraint::Min(0),    // For the bar chart
+                //     ])
+                //     .split(inner_area);
+                // let labels_area = chart_chunks[0];
+                // let chart_area = chart_chunks[1];
 
                 // ensuring that colors are consistent when scrolling
                 let absolute_chart_index = (clamped_offset + i) * num_cols + j;
@@ -439,7 +452,6 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                         Bar::default()
                             .value(*val)
                             .label(time_labels[k % time_labels.len()].clone().into())
-                            //.label(time_labels[k % time_labels.len()].into())
                             .style(Style::default().fg(color))
                             .text_value("".to_string())
                     })
@@ -450,6 +462,12 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                 
                 // Find the maximum capacity for this specific chart.
                 let chart_specific_max = capacity_vec.and_then(|v| v.iter().max()).cloned().unwrap_or(0);
+
+
+                let line_char = "─";
+                let capacity_line = Paragraph::new(line_char.repeat(labels_area.width as usize))
+                    .style(Style::default().fg(Color::DarkGray));
+                f.render_widget(capacity_line, capacity_area);
 
                 // Add an invisible bar with this chart's specific max capacity.
                 bar_data.push(
