@@ -177,53 +177,6 @@ fn build_node_to_job_map(slurm_jobs: &SlurmJobs) -> HashMap<usize, Vec<u32>> {
     node_to_job_map
 }
 
-/// A command-line utility to report the state of a Slurm cluster,
-/// showing a summary of nodes grouped by state and feature
-#[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
-struct Args {
-    /// Enable debug-level logging to print the pipeline steps to terminal
-    #[arg(long)]
-    #[arg(help = "Prints the step-by-step process of querying Slurm")]
-    debug: bool,
-    #[arg(short, long)]
-    #[arg(help = "Prints the detailed, state-by-state report of node availability")]
-    detailed: bool,
-    #[arg(short, long)]
-    #[arg(help = "Prints the top-level summary report for each feature type")]
-    summary: bool,
-    #[arg(help = "Select individual features to filter by. `icelake` would only show information for icelake nodes. \n For multiple features, separate them with spaces, such as `genoa gpu skylake`")]
-    feature: Vec<String>,
-    #[arg(short, long)]
-    #[arg(help = "In combination with --feature, filter only by exact match rather than substrings ")]
-    exact: bool,
-    #[arg(long)]
-    #[arg(help = "Disable colors in output")]
-    no_color: bool,
-    #[arg(long)]
-    #[arg(help = "Activates TUI (in development)")]
-    terminal: bool,
-    #[arg(short, long)]
-    #[arg(help = "Shows redundant nodes traits in tree report")]
-    verbose: bool,
-    #[arg(short, long)]
-    #[arg(help = "Shows all node names (not yet implemented in summary report)")]
-    names: bool,
-    /// Show allocated nodes rather than idle nodes in detailed report
-    #[arg(long, help = "Display allocated nodes instead of idle (use with --detailed)")]
-    allocated: bool,
-    #[arg(short, long)]
-    #[arg(help = "Classifies preemptable jobs as idle")]
-    preempt: bool,
-    #[arg(long)]
-    test: bool,
-    /// Sort tree report hierarchy by node count (descending)
-    #[arg(long, help = "Sort tree report hierarchy by node count (descending)")]
-    sort: bool,
-}
-
-
-
 // function to crawl through the node to job map and change the status of a given node if the job/s
 // running on it are preempt
 fn preempt_node(
@@ -316,3 +269,52 @@ fn preempt_node(
         }
     }
 }
+
+/// A command-line utility to report the state of a Slurm cluster,
+/// showing a summary of nodes grouped by state and feature
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// Enable debug-level logging to print the pipeline steps to terminal
+    #[arg(long)]
+    #[arg(help = "Prints the step-by-step process of querying Slurm")]
+    debug: bool,
+    #[arg(short, long)]
+    #[arg(help = "Prints the detailed, state-by-state report of node availability")]
+    detailed: bool,
+    #[arg(short, long)]
+    #[arg(help = "Prints the top-level summary report for each feature type")]
+    summary: bool,
+    #[arg(help = "Select individual features to filter by. `icelake` would only show information for icelake nodes. \n For multiple features, separate them with spaces, such as `genoa gpu skylake`")]
+    feature: Vec<String>,
+    #[arg(short, long)]
+    #[arg(help = "In combination with --feature, filter only by exact match rather than substrings ")]
+    exact: bool,
+    #[arg(long)]
+    #[arg(help = "Disable colors in output")]
+    no_color: bool,
+    #[arg(long)]
+    #[arg(help = "Activates TUI (in development)")]
+    terminal: bool,
+    #[arg(short, long)]
+    #[arg(help = "Shows redundant nodes traits in tree report")]
+    verbose: bool,
+    #[arg(short, long)]
+    #[arg(help = "Shows all node names (not yet implemented in summary report)")]
+    names: bool,
+    /// Show allocated nodes rather than idle nodes in detailed report
+    #[arg(long, help = "Display allocated nodes instead of idle (use with --detailed)")]
+    allocated: bool,
+    #[arg(short, long)]
+    #[arg(help = "Classifies preemptable jobs as idle")]
+    preempt: bool,
+    #[arg(long)]
+    test: bool,
+    /// Sort tree report hierarchy by node count (descending)
+    #[arg(long)]
+    #[arg(help = "Sort tree report hierarchy in alphabetical order")]
+    sort: bool,
+}
+
+
+
