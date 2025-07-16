@@ -464,10 +464,10 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                 );
 
                 if h_offset > 0 {
-                    f.render_widget(Paragraph::new("...").alignment(Alignment::Left), labels_area);
+                    f.render_widget(Paragraph::new("...").alignment(Alignment::Left), inner_area);
                 }
                 if h_offset < max_h_scroll {
-                    f.render_widget(Paragraph::new("...").alignment(Alignment::Right), labels_area);
+                    f.render_widget(Paragraph::new("...").alignment(Alignment::Right), inner_area);
                 }
 
                 let bar_group = BarGroup::default().bars(&bar_data);

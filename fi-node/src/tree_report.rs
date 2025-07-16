@@ -342,6 +342,7 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
 }
 
 /// Recursively prints a node and its children to form the tree structure
+#[allow(clippy::too_many_arguments)]
 fn print_node_recursive(
     tree_node: &TreeNode,
     prefix: &str,
