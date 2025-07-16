@@ -363,14 +363,26 @@ fn print_utilization(utilization_percent: f64, bar_width: usize, bar_color: BarC
     let colored_partial = if no_color { partial_bar.white() } else { bar_color.apply_color(&partial_bar) };
 
     // Print the assembled bar
-    println!(
-        if allocated { "Overall {} Utilization: \n [{}{}{}] {:.1}%"} else {"Overall {} Availability: \n [{}{}{}] {:.1}%"},
-        name,
-        colored_full,
-        colored_partial,
-        empty_bar, // The empty part is not colored.
-        utilization_percent
-    );
+    if allocated {
+        println!(
+            "Overall {} Utilization: \n [{}{}{}] {:.1}%",
+            name,
+            colored_full,
+            colored_partial,
+            empty_bar, // The empty part is not colored.
+            utilization_percent
+        );
+    } else {
+        println!(
+            "Overall {} Availability: \n [{}{}{}] {:.1}%",
+            name,
+            colored_full,
+            colored_partial,
+            empty_bar, // The empty part is not colored.
+            utilization_percent
+        );
+    }
+
 }
 
 fn generate_report_body(
