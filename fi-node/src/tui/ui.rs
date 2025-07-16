@@ -274,7 +274,7 @@ fn get_chart_data(app: &App) -> &ChartData {
     }
 }
 
-fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView, page_info: Option<(TabCount, TabArea)>) {
+fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView, page_info: Option<(CurrentPageIdx, TotalPagesCnt)>) {
     let base_titles = ["(1) CPU by Account", "(2) CPU by Node", "(3) GPU by Type"];
     
     let selected_index = match current_view {
