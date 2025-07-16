@@ -463,12 +463,6 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                         .text_value("".to_string()),
                 );
 
-                if h_offset > 0 {
-                    f.render_widget(Paragraph::new("...").alignment(Alignment::Left), inner_area);
-                }
-                if h_offset < max_h_scroll {
-                    f.render_widget(Paragraph::new("...").alignment(Alignment::Right), inner_area);
-                }
 
                 let bar_group = BarGroup::default().bars(&bar_data);
                 let barchart = BarChart::default()
@@ -477,6 +471,19 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                     .bar_gap(BAR_GAP);
 
                 f.render_widget(barchart, chart_area_inner);
+                // Render ellipses on top of bars if there's horizontal overflow
+                if h_offset > 0 {
+                    f.render_widget(
+                        Paragraph::new("...").alignment(Alignment::Left),
+                        chart_area_inner,
+                    );
+                }
+                if h_offset < max_h_scroll {
+                    f.render_widget(
+                        Paragraph::new("...").alignment(Alignment::Right),
+                        chart_area_inner,
+                    );
+                }
             }
         }
     }
