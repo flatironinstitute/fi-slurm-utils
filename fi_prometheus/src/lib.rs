@@ -262,37 +262,57 @@ fn group_by(result: PrometheusResponse, metric: Grouping) -> HashMap<String, u64
 }
 
 
-fn range_group_by(result: PrometheusResponse, metric: Grouping) -> HashMap<String, Vec<u64>> {
-    let mut data_dict = HashMap::new();
+/// Fills missing data points with zero for a range query result
+fn range_group_by(
+    result: PrometheusResponse,
+    metric: Grouping,
+    start_time: DateTime<Utc>,
+    step: PrometheusTimeScale,
+    increments: i64,
+) -> HashMap<String, Vec<u64>> {
+    // Determine step size in seconds
+    let step_secs: i64 = match step {
+        PrometheusTimeScale::Minutes => 60,
+        PrometheusTimeScale::Hours => 3600,
+        PrometheusTimeScale::Days => 86400,
+        PrometheusTimeScale::Weeks => 86400 * 7,
+        PrometheusTimeScale::Years => 86400 * 365,
+    };
     let metric_key = metric.to_string();
-
+    // Collect raw timestamp->value maps per group
+    let mut raw: HashMap<String, HashMap<i64, u64>> = HashMap::new();
     for series in result.data.result {
-        // First, try to get the group name from the metric object.
-        // This is the normal path for queries that return multiple series.
-        if let Some(group) = series.metric.get(&metric_key) {
-            if let Some(values) = series.values {
-                let parsed_values: Vec<u64> = values
-                    .into_iter()
-                    .filter_map(|(_, val_str)| val_str.parse().ok())
-                    .collect();
-                data_dict.insert(group.clone(), parsed_values);
+        // Determine group key: metric value or default "Total"
+        let group_key = if let Some(g) = series.metric.get(&metric_key) {
+            g.clone()
+        } else if series.metric.is_empty() {
+            "Total".to_string()
+        } else {
+            continue;
+        };
+        if let Some(values) = series.values {
+            let entry = raw.entry(group_key).or_default();
+            for (ts_f, val_str) in values {
+                let ts = ts_f as i64;
+                if let Ok(v) = val_str.parse::<u64>() {
+                    entry.insert(ts, v);
+                }
             }
         }
-        // NEW: If the metric object is empty, we've found our special case.
-        else if series.metric.is_empty() {
-            if let Some(values) = series.values {
-                let parsed_values: Vec<u64> = values
-                    .into_iter()
-                    .filter_map(|(_, val_str)| val_str.parse().ok())
-                    .collect();
-                // Since there's no group name, we'll use a default key.
-                // "Total" is a good, descriptive choice for this aggregate data.
-                data_dict.insert("Total".to_string(), parsed_values);
-            }
-        }
-        // If a series has metrics but not the one we're looking for, we ignore it.
     }
-    data_dict
+    // Build filled series for each group
+    let mut filled: HashMap<String, Vec<u64>> = HashMap::new();
+    for (group, map) in raw.into_iter() {
+        let mut series = Vec::with_capacity((increments + 1) as usize);
+        let mut t = start_time.timestamp();
+        for _ in 0..=increments {
+            let v = map.get(&t).copied().unwrap_or(0);
+            series.push(v);
+            t += step_secs;
+        }
+        filled.insert(group, series);
+    }
+    filled
 }
 
 
@@ -330,7 +350,8 @@ pub fn get_usage_by(
     let usage_query = usage_query(grouping, resource); // Assuming Cpus for now
     let result = query(&usage_query, &cluster, start_time, Some(now), Some(step))?;
 
-    Ok(range_group_by(result, grouping))
+    // Fill missing data points with zeros
+    Ok(range_group_by(result, grouping, start_time, step, increments))
 }
 
 pub fn get_max_resource(
@@ -353,7 +374,8 @@ pub fn get_max_resource(
     // otherwise range groupby
     
     if let Some(g) = grouping {
-        Ok(range_group_by(result, g))
+        // For grouped capacity, fill missing data points
+        Ok(range_group_by(result, g, start_time, step, increments))
     } else {
         // Handle case where there is no grouping
         let mut total = 0;
