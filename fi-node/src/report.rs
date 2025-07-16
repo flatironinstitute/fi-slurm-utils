@@ -142,21 +142,31 @@ pub fn build_report(
 }
 
 /// Formats and prints the aggregated report data to the console
-pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: bool,) {
+pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: bool, allocated: bool) {
     // Pre-calculate all column widths
     let mut max_state_width = "STATE".len();
     let mut max_alloc_cpu_width = 0;
     let mut max_total_cpu_width = 0;
     let mut max_alloc_gpu_width = 0;
     let mut max_total_gpu_width = 0;
+    // widths for idle display (total - allocated)
+    let mut max_idle_cpu_width = 0;
+    let mut max_idle_gpu_width = 0;
 
     let mut total_line_for_width = ReportLine::default();
     for group in report_data.values() {
         total_line_for_width.alloc_cpus += group.summary.alloc_cpus;
+        total_line_for_width.total_gpus += group.summary.alloc_gpus;
         total_line_for_width.total_cpus += group.summary.total_cpus;
+        total_line_for_width.total_gpus += group.summary.total_gpus;
     }
     max_alloc_cpu_width = max_alloc_cpu_width.max(total_line_for_width.alloc_cpus.to_string().len());
     max_total_cpu_width = max_total_cpu_width.max(total_line_for_width.total_cpus.to_string().len());
+    // idle widths for total line
+    let total_idle_cpu = total_line_for_width.total_cpus.saturating_sub(total_line_for_width.alloc_cpus);
+    max_idle_cpu_width = max_idle_cpu_width.max(total_idle_cpu.to_string().len());
+    let total_idle_gpu = total_line_for_width.total_gpus.saturating_sub(total_line_for_width.alloc_gpus);
+    max_idle_gpu_width = max_idle_gpu_width.max(total_idle_gpu.to_string().len());
 
     for (state, group) in report_data.iter() {
         max_state_width = max_state_width.max(state.to_string().len());
@@ -164,6 +174,11 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
         max_total_cpu_width = max_total_cpu_width.max(group.summary.total_cpus.to_string().len());
         max_alloc_gpu_width = max_alloc_gpu_width.max(group.summary.alloc_gpus.to_string().len());
         max_total_gpu_width = max_total_gpu_width.max(group.summary.total_gpus.to_string().len());
+        // idle widths for group
+        let idle_cpu = group.summary.total_cpus.saturating_sub(group.summary.alloc_cpus);
+        max_idle_cpu_width = max_idle_cpu_width.max(idle_cpu.to_string().len());
+        let idle_gpu = group.summary.total_gpus.saturating_sub(group.summary.alloc_gpus);
+        max_idle_gpu_width = max_idle_gpu_width.max(idle_gpu.to_string().len());
 
         for subgroup_name in group.subgroups.keys() {
             max_state_width = max_state_width.max(subgroup_name.len() + 2);
@@ -173,6 +188,11 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
             max_total_cpu_width = max_total_cpu_width.max(subgroup_line.total_cpus.to_string().len());
             max_alloc_gpu_width = max_alloc_gpu_width.max(subgroup_line.alloc_gpus.to_string().len());
             max_total_gpu_width = max_total_gpu_width.max(subgroup_line.total_gpus.to_string().len());
+            // idle widths for subgroup
+            let sub_idle_cpu = subgroup_line.total_cpus.saturating_sub(subgroup_line.alloc_cpus);
+            max_idle_cpu_width = max_idle_cpu_width.max(sub_idle_cpu.to_string().len());
+            let sub_idle_gpu = subgroup_line.total_gpus.saturating_sub(subgroup_line.alloc_gpus);
+            max_idle_gpu_width = max_idle_gpu_width.max(sub_idle_gpu.to_string().len());
         }
     }
     max_state_width += 2;
@@ -199,10 +219,19 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
     });
 
     // Print Headers
-    let cpu_header = "CPU (A/T)";
-    let gpu_header = "GPU (A/T)";
-    let cpu_col_width = max_alloc_cpu_width + max_total_cpu_width + 2; // +3 for " / "
-    let gpu_col_width = max_alloc_gpu_width + max_total_gpu_width + 3;
+    // Determine headers and column widths based on mode (allocated or idle)
+    let cpu_header = if allocated { "CPU (A/T)" } else { "CPU (I/T)" };
+    let gpu_header = if allocated { "GPU (A/T)" } else { "GPU (I/T)" };
+    let cpu_col_width = if allocated {
+        max_alloc_cpu_width + max_total_cpu_width + 2
+    } else {
+        max_idle_cpu_width + max_total_cpu_width + 2
+    };
+    let gpu_col_width = if allocated {
+        max_alloc_gpu_width + max_total_gpu_width + 3
+    } else {
+        max_idle_gpu_width + max_total_gpu_width + 3
+    };
     
     println!(
         "{:<width$} {:>5} {:>cpu_w$}  {:>gpu_w$}",
@@ -214,12 +243,23 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
     println!("{}", "-".repeat(max_state_width + cpu_col_width + gpu_col_width + 9));
 
     // Generate and Print Report Body
-    let total_line = generate_report_body(report_data, sorted_states, max_state_width, (max_alloc_cpu_width, max_total_cpu_width, max_alloc_gpu_width, max_total_gpu_width), no_color, show_node_names);
+    let total_line = generate_report_body(
+        report_data,
+        sorted_states,
+        max_state_width,
+        (max_alloc_cpu_width, max_total_cpu_width, max_alloc_gpu_width, max_total_gpu_width, max_idle_cpu_width, max_idle_gpu_width),
+        no_color,
+        show_node_names,
+        allocated,
+    );
 
     // Print Totals and Utilization Bars
     println!("{}", "-".repeat(max_state_width + cpu_col_width + gpu_col_width + 9));
-    let total_cpu_str = format_stat_column(total_line.alloc_cpus as u64, total_line.total_cpus as u64, max_alloc_cpu_width, max_total_cpu_width);
-    let total_gpu_str = format_stat_column(total_line.alloc_gpus, total_line.total_gpus, max_alloc_gpu_width, max_total_gpu_width);
+    // Format total line columns based on mode
+    let total_cpu_val = if allocated { total_line.alloc_cpus as u64 } else { (total_line.total_cpus - total_line.alloc_cpus) as u64 };
+    let total_gpu_val = if allocated { total_line.alloc_gpus } else { total_line.total_gpus.saturating_sub(total_line.alloc_gpus) };
+    let total_cpu_str = format_stat_column(total_cpu_val, total_line.total_cpus as u64, if allocated { max_alloc_cpu_width } else { max_idle_cpu_width }, max_total_cpu_width);
+    let total_gpu_str = format_stat_column(total_gpu_val, total_line.total_gpus, if allocated { max_alloc_gpu_width } else { max_idle_gpu_width }, max_total_gpu_width);
     let total_padding = " ".repeat(max_state_width - "TOTAL".len());
     print!("{}{}", "TOTAL".bold(), total_padding);
     println!("{:>5}  {}  {}", total_line.node_count, total_cpu_str, total_gpu_str);
@@ -312,18 +352,17 @@ fn print_utilization(utilization_percent: f64, bar_width: usize, bar_color: BarC
     );
 }
 
-fn generate_report_body(report_data: &HashMap<NodeState, ReportGroup>, 
-    sorted_states: Vec<&NodeState>, 
-    max_state_width: usize, 
-    widths: (usize, usize, usize, usize),
+fn generate_report_body(
+    report_data: &HashMap<NodeState, ReportGroup>,
+    sorted_states: Vec<&NodeState>,
+    max_state_width: usize,
+    widths: (usize, usize, usize, usize, usize, usize),
     no_color: bool,
     show_node_names: bool,
+    allocated: bool,
 ) -> ReportLine {
     
-    let max_alloc_cpu_width = widths.0;
-    let max_total_cpu_width = widths.1;
-    let max_alloc_gpu_width = widths.2;
-    let max_total_gpu_width = widths.3;
+    let (max_alloc_cpu_width, max_total_cpu_width, max_alloc_gpu_width, max_total_gpu_width, max_idle_cpu_width, max_idle_gpu_width) = widths;
 
 
     let mut total_line = ReportLine::default();
@@ -359,11 +398,15 @@ fn generate_report_body(report_data: &HashMap<NodeState, ReportGroup>,
                 }
             };
 
-            let cpu_str = format_stat_column(group.summary.alloc_cpus as u64, group.summary.total_cpus as u64, max_alloc_cpu_width, max_total_cpu_width);
+            // current CPU/GPU values based on mode
+            let cur_cpu = if allocated { group.summary.alloc_cpus } else { group.summary.total_cpus.saturating_sub(group.summary.alloc_cpus) };
+            let cpu_w = if allocated { max_alloc_cpu_width } else { max_idle_cpu_width };
+            let cpu_str = format_stat_column(cur_cpu as u64, group.summary.total_cpus as u64, cpu_w, max_total_cpu_width);
+            let cur_gpu = if allocated { group.summary.alloc_gpus } else { group.summary.total_gpus.saturating_sub(group.summary.alloc_gpus) };
             let gpu_str = if group.summary.total_gpus > 0 {
-                format_stat_column(group.summary.alloc_gpus, group.summary.total_gpus, max_alloc_gpu_width, max_total_gpu_width)
+                format_stat_column(cur_gpu, group.summary.total_gpus, if allocated { max_alloc_gpu_width } else { max_idle_gpu_width }, max_total_gpu_width)
             } else {
-                let total_width = max_alloc_gpu_width + max_total_gpu_width;
+                let total_width = if allocated { max_alloc_gpu_width } else { max_idle_gpu_width } + max_total_gpu_width;
                 format!("{:^width$}", " -  ", width = total_width)
             };
             
@@ -387,11 +430,14 @@ fn generate_report_body(report_data: &HashMap<NodeState, ReportGroup>,
 
             for subgroup_name in sorted_subgroups {
                 if let Some(subgroup_line) = group.subgroups.get(subgroup_name) {
-                    let sub_cpu_str = format_stat_column(subgroup_line.alloc_cpus as u64, subgroup_line.total_cpus as u64, max_alloc_cpu_width, max_total_cpu_width);
+                    let sub_cur_cpu = if allocated { subgroup_line.alloc_cpus } else { subgroup_line.total_cpus.saturating_sub(subgroup_line.alloc_cpus) };
+                    let sub_cpu_w = if allocated { max_alloc_cpu_width } else { max_idle_cpu_width };
+                    let sub_cpu_str = format_stat_column(sub_cur_cpu as u64, subgroup_line.total_cpus as u64, sub_cpu_w, max_total_cpu_width);
+                    let sub_cur_gpu = if allocated { subgroup_line.alloc_gpus } else { subgroup_line.total_gpus.saturating_sub(subgroup_line.alloc_gpus) };
                     let sub_gpu_str = if subgroup_line.total_gpus > 0 {
-                        format_stat_column(subgroup_line.alloc_gpus, subgroup_line.total_gpus, max_alloc_gpu_width, max_total_gpu_width)
+                        format_stat_column(sub_cur_gpu, subgroup_line.total_gpus, if allocated { max_alloc_gpu_width } else { max_idle_gpu_width }, max_total_gpu_width)
                     } else {
-                        let total_width = max_alloc_gpu_width + max_total_gpu_width;
+                        let total_width = if allocated { max_alloc_gpu_width } else { max_idle_gpu_width } + max_total_gpu_width;
                         format!("{:^width$}", " -  ", width = total_width)
                     };
                     

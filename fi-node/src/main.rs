@@ -123,7 +123,7 @@ fn main() -> Result<(), String> {
         }
 
         // Print Report 
-        report::print_report(&report, args.no_color, args.names);
+        report::print_report(&report, args.no_color, args.names, args.allocated);
         if args.debug { println!("Finished printing report: {:?}", start.elapsed()); }
 
         return Ok(())
@@ -209,6 +209,9 @@ struct Args {
     #[arg(short, long)]
     #[arg(help = "Shows all node names (not yet implemented in summary report)")]
     names: bool,
+    /// Show allocated nodes rather than idle nodes in detailed report
+    #[arg(long, help = "Display allocated nodes instead of idle (use with --detailed)")]
+    allocated: bool,
     #[arg(short, long)]
     #[arg(help = "Classifies preemptable jobs as idle")]
     preempt: bool,
