@@ -128,55 +128,68 @@ pub fn build_report(
         group.summary.total_cpus += node.cpus as u32;
         group.summary.alloc_cpus += alloc_cpus_for_node;
         if show_node_names { group.summary.node_names.push(node.name.clone()); }
-
-        // Correctly calculate idle CPUs on a per-node basis
-        let idle_cpus_for_node = node.cpus as u32 - alloc_cpus_for_node;
-        if !allocated && is_node_available(&derived_state) {
-            group.summary.idle_cpus += idle_cpus_for_node;
-        }
-
-        // --- Update Subgroups (GPU or Feature) ---
-        // Use an if/else if chain to prevent double-counting a node in subgroups.
-        // A node is either a "GPU node" or a "CPU-only node" for subgrouping purposes.
-
         if let Some(gpu) = &node.gpu_info {
-            // This is a GPU node. Update the main summary's GPU stats
             group.summary.total_gpus += gpu.total_gpus;
             group.summary.alloc_gpus += gpu.allocated_gpus;
+        }
 
-            // Get the subgroup line for this specific GPU type
+        // --- Determine this node's contribution to idle resources ---
+        // This logic now directly implements the specified rules.
+        let (idle_cpus_for_node, idle_gpus_for_node) = if !allocated {
+            let base_state = match &derived_state {
+                NodeState::Compound { base, .. } => base,
+                _ => &derived_state,
+            };
+
+            match base_state {
+                // For Idle and Mixed nodes, idle resources are what's not allocated.
+                NodeState::Idle | NodeState::Mixed => {
+                    let cpus = node.cpus as u32 - alloc_cpus_for_node;
+                    let gpus = if let Some(gpu) = &node.gpu_info {
+                        gpu.total_gpus - gpu.allocated_gpus
+                    } else {
+                        0
+                    };
+                    (cpus, gpus)
+                }
+                // For any other state (Allocated, Down, etc.), no resources are considered idle.
+                _ => (0, 0),
+            }
+        } else {
+            // If we're in allocated mode, idle counts are not needed.
+            (0, 0)
+        };
+        
+        // Add the calculated idle resources to the summary totals
+        group.summary.idle_cpus += idle_cpus_for_node;
+        group.summary.idle_gpus += idle_gpus_for_node;
+
+
+        // --- Update Subgroups (GPU or Feature) ---
+        if let Some(gpu) = &node.gpu_info {
             let subgroup_line = group.subgroups.entry(gpu.name.clone()).or_default();
             
-            // Add ALL stats for this node to this one subgroup
             subgroup_line.node_count += 1;
             subgroup_line.total_cpus += node.cpus as u32;
             subgroup_line.alloc_cpus += alloc_cpus_for_node;
             subgroup_line.total_gpus += gpu.total_gpus;
             subgroup_line.alloc_gpus += gpu.allocated_gpus;
             if show_node_names { subgroup_line.node_names.push(node.name.clone()); }
+            
+            // Add this node's idle contribution to the subgroup
+            subgroup_line.idle_cpus += idle_cpus_for_node;
+            subgroup_line.idle_gpus += idle_gpus_for_node;
 
-            // Correctly calculate idle GPUs on a per-node basis
-            let idle_gpus_for_node = gpu.total_gpus - gpu.allocated_gpus;
-            if !allocated && is_node_available(&derived_state) {
-                // Add idle stats to both the subgroup and the main summary
-                subgroup_line.idle_gpus += idle_gpus_for_node;
-                group.summary.idle_gpus += idle_gpus_for_node;
-                subgroup_line.idle_cpus += idle_cpus_for_node;
-            }
-        }
-        // This is a CPU-only Node. Fall back to using the first feature as its identity
-        else if let Some(feature) = node.features.first() {
+        } else if let Some(feature) = node.features.first() {
             let subgroup_line = group.subgroups.entry(feature.clone()).or_default();
             
-            // Add its stats. GPU counts will naturally be zero.
             subgroup_line.node_count += 1;
             subgroup_line.total_cpus += node.cpus as u32;
             subgroup_line.alloc_cpus += alloc_cpus_for_node;
             if show_node_names { subgroup_line.node_names.push(node.name.clone()); }
 
-            if !allocated && is_node_available(&derived_state){
-                subgroup_line.idle_cpus += idle_cpus_for_node;
-            }
+            // Add this node's idle contribution to the subgroup
+            subgroup_line.idle_cpus += idle_cpus_for_node;
         }
     };
     report_data
@@ -304,7 +317,7 @@ struct CPUComponent {
 }
 impl CPUComponent {
     fn new(line: &ReportLine, widths: &ReportWidths, allocated: bool) -> Self {
-        let val = if allocated { line.alloc_cpus as u64 } else { 0 /* line.idle_cpus */ };
+        let val = if allocated { line.alloc_cpus } else { line.idle_cpus };
         let text = format!(
             "{:>alloc_w$}/{:>total_w$}",
             val,
@@ -326,7 +339,7 @@ impl GPUComponent {
             let total_width = widths.alloc_or_idle_gpu_width + widths.total_gpu_width + 3;
             return Self { text: format!("{:^width$}", "-", width = total_width) };
         }
-        let val = if allocated { line.alloc_gpus } else { 0 /* line.idle_gpus */ };
+        let val = if allocated { line.alloc_gpus } else { line.idle_gpus };
         let text = format!(
             "{:>alloc_w$}/{:>total_w$}",
             val,
