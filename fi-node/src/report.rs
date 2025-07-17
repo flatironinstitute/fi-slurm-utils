@@ -353,12 +353,12 @@ impl StateComponent {
                         NodeState::Allocated => name.yellow(),
                         NodeState::Down => name.red(),
                         NodeState::Error => name.magenta(),
-                        _ => name.normal(),
+                        _ => name.dimmed(),
                     }
                 }
             }
         } else {
-            name.bold() // Make TOTAL bold
+            name.normal() // Make TOTAL bold
         };
         Self { colored_text, padding }
     }
