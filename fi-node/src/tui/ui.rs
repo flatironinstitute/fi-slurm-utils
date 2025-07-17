@@ -55,7 +55,7 @@ pub fn ui(f: &mut Frame, app_state: &AppState) {
                 app.current_view,
             );
             
-            draw_tabs(f, main_chunks[0], app.current_view, Some(page_info));
+            draw_tabs(f, main_chunks[0], app.current_view, Some(page_info), app_state);
             draw_footer(f, main_chunks[2], Some(page_info), None, Some(app.scroll_mode));
         }
         AppState::Error(err) => draw_error_screen(f, err),
@@ -274,7 +274,7 @@ fn get_chart_data(app: &App) -> &ChartData {
     }
 }
 
-fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView, page_info: Option<(CurrentPageIdx, TotalPagesCnt)>) {
+fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView, page_info: Option<(CurrentPageIdx, TotalPagesCnt)>, app_state: &AppState) {
     let base_titles = ["(1) Cores by Account", "(2) Cores by Node", "(3) GPU by Type"];
     
     let selected_index = match current_view {
@@ -283,7 +283,7 @@ fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView, page_info: Option
         AppView::GpuByType => 2,
     };
 
-    let titles: Vec<Line> = base_titles
+    let mut titles: Vec<Line> = base_titles
         .iter()
         .enumerate()
         .map(|(i, &title)| {
@@ -303,6 +303,12 @@ fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView, page_info: Option
             Line::from(title_str.bold())
         })
         .collect();
+
+    let time_unit = match app_state {
+        AppState::Loaded(app) => app.query_time_scale,
+        _ => panic!(), // we should definitely be in a Loaded app state
+    };
+    titles.push(Line::from(format!("Time Scale: {}", time_unit)));
 
     let tabs = Tabs::new(titles)
         .block(
