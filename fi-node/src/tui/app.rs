@@ -199,7 +199,7 @@ async fn run_app<B: Backend>(
 
     let mut data_fetch_count = 0;
 
-    let mut current_query_range = 7;
+    let mut current_query_range = 30;
     let mut current_query_time_scale = PrometheusTimeScale::Days;
 
     loop {
@@ -498,7 +498,7 @@ pub async fn tui_execute() -> Result<(), Box<dyn std::error::Error>> {
 
     // MODIFIED: Start fetching default data immediately.
     let (tx, rx) = mpsc::channel(6);
-    spawn_custom_data_fetch(tx, 7, PrometheusTimeScale::Days);
+    spawn_custom_data_fetch(tx, 30, PrometheusTimeScale::Days);
 
     let res = run_app(&mut terminal, rx).await;
 

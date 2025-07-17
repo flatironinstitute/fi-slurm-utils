@@ -87,7 +87,7 @@ fn draw_main_menu(f: &mut Frame, area: Rect, selected: MainMenuSelection) {
     let selected_style = Style::default().bg(Color::Blue).fg(Color::White);
     let normal_style = Style::default().fg(Color::White);
 
-    let default_text = Paragraph::new("View Default Dashboard (Last 7 Days)")
+    let default_text = Paragraph::new("View Default Dashboard (Last 30 Days)")
         .alignment(Alignment::Center)
         .style(if selected == MainMenuSelection::Default { selected_style } else { normal_style });
     
