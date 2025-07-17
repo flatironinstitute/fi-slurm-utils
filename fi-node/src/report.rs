@@ -129,8 +129,9 @@ pub fn build_report(
         group.summary.alloc_cpus += alloc_cpus_for_node;
         if show_node_names { group.summary.node_names.push(node.name.clone()); }
 
-        if !allocated && is_node_available(&derived_state){
-            group.summary.idle_cpus += group.summary.total_cpus.saturating_sub(group.summary.alloc_cpus);
+        let idle_cpus_for_node = node.cpus as u32 - alloc_cpus_for_node;
+        if !allocated && is_node_available(&derived_state) {
+            group.summary.idle_cpus += idle_cpus_for_node;
         }
 
         // Check if the node has GPU info
@@ -138,10 +139,6 @@ pub fn build_report(
             // The subgroup is identified by the specific GPU name
             group.summary.total_gpus += gpu.total_gpus;
             group.summary.alloc_gpus += gpu.allocated_gpus;
-
-            if !allocated && is_node_available(&derived_state){
-                group.summary.idle_gpus += group.summary.total_gpus.saturating_sub(group.summary.alloc_gpus);
-            }
 
             let subgroup_line = group.subgroups.entry(gpu.name.clone()).or_default();
             
@@ -153,9 +150,10 @@ pub fn build_report(
             subgroup_line.alloc_gpus += gpu.allocated_gpus;
             if show_node_names { subgroup_line.node_names.push(node.name.clone()); }
 
-            if !allocated && is_node_available(&derived_state){
-                subgroup_line.idle_cpus += subgroup_line.total_cpus.saturating_sub(subgroup_line.alloc_cpus);
-                subgroup_line.idle_gpus += subgroup_line.total_gpus.saturating_sub(subgroup_line.alloc_gpus);
+            let idle_gpus_for_node = gpu.total_gpus - gpu.allocated_gpus;
+            if !allocated && is_node_available(&derived_state) {
+                subgroup_line.idle_gpus += idle_gpus_for_node;
+                group.summary.idle_gpus += idle_gpus_for_node; // Don't forget to update the group summary too!
             }
         }
 
@@ -171,7 +169,7 @@ pub fn build_report(
             if show_node_names { subgroup_line.node_names.push(node.name.clone()); }
 
             if !allocated && is_node_available(&derived_state){
-                subgroup_line.idle_cpus += subgroup_line.total_cpus.saturating_sub(subgroup_line.alloc_cpus);
+                subgroup_line.idle_cpus += idle_cpus_for_node;
             }
         }
     };
