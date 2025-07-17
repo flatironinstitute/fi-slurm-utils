@@ -204,20 +204,41 @@ pub struct ReportWidths {
     total_gpu_width: usize,
 }
 
-pub fn get_report_widths(report_data: &ReportData, allocated: bool) -> ReportWidths {
+pub fn get_report_widths(report_data: &ReportData, allocated: bool) -> (ReportWidths, ReportLine) {
+    // First, calculate the grand totals to ensure columns are wide enough.
+    let mut total_line = ReportLine::default();
+    for group in report_data.values() {
+        total_line.node_count += group.summary.node_count;
+        total_line.total_cpus += group.summary.total_cpus;
+        total_line.alloc_cpus += group.summary.alloc_cpus;
+        total_line.idle_cpus += group.summary.idle_cpus;
+        total_line.total_gpus += group.summary.total_gpus;
+        total_line.alloc_gpus += group.summary.alloc_gpus;
+        total_line.idle_gpus += group.summary.idle_gpus;
+    }
+
+    // Use the totals to set the initial minimum widths.
     let initial_widths = ReportWidths {
         state_width: "STATE".len(),
-        count_width: "COUNT".len(),
-        alloc_or_idle_cpu_width: 0, // These start at 0
-        total_cpu_width: 0,
-        alloc_or_idle_gpu_width: 0,
-        total_gpu_width: 0,
+        count_width: total_line.node_count.to_string().len(),
+        alloc_or_idle_cpu_width: if allocated {
+            total_line.alloc_cpus.to_string().len()
+        } else {
+            total_line.idle_cpus.to_string().len()
+        },
+        total_cpu_width: total_line.total_cpus.to_string().len(),
+        alloc_or_idle_gpu_width: if allocated {
+            total_line.alloc_gpus.to_string().len()
+        } else {
+            total_line.idle_gpus.to_string().len()
+        },
+        total_gpu_width: total_line.total_gpus.to_string().len(),
     };
 
+    // Now, fold over the data to see if any individual line needs more space.
     let final_widths = report_data.iter().fold(
         initial_widths,
         |mut acc_widths, (state, group)| {
-            // Check the width of the main state string
             acc_widths.state_width = acc_widths.state_width.max(state.to_string().len());
 
             let mut check_line = |line: &ReportLine| {
@@ -235,36 +256,79 @@ pub fn get_report_widths(report_data: &ReportData, allocated: bool) -> ReportWid
                 acc_widths.total_gpu_width = acc_widths.total_gpu_width.max(line.total_gpus.to_string().len());
             };
 
-            // Check the summary line for the group
             check_line(&group.summary);
 
-            // Also check every subgroup line
-            // if this isn't as snappy as we would like, remove this, though I doubt it will make
-            // much of a difference
             for (subgroup_name, subgroup_line) in &group.subgroups {
-                // Check the width of the subgroup name (with indentation)
-                acc_widths.state_width = acc_widths.state_width.max(subgroup_name.len() + 2);
+                acc_widths.state_width = acc_widths.state_width.max(subgroup_name.len() + 2); // +2 for indentation
                 check_line(subgroup_line);
             }
-
-            // Return the updated accumulator for the next iteration
             acc_widths
         },
     );
 
-    final_widths
+    (final_widths, total_line)
 }
+
+// pub fn get_report_widths(report_data: &ReportData, allocated: bool) -> ReportWidths {
+//     let initial_widths = ReportWidths {
+//         state_width: "STATE".len(),
+//         count_width: "COUNT".len(),
+//         alloc_or_idle_cpu_width: 0, // These start at 0
+//         total_cpu_width: 0,
+//         alloc_or_idle_gpu_width: 0,
+//         total_gpu_width: 0,
+//     };
+//
+//     let final_widths = report_data.iter().fold(
+//         initial_widths,
+//         |mut acc_widths, (state, group)| {
+//             // Check the width of the main state string
+//             acc_widths.state_width = acc_widths.state_width.max(state.to_string().len());
+//
+//             let mut check_line = |line: &ReportLine| {
+//                 acc_widths.count_width = acc_widths.count_width.max(line.node_count.to_string().len());
+//
+//                 if allocated {
+//                     acc_widths.alloc_or_idle_cpu_width = acc_widths.alloc_or_idle_cpu_width.max(line.alloc_cpus.to_string().len());
+//                     acc_widths.alloc_or_idle_gpu_width = acc_widths.alloc_or_idle_gpu_width.max(line.alloc_gpus.to_string().len());
+//                 } else {
+//                     acc_widths.alloc_or_idle_cpu_width = acc_widths.alloc_or_idle_cpu_width.max(line.idle_cpus.to_string().len());
+//                     acc_widths.alloc_or_idle_gpu_width = acc_widths.alloc_or_idle_gpu_width.max(line.idle_gpus.to_string().len());
+//                 }
+//
+//                 acc_widths.total_cpu_width = acc_widths.total_cpu_width.max(line.total_cpus.to_string().len());
+//                 acc_widths.total_gpu_width = acc_widths.total_gpu_width.max(line.total_gpus.to_string().len());
+//             };
+//
+//             // Check the summary line for the group
+//             check_line(&group.summary);
+//
+//             // Also check every subgroup line
+//             // if this isn't as snappy as we would like, remove this, though I doubt it will make
+//             // much of a difference
+//             for (subgroup_name, subgroup_line) in &group.subgroups {
+//                 // Check the width of the subgroup name (with indentation)
+//                 acc_widths.state_width = acc_widths.state_width.max(subgroup_name.len() + 2);
+//                 check_line(subgroup_line);
+//             }
+//
+//             // Return the updated accumulator for the next iteration
+//             acc_widths
+//         },
+//     );
+//
+//     final_widths
+// }
 
 /// Component for the left-most column (State or Feature name).
 struct StateComponent {
     colored_text: ColoredString,
     padding: String,
 }
+
 impl StateComponent {
     fn new(name: String, width: usize, no_color: bool, state: Option<&NodeState>) -> Self {
-        // FIX: Calculate padding based on the *visible* length of the uncolored string.
         let padding = " ".repeat(width.saturating_sub(name.len()));
-
         let colored_text = if no_color {
             name.normal()
         } else if let Some(s) = state {
@@ -294,9 +358,8 @@ impl StateComponent {
                 }
             }
         } else {
-            name.normal()
+            name.bold() // Make TOTAL bold
         };
-        
         Self { colored_text, padding }
     }
 }
@@ -356,9 +419,7 @@ pub fn print_report(report_data: &ReportData, no_color: bool, _show_node_names: 
     let padding: usize = 3;
     let padding_str = " ".repeat(padding);
 
-    let mut report_widths = get_report_widths(report_data, allocated);
-    // Add aesthetic padding *after* measurement.
-    report_widths.state_width += padding;
+    let (report_widths, total_line) = get_report_widths(report_data, allocated);
 
     let state_order: HashMap<NodeState, usize> = [
         (NodeState::Idle, 0),
@@ -383,16 +444,16 @@ pub fn print_report(report_data: &ReportData, no_color: bool, _show_node_names: 
     // --- Print Headers ---
     let cpu_header = if allocated { "CPU (A/T)" } else { "CPU (I/T)" };
     let gpu_header = if allocated { "GPU (A/T)" } else { "GPU (I/T)" };
-    
-    print!("{:<width$}", "STATE".bold(), width = report_widths.state_width);
-    print!("{}", padding_str);
-    print!("{:>width$}", "COUNT".bold(), width = report_widths.count_width);
-    print!("{}", padding_str);
-    print!("{}", cpu_header.bold());
-    print!("{}", padding_str);
-    println!("{}", gpu_header.bold());
 
-    let total_width = report_widths.state_width + padding + report_widths.count_width + padding + (report_widths.alloc_or_idle_cpu_width + report_widths.total_cpu_width + 3) + padding + (report_widths.alloc_or_idle_gpu_width + report_widths.total_gpu_width + 3);
+    let cpu_header_width = report_widths.alloc_or_idle_cpu_width + report_widths.total_cpu_width + 1;
+    let gpu_header_width = report_widths.alloc_or_idle_gpu_width + report_widths.total_gpu_width + 1;
+    
+    print!("{:<width$}", "STATE".bold(), width = report_widths.state_width + padding);
+    print!("{:>width$}", "COUNT".bold(), width = report_widths.count_width + padding);
+    print!("{:>width$}", cpu_header.bold(), width = cpu_header_width + padding);
+    println!("{:>width$}", gpu_header.bold(), width = gpu_header_width + padding);
+
+    let total_width = (report_widths.state_width + padding) + (report_widths.count_width + padding) + (cpu_header_width + padding) + (gpu_header_width + padding);
     println!("{}", "-".repeat(total_width));
 
     // --- Print Report Body ---
@@ -433,6 +494,19 @@ pub fn print_report(report_data: &ReportData, no_color: bool, _show_node_names: 
             }
         }
     }
+    println!("{}", "-".repeat(total_width));
+    let state_comp = StateComponent::new("TOTAL".to_string(), report_widths.state_width, no_color, None);
+    let count_comp = CountComponent::new(total_line.node_count, report_widths.count_width);
+    let cpu_comp = CPUComponent::new(&total_line, &report_widths, allocated);
+    let gpu_comp = GPUComponent::new(&total_line, &report_widths, allocated);
+
+    print!("{}{}", state_comp.colored_text, state_comp.padding);
+    print!("{}", padding_str);
+    print!("{}", count_comp.text);
+    print!("{}", padding_str);
+    print!("{}", cpu_comp.text);
+    print!("{}", padding_str);
+    println!("{}", gpu_comp.text);
 }
 
 /// Formats a statistics column (e.g., "5 / 100") with digit alignment
