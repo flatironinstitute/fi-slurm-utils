@@ -223,17 +223,15 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
     let cpu_header = if allocated { "CPU (A/T)" } else { "CPU (I/T)" };
     let gpu_header = if allocated { "GPU (A/T)" } else { "GPU (I/T)" };
     // Compute column widths (data widths) then ensure they at least fit the header labels
-    // Total width for CPU column: left numbers + slash + total numbers
     let mut cpu_col_width = if allocated {
-        max_alloc_cpu_width + 1 + max_total_cpu_width
+        max_alloc_cpu_width + max_total_cpu_width + 2
     } else {
-        max_idle_cpu_width + 1 + max_total_cpu_width
+        max_idle_cpu_width + max_total_cpu_width + 2
     };
-    // Total width for GPU column: left numbers + slash + total numbers
     let mut gpu_col_width = if allocated {
-        max_alloc_gpu_width + 1 + max_total_gpu_width
+        max_alloc_gpu_width + max_total_gpu_width + 3
     } else {
-        max_idle_gpu_width + 1 + max_total_gpu_width
+        max_idle_gpu_width + max_total_gpu_width + 3
     };
     // Ensure header text doesn't overflow its column
     cpu_col_width = cpu_col_width.max(cpu_header.len());
