@@ -117,7 +117,7 @@ fn main() -> Result<(), String> {
     if args.detailed {
         if args.debug { println!("Started building report: {:?}", start.elapsed()); }
         //  Aggregate Data into Report
-        let report = report::build_report(&filtered_nodes, &jobs_collection, &node_to_job_map, args.names);
+        let report = report::build_report(&filtered_nodes, &jobs_collection, &node_to_job_map, args.names, args.allocated);
         if args.debug { println!("Aggregated data into {} state groups.", report.len()); 
             println!("Finished building detailed report: {:?}", start.elapsed()); 
         }
