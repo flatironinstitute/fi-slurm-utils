@@ -111,7 +111,10 @@ pub fn build_report(
     for (node, &alloc_cpus_for_node) in nodes.iter().zip(alloc_cpus_per_node.iter()) {
         // Slurm does not mark nodes as mixed by default, so we have to do it
         let derived_state = if alloc_cpus_for_node > 0 && alloc_cpus_for_node < node.cpus as u32 {
-            NodeState::Mixed
+            match node.state {
+                NodeState::Compound { base, flags } => NodeState::Compound { base: NodeState::Mixed, flags},
+                _ => NodeState::Mixed,
+            }
         } else {
             // Otherwise, we trust the state reported by Slurm
             node.state.clone()
