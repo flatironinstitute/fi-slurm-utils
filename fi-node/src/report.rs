@@ -123,23 +123,28 @@ pub fn build_report(
         // Get the report group for the node's derived state
         let group = report_data.entry(derived_state.clone()).or_default();
 
-        // Update the Main Summary Line for the Group 
+        // --- Update the Main Summary Line for the Group ---
         group.summary.node_count += 1;
         group.summary.total_cpus += node.cpus as u32;
         group.summary.alloc_cpus += alloc_cpus_for_node;
         if show_node_names { group.summary.node_names.push(node.name.clone()); }
 
+        // Correctly calculate idle CPUs on a per-node basis
         let idle_cpus_for_node = node.cpus as u32 - alloc_cpus_for_node;
         if !allocated && is_node_available(&derived_state) {
             group.summary.idle_cpus += idle_cpus_for_node;
         }
 
-        // Check if the node has GPU info
+        // --- Update Subgroups (GPU or Feature) ---
+        // Use an if/else if chain to prevent double-counting a node in subgroups.
+        // A node is either a "GPU node" or a "CPU-only node" for subgrouping purposes.
+
         if let Some(gpu) = &node.gpu_info {
-            // The subgroup is identified by the specific GPU name
+            // This is a GPU node. Update the main summary's GPU stats
             group.summary.total_gpus += gpu.total_gpus;
             group.summary.alloc_gpus += gpu.allocated_gpus;
 
+            // Get the subgroup line for this specific GPU type
             let subgroup_line = group.subgroups.entry(gpu.name.clone()).or_default();
             
             // Add ALL stats for this node to this one subgroup
@@ -150,19 +155,20 @@ pub fn build_report(
             subgroup_line.alloc_gpus += gpu.allocated_gpus;
             if show_node_names { subgroup_line.node_names.push(node.name.clone()); }
 
+            // Correctly calculate idle GPUs on a per-node basis
             let idle_gpus_for_node = gpu.total_gpus - gpu.allocated_gpus;
             if !allocated && is_node_available(&derived_state) {
+                // Add idle stats to both the subgroup and the main summary
                 subgroup_line.idle_gpus += idle_gpus_for_node;
-                group.summary.idle_gpus += idle_gpus_for_node; // Don't forget to update the group summary too!
+                group.summary.idle_gpus += idle_gpus_for_node;
+                subgroup_line.idle_cpus += idle_cpus_for_node;
             }
         }
-
-        // This is a CPU-only Node
-        // Fall back to using the first feature as its identity
-        if let Some(feature) = node.features.first() {
+        // This is a CPU-only Node. Fall back to using the first feature as its identity
+        else if let Some(feature) = node.features.first() {
             let subgroup_line = group.subgroups.entry(feature.clone()).or_default();
             
-            // Add its stats. GPU counts will naturally be zero
+            // Add its stats. GPU counts will naturally be zero.
             subgroup_line.node_count += 1;
             subgroup_line.total_cpus += node.cpus as u32;
             subgroup_line.alloc_cpus += alloc_cpus_for_node;
