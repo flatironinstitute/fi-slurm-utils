@@ -15,8 +15,10 @@ pub struct ReportLine {
     pub node_count: u32,
     pub total_cpus: u32,
     pub alloc_cpus: u32,
+    pub idle_cpus: u32,
     pub total_gpus: u64,
     pub alloc_gpus: u64,
+    pub idle_gpus: u64,
     pub node_names: Vec<String>,
 }
 
@@ -40,6 +42,20 @@ pub struct ReportGroup {
 /// iterate through all the nodes
 pub type ReportData = HashMap<NodeState, ReportGroup>;
 
+fn is_node_available(state: &NodeState) -> bool {
+    match state {
+        NodeState::Idle => true,
+        NodeState::Compound { base, flags } => {
+            if **base == NodeState::Idle {
+                // Node is idle, but check for disqualifying flags
+                !flags.iter().any(|flag| flag == "MAINT" || flag == "DOWN" || flag == "DRAIN" || flag == "INVALID_REG")
+            } else {
+                false
+            }
+        }
+        _ => false,
+    }
+}
 
 /// Builds the final report by aggregating data from all nodes
 ///
@@ -60,8 +76,10 @@ pub fn build_report(
     jobs: &SlurmJobs,
     node_to_job_map: &HashMap<usize, Vec<u32>>,
     show_node_names: bool,
+    allocated: bool,
 ) -> ReportData {
     let mut report_data = ReportData::new();
+
 
     // This creates a new Vec<u32> where each element corresponds to a node in the input `n` slice
     let alloc_cpus_per_node: Vec<u32> = nodes
@@ -109,11 +127,22 @@ pub fn build_report(
         group.summary.alloc_cpus += alloc_cpus_for_node;
         if show_node_names { group.summary.node_names.push(node.name.clone()); }
 
+        if !allocated && is_node_available(&derived_state){
+            group.summary.idle_cpus += group.summary.total_cpus.saturating_sub(group.summary.alloc_cpus);
+        }
+
+
+
+
         // Check if the node has GPU info
         if let Some(gpu) = &node.gpu_info {
             // The subgroup is identified by the specific GPU name
             group.summary.total_gpus += gpu.total_gpus;
             group.summary.alloc_gpus += gpu.allocated_gpus;
+
+            if !allocated && is_node_available(&derived_state){
+                group.summary.idle_gpus += group.summary.total_gpus.saturating_sub(group.summary.alloc_gpus);
+            }
 
             let subgroup_line = group.subgroups.entry(gpu.name.clone()).or_default();
             
@@ -124,6 +153,11 @@ pub fn build_report(
             subgroup_line.total_gpus += gpu.total_gpus;
             subgroup_line.alloc_gpus += gpu.allocated_gpus;
             if show_node_names { subgroup_line.node_names.push(node.name.clone()); }
+
+            if !allocated && is_node_available(&derived_state){
+                subgroup_line.idle_cpus += subgroup_line.total_cpus.saturating_sub(subgroup_line.alloc_cpus);
+                subgroup_line.idle_gpus += subgroup_line.total_gpus.saturating_sub(subgroup_line.alloc_gpus);
+            }
         }
 
         // This is a CPU-only Node
@@ -136,68 +170,176 @@ pub fn build_report(
             subgroup_line.total_cpus += node.cpus as u32;
             subgroup_line.alloc_cpus += alloc_cpus_for_node;
             if show_node_names { subgroup_line.node_names.push(node.name.clone()); }
+
+            if !allocated && is_node_available(&derived_state){
+                subgroup_line.idle_cpus += subgroup_line.total_cpus.saturating_sub(subgroup_line.alloc_cpus);
+            }
         }
     };
     report_data
 }
 
+
+
+struct ReportWidths {
+    state_width: usize,
+    count_width: usize,
+    alloc_or_idle_cpu_width: usize,
+    total_cpu_width: usize,
+    alloc_or_idle_gpu_width: usize,
+    total_gpu_width: usize,
+}
+
+pub fn get_report_widths(report_data: &ReportData, allocated: bool) -> ReportWidths {
+    let initial_widths = ReportWidths {
+        state_width: "STATE".len(),
+        count_width: "COUNT".len(),
+        alloc_or_idle_cpu_width: 0, // These start at 0
+        total_cpu_width: 0,
+        alloc_or_idle_gpu_width: 0,
+        total_gpu_width: 0,
+    };
+
+    let final_widths = report_data.iter().fold(
+        initial_widths,
+        |mut acc_widths, (state, group)| {
+            // Check the width of the main state string
+            acc_widths.state_width = acc_widths.state_width.max(state.to_string().len());
+
+            let mut check_line = |line: &ReportLine| {
+                acc_widths.count_width = acc_widths.count_width.max(line.node_count.to_string().len());
+                
+                if allocated {
+                    acc_widths.alloc_or_idle_cpu_width = acc_widths.alloc_or_idle_cpu_width.max(line.alloc_cpus.to_string().len());
+                    acc_widths.alloc_or_idle_gpu_width = acc_widths.alloc_or_idle_gpu_width.max(line.alloc_gpus.to_string().len());
+                } else {
+                    acc_widths.alloc_or_idle_cpu_width = acc_widths.alloc_or_idle_cpu_width.max(line.idle_cpus.to_string().len());
+                    acc_widths.alloc_or_idle_gpu_width = acc_widths.alloc_or_idle_gpu_width.max(line.idle_gpus.to_string().len());
+                }
+                
+                acc_widths.total_cpu_width = acc_widths.total_cpu_width.max(line.total_cpus.to_string().len());
+                acc_widths.total_gpu_width = acc_widths.total_gpu_width.max(line.total_gpus.to_string().len());
+            };
+
+            // Check the summary line for the group
+            check_line(&group.summary);
+
+            // Also check every subgroup line
+            // if this isn't as snappy as we would like, remove this, though I doubt it will make
+            // much of a difference
+            for (subgroup_name, subgroup_line) in &group.subgroups {
+                // Check the width of the subgroup name (with indentation)
+                acc_widths.state_width = acc_widths.state_width.max(subgroup_name.len() + 2);
+                check_line(subgroup_line);
+            }
+
+            // Return the updated accumulator for the next iteration
+            acc_widths
+        },
+    );
+
+    final_widths
+}
+
+/// Component for the left-most column (State or Feature name).
+struct StateComponent {
+    text: String,
+}
+impl StateComponent {
+    fn new(name: String, width: usize, no_color: bool, state: Option<&NodeState>) -> Self {
+        let colored_name = if no_color {
+            name.normal()
+        } else if let Some(s) = state {
+             match s {
+                NodeState::Compound { base, flags } => {
+                    let base_str = base.to_string();
+                    let flags_str = format!("+{}", flags.join("+").to_uppercase());
+                    let colored_base = match **base {
+                        NodeState::Idle => base_str.green(),
+                        NodeState::Mixed => base_str.blue(),
+                        NodeState::Allocated => base_str.yellow(),
+                        NodeState::Down => base_str.red(),
+                        NodeState::Error => base_str.magenta(),
+                        _ => base_str.cyan(),
+                    };
+                    format!("{}{}", colored_base, flags_str).normal() // hack to get it to be a ColoredString
+                }
+                _ => {
+                    match s {
+                        NodeState::Idle => name.green(),
+                        NodeState::Mixed => name.blue(),
+                        NodeState::Allocated => name.yellow(),
+                        NodeState::Down => name.red(),
+                        NodeState::Error => name.magenta(),
+                        _ => name.normal(),
+                    }
+                }
+            }
+        } else {
+            name.normal()
+        };
+        
+        Self { text: format!("{:<width$}", colored_name, width = width) }
+    }
+}
+
+/// Component for the node count column.
+struct CountComponent {
+    text: String,
+}
+impl CountComponent {
+    fn new(count: u32, width: usize) -> Self {
+        Self { text: format!("{:>width$}", count, width = width) }
+    }
+}
+
+/// Component for the CPU statistics column.
+struct CPUComponent {
+    text: String,
+}
+impl CPUComponent {
+    fn new(line: &ReportLine, widths: &ReportWidths, allocated: bool) -> Self {
+        let val = if allocated { line.alloc_cpus as u64 } else { 0 /* line.idle_cpus */ };
+        let text = format!(
+            "{:>alloc_w$} / {:>total_w$}",
+            val,
+            line.total_cpus,
+            alloc_w = widths.alloc_or_idle_cpu_width,
+            total_w = widths.total_cpu_width
+        );
+        Self { text }
+    }
+}
+
+/// Component for the GPU statistics column.
+struct GPUComponent {
+    text: String,
+}
+impl GPUComponent {
+     fn new(line: &ReportLine, widths: &ReportWidths, allocated: bool) -> Self {
+        if line.total_gpus == 0 {
+            let total_width = widths.alloc_or_idle_gpu_width + widths.total_gpu_width + 3;
+            return Self { text: format!("{:^width$}", "-", width = total_width) };
+        }
+        let val = if allocated { line.alloc_gpus } else { 0 /* line.idle_gpus */ };
+        let text = format!(
+            "{:>alloc_w$} / {:>total_w$}",
+            val,
+            line.total_gpus,
+            alloc_w = widths.alloc_or_idle_gpu_width,
+            total_w = widths.total_gpu_width
+        );
+        Self { text }
+    }
+}
+
 /// Formats and prints the aggregated report data to the console
 pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: bool, allocated: bool) {
-    // Pre-calculate all column widths
-    let mut max_state_width = "STATE".len();
-    let mut max_alloc_cpu_width = 0;
-    let mut max_total_cpu_width = 0;
-    let mut max_alloc_gpu_width = 0;
-    let mut max_total_gpu_width = 0;
-    // widths for idle display (total - allocated)
-    let mut max_idle_cpu_width = 0;
-    let mut max_idle_gpu_width = 0;
+    let padding: usize = 3;
+    let padding_str = " ".repeat(padding);
 
-    let mut total_line_for_width = ReportLine::default();
-    for group in report_data.values() {
-        total_line_for_width.alloc_cpus += group.summary.alloc_cpus;
-        total_line_for_width.total_gpus += group.summary.alloc_gpus;
-        total_line_for_width.total_cpus += group.summary.total_cpus;
-        total_line_for_width.total_gpus += group.summary.total_gpus;
-    }
-    max_alloc_cpu_width = max_alloc_cpu_width.max(total_line_for_width.alloc_cpus.to_string().len());
-    max_total_cpu_width = max_total_cpu_width.max(total_line_for_width.total_cpus.to_string().len());
-    // idle widths for total line
-    let total_idle_cpu = total_line_for_width.total_cpus.saturating_sub(total_line_for_width.alloc_cpus);
-    max_idle_cpu_width = max_idle_cpu_width.max(total_idle_cpu.to_string().len());
-    let total_idle_gpu = total_line_for_width.total_gpus.saturating_sub(total_line_for_width.alloc_gpus);
-    max_idle_gpu_width = max_idle_gpu_width.max(total_idle_gpu.to_string().len());
+    let report_widths = get_report_widths(&report_data, allocated);
 
-    for (state, group) in report_data.iter() {
-        max_state_width = max_state_width.max(state.to_string().len());
-        max_alloc_cpu_width = max_alloc_cpu_width.max(group.summary.alloc_cpus.to_string().len());
-        max_total_cpu_width = max_total_cpu_width.max(group.summary.total_cpus.to_string().len());
-        max_alloc_gpu_width = max_alloc_gpu_width.max(group.summary.alloc_gpus.to_string().len());
-        max_total_gpu_width = max_total_gpu_width.max(group.summary.total_gpus.to_string().len());
-        // idle widths for group
-        let idle_cpu = group.summary.total_cpus.saturating_sub(group.summary.alloc_cpus);
-        max_idle_cpu_width = max_idle_cpu_width.max(idle_cpu.to_string().len());
-        let idle_gpu = group.summary.total_gpus.saturating_sub(group.summary.alloc_gpus);
-        max_idle_gpu_width = max_idle_gpu_width.max(idle_gpu.to_string().len());
-
-        for subgroup_name in group.subgroups.keys() {
-            max_state_width = max_state_width.max(subgroup_name.len() + 2);
-        }
-        for subgroup_line in group.subgroups.values() {
-            max_alloc_cpu_width = max_alloc_cpu_width.max(subgroup_line.alloc_cpus.to_string().len());
-            max_total_cpu_width = max_total_cpu_width.max(subgroup_line.total_cpus.to_string().len());
-            max_alloc_gpu_width = max_alloc_gpu_width.max(subgroup_line.alloc_gpus.to_string().len());
-            max_total_gpu_width = max_total_gpu_width.max(subgroup_line.total_gpus.to_string().len());
-            // idle widths for subgroup
-            let sub_idle_cpu = subgroup_line.total_cpus.saturating_sub(subgroup_line.alloc_cpus);
-            max_idle_cpu_width = max_idle_cpu_width.max(sub_idle_cpu.to_string().len());
-            let sub_idle_gpu = subgroup_line.total_gpus.saturating_sub(subgroup_line.alloc_gpus);
-            max_idle_gpu_width = max_idle_gpu_width.max(sub_idle_gpu.to_string().len());
-        }
-    }
-    max_state_width += 2;
-
-    // Sort states for consistent output
     let state_order: HashMap<NodeState, usize> = [
         (NodeState::Idle, 0),
         (NodeState::Mixed, 1),
@@ -219,86 +361,211 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
     });
 
     // Print Headers
-    // Determine headers and column widths based on mode (allocated or idle)
+    // Determine headers and column contents based on mode (allocated or idle)
     let cpu_header = if allocated { "CPU (A/T)" } else { "CPU (I/T)" };
     let gpu_header = if allocated { "GPU (A/T)" } else { "GPU (I/T)" };
-    let cpu_col_width = if allocated {
-        max_alloc_cpu_width + max_total_cpu_width + 2
-    } else {
-        max_idle_cpu_width + max_total_cpu_width + 2
-    };
-    let gpu_col_width = if allocated {
-        max_alloc_gpu_width + max_total_gpu_width + 3
-    } else {
-        max_idle_gpu_width + max_total_gpu_width + 3
-    };
-    
+
+    let cpu_header_width = report_widths.alloc_or_idle_cpu_width + report_widths.total_cpu_width + 3;
+    let gpu_header_width = report_widths.alloc_or_idle_gpu_width + report_widths.total_gpu_width + 3;
+
     println!(
-        "{:<width$} {:>5} {:>cpu_w$}  {:>gpu_w$}",
-        "STATE".bold(), "COUNT".bold(), cpu_header.bold(), gpu_header.bold(),
-        width = max_state_width,
-        cpu_w = cpu_col_width,
-        gpu_w = gpu_col_width,
+        "{:<state_w$}{}{:^count_w$}{}{:^cpu_w$}{}{:^gpu_w$}",
+        "STATE".bold(), padding_str,
+        "COUNT".bold(), padding_str,
+        cpu_header.bold(), padding_str,
+        gpu_header.bold(),
+        state_w = report_widths.state_width,
+        count_w = report_widths.count_width,
+        cpu_w = cpu_header_width,
+        gpu_w = gpu_header_width
     );
-    println!("{}", "-".repeat(max_state_width + cpu_col_width + gpu_col_width + 9));
+    let total_width = report_widths.state_width + report_widths.count_width + cpu_header_width + gpu_header_width + (PADDING * 3);
+    println!("{}", "-".repeat(total_width));
 
-    // Generate and Print Report Body
-    let total_line = generate_report_body(
-        report_data,
-        sorted_states,
-        max_state_width,
-        (max_alloc_cpu_width, max_total_cpu_width, max_alloc_gpu_width, max_total_gpu_width, max_idle_cpu_width, max_idle_gpu_width),
-        no_color,
-        show_node_names,
-        allocated,
-    );
+    // --- Print Report Body ---
+    for state in sorted_states {
+        if let Some(group) = report_data.get(state) {
+            let state_comp = StateComponent::new(state.to_string(), report_widths.state_width, no_color, Some(state));
+            let count_comp = CountComponent::new(group.summary.node_count, report_widths.count_width);
+            let cpu_comp = CPUComponent::new(&group.summary, &report_widths, allocated);
+            let gpu_comp = GPUComponent::new(&group.summary, &report_widths, allocated);
 
-    // Print Totals and Utilization Bars
-    println!("{}", "-".repeat(max_state_width + cpu_col_width + gpu_col_width + 9));
-    // Format total line columns based on mode
-    let total_cpu_val = if allocated { total_line.alloc_cpus as u64 } else { (total_line.total_cpus - total_line.alloc_cpus) as u64 };
-    let total_gpu_val = if allocated { total_line.alloc_gpus } else { total_line.total_gpus.saturating_sub(total_line.alloc_gpus) };
-    let total_cpu_str = format_stat_column(total_cpu_val, total_line.total_cpus as u64, if allocated { max_alloc_cpu_width } else { max_idle_cpu_width }, max_total_cpu_width);
-    let total_gpu_str = format_stat_column(total_gpu_val, total_line.total_gpus, if allocated { max_alloc_gpu_width } else { max_idle_gpu_width }, max_total_gpu_width);
-    let total_padding = " ".repeat(max_state_width - "TOTAL".len());
-    print!("{}{}", "TOTAL".bold(), total_padding);
-    println!("{:>5}  {}  {}", total_line.node_count, total_cpu_str, total_gpu_str);
+            println!("{}{}{}{}{}{}{}", state_comp.text, padding_str, count_comp.text, padding_str, cpu_comp.text, padding_str, gpu_comp.text);
 
-    // Utilization bars: show allocated or idle based on flag
-    let utilized_nodes = get_node_utilization(report_data);
-    let total_nodes = total_line.node_count as f64;
-    let idle_nodes = total_nodes - utilized_nodes;
-    if total_line.node_count > 0 {
-        let utilization_percent = if allocated {
-            (utilized_nodes / total_nodes) * 100.0
-        } else {
-            (idle_nodes / total_nodes) * 100.0
-        };
-        print_utilization(utilization_percent, 50, BarColor::Green, "Node", no_color, allocated);
-    }
-    if total_line.total_cpus > 0 {
-        let total_cpus = total_line.total_cpus as f64;
-        let utilized_cpus = total_line.alloc_cpus as f64;
-        let idle_cpus = total_cpus - utilized_cpus;
-        let utilization_percent = if allocated {
-            (utilized_cpus / total_cpus) * 100.0
-        } else {
-            (idle_cpus / total_cpus) * 100.0
-        };
-        print_utilization(utilization_percent, 50, BarColor::Cyan, "CPU", no_color, allocated);
-    }
-    if total_line.total_gpus > 0 {
-        let total_gpus = total_line.total_gpus as f64;
-        let utilized_gpus = total_line.alloc_gpus as f64;
-        let idle_gpus = total_gpus - utilized_gpus;
-        let utilization_percent = if allocated {
-            (utilized_gpus / total_gpus) * 100.0
-        } else {
-            (idle_gpus / total_gpus) * 100.0
-        };
-        print_utilization(utilization_percent, 50, BarColor::Red, "GPU", no_color, allocated);
+            let mut sorted_subgroups: Vec<&String> = group.subgroups.keys().collect();
+            sorted_subgroups.sort();
+
+            for subgroup_name in sorted_subgroups {
+                if let Some(line) = group.subgroups.get(subgroup_name) {
+                    let state_comp = StateComponent::new(format!("  {}", subgroup_name), report_widths.state_width, no_color, None);
+                    let count_comp = CountComponent::new(line.node_count, report_widths.count_width);
+                    let cpu_comp = CPUComponent::new(line, &report_widths, allocated);
+                    let gpu_comp = GPUComponent::new(line, &report_widths, allocated);
+                    println!("{}{}{}{}{}{}{}", state_comp.text, padding_str, count_comp.text, padding_str, cpu_comp.text, padding_str, gpu_comp.text);
+                }
+            }
+        }
     }
 }
+
+
+// pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: bool, allocated: bool) {
+//     // Pre-calculate all column widths
+//     let mut max_state_width = "STATE".len();
+//     let mut max_alloc_cpu_width = 0;
+//     let mut max_total_cpu_width = 0;
+//     let mut max_alloc_gpu_width = 0;
+//     let mut max_total_gpu_width = 0;
+//     // widths for idle display (total - allocated)
+//     let mut max_idle_cpu_width = 0;
+//     let mut max_idle_gpu_width = 0;
+//
+//     let mut total_line_for_width = ReportLine::default();
+//     for group in report_data.values() {
+//         total_line_for_width.alloc_cpus += group.summary.alloc_cpus;
+//         total_line_for_width.total_gpus += group.summary.alloc_gpus;
+//         total_line_for_width.total_cpus += group.summary.total_cpus;
+//         total_line_for_width.total_gpus += group.summary.total_gpus;
+//     }
+//     max_alloc_cpu_width = max_alloc_cpu_width.max(total_line_for_width.alloc_cpus.to_string().len());
+//     max_total_cpu_width = max_total_cpu_width.max(total_line_for_width.total_cpus.to_string().len());
+//     // idle widths for total line
+//     let total_idle_cpu = total_line_for_width.total_cpus.saturating_sub(total_line_for_width.alloc_cpus);
+//     max_idle_cpu_width = max_idle_cpu_width.max(total_idle_cpu.to_string().len());
+//     let total_idle_gpu = total_line_for_width.total_gpus.saturating_sub(total_line_for_width.alloc_gpus);
+//     max_idle_gpu_width = max_idle_gpu_width.max(total_idle_gpu.to_string().len());
+//
+//     for (state, group) in report_data.iter() {
+//         max_state_width = max_state_width.max(state.to_string().len());
+//         max_alloc_cpu_width = max_alloc_cpu_width.max(group.summary.alloc_cpus.to_string().len());
+//         max_total_cpu_width = max_total_cpu_width.max(group.summary.total_cpus.to_string().len());
+//         max_alloc_gpu_width = max_alloc_gpu_width.max(group.summary.alloc_gpus.to_string().len());
+//         max_total_gpu_width = max_total_gpu_width.max(group.summary.total_gpus.to_string().len());
+//         // idle widths for group
+//         let idle_cpu = group.summary.total_cpus.saturating_sub(group.summary.alloc_cpus);
+//         max_idle_cpu_width = max_idle_cpu_width.max(idle_cpu.to_string().len());
+//         let idle_gpu = group.summary.total_gpus.saturating_sub(group.summary.alloc_gpus);
+//         max_idle_gpu_width = max_idle_gpu_width.max(idle_gpu.to_string().len());
+//
+//         for subgroup_name in group.subgroups.keys() {
+//             max_state_width = max_state_width.max(subgroup_name.len() + 2);
+//         }
+//         for subgroup_line in group.subgroups.values() {
+//             max_alloc_cpu_width = max_alloc_cpu_width.max(subgroup_line.alloc_cpus.to_string().len());
+//             max_total_cpu_width = max_total_cpu_width.max(subgroup_line.total_cpus.to_string().len());
+//             max_alloc_gpu_width = max_alloc_gpu_width.max(subgroup_line.alloc_gpus.to_string().len());
+//             max_total_gpu_width = max_total_gpu_width.max(subgroup_line.total_gpus.to_string().len());
+//             // idle widths for subgroup
+//             let sub_idle_cpu = subgroup_line.total_cpus.saturating_sub(subgroup_line.alloc_cpus);
+//             max_idle_cpu_width = max_idle_cpu_width.max(sub_idle_cpu.to_string().len());
+//             let sub_idle_gpu = subgroup_line.total_gpus.saturating_sub(subgroup_line.alloc_gpus);
+//             max_idle_gpu_width = max_idle_gpu_width.max(sub_idle_gpu.to_string().len());
+//         }
+//     }
+//     max_state_width += 2;
+//
+//     // Sort states for consistent output
+//     let state_order: HashMap<NodeState, usize> = [
+//         (NodeState::Idle, 0),
+//         (NodeState::Mixed, 1),
+//         (NodeState::Allocated, 2),
+//         (NodeState::Error, 3),
+//         (NodeState::Down, 4),
+//     ]
+//     .iter()
+//     .cloned()
+//     .collect();
+//
+//     let mut sorted_states: Vec<&NodeState> = report_data.keys().collect();
+//     sorted_states.sort_by_key(|a| {
+//         if let NodeState::Compound { base, .. } = a {
+//             state_order.get(base).unwrap_or(&99)
+//         } else {
+//             state_order.get(a).unwrap_or(&99)
+//         }
+//     });
+//
+//     // Print Headers
+//     // Determine headers and column widths based on mode (allocated or idle)
+//     let cpu_header = if allocated { "CPU (A/T)" } else { "CPU (I/T)" };
+//     let gpu_header = if allocated { "GPU (A/T)" } else { "GPU (I/T)" };
+//     let cpu_col_width = if allocated {
+//         max_alloc_cpu_width + max_total_cpu_width + 2
+//     } else {
+//         max_idle_cpu_width + max_total_cpu_width + 2
+//     };
+//     let gpu_col_width = if allocated {
+//         max_alloc_gpu_width + max_total_gpu_width + 3
+//     } else {
+//         max_idle_gpu_width + max_total_gpu_width + 3
+//     };
+//
+//     println!(
+//         "{:<width$} {:>5} {:>cpu_w$}  {:>gpu_w$}",
+//         "STATE".bold(), "COUNT".bold(), cpu_header.bold(), gpu_header.bold(),
+//         width = max_state_width,
+//         cpu_w = cpu_col_width,
+//         gpu_w = gpu_col_width,
+//     );
+//     println!("{}", "-".repeat(max_state_width + cpu_col_width + gpu_col_width + 9));
+//
+//     // Generate and Print Report Body
+//     let total_line = generate_report_body(
+//         report_data,
+//         sorted_states,
+//         max_state_width,
+//         (max_alloc_cpu_width, max_total_cpu_width, max_alloc_gpu_width, max_total_gpu_width, max_idle_cpu_width, max_idle_gpu_width),
+//         no_color,
+//         show_node_names,
+//         allocated,
+//     );
+//
+//     // Print Totals and Utilization Bars
+//     println!("{}", "-".repeat(max_state_width + cpu_col_width + gpu_col_width + 9));
+//     // Format total line columns based on mode
+//     let total_cpu_val = if allocated { total_line.alloc_cpus as u64 } else { (total_line.total_cpus - total_line.alloc_cpus) as u64 };
+//     let total_gpu_val = if allocated { total_line.alloc_gpus } else { total_line.total_gpus.saturating_sub(total_line.alloc_gpus) };
+//     let total_cpu_str = format_stat_column(total_cpu_val, total_line.total_cpus as u64, if allocated { max_alloc_cpu_width } else { max_idle_cpu_width }, max_total_cpu_width);
+//     let total_gpu_str = format_stat_column(total_gpu_val, total_line.total_gpus, if allocated { max_alloc_gpu_width } else { max_idle_gpu_width }, max_total_gpu_width);
+//     let total_padding = " ".repeat(max_state_width - "TOTAL".len());
+//     print!("{}{}", "TOTAL".bold(), total_padding);
+//     println!("{:>5}  {}  {}", total_line.node_count, total_cpu_str, total_gpu_str);
+//
+//     // Utilization bars: show allocated or idle based on flag
+//     let utilized_nodes = get_node_utilization(report_data);
+//     let total_nodes = total_line.node_count as f64;
+//     let idle_nodes = total_nodes - utilized_nodes;
+//     if total_line.node_count > 0 {
+//         let utilization_percent = if allocated {
+//             (utilized_nodes / total_nodes) * 100.0
+//         } else {
+//             (idle_nodes / total_nodes) * 100.0
+//         };
+//         print_utilization(utilization_percent, 50, BarColor::Green, "Node", no_color, allocated);
+//     }
+//     if total_line.total_cpus > 0 {
+//         let total_cpus = total_line.total_cpus as f64;
+//         let utilized_cpus = total_line.alloc_cpus as f64;
+//         let idle_cpus = total_cpus - utilized_cpus;
+//         let utilization_percent = if allocated {
+//             (utilized_cpus / total_cpus) * 100.0
+//         } else {
+//             (idle_cpus / total_cpus) * 100.0
+//         };
+//         print_utilization(utilization_percent, 50, BarColor::Cyan, "CPU", no_color, allocated);
+//     }
+//     if total_line.total_gpus > 0 {
+//         let total_gpus = total_line.total_gpus as f64;
+//         let utilized_gpus = total_line.alloc_gpus as f64;
+//         let idle_gpus = total_gpus - utilized_gpus;
+//         let utilization_percent = if allocated {
+//             (utilized_gpus / total_gpus) * 100.0
+//         } else {
+//             (idle_gpus / total_gpus) * 100.0
+//         };
+//         print_utilization(utilization_percent, 50, BarColor::Red, "GPU", no_color, allocated);
+//     }
+// }
 
 /// Formats a statistics column (e.g., "5 / 100") with digit alignment
 fn format_stat_column(
