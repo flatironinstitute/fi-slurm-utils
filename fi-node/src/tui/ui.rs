@@ -481,10 +481,10 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                     .enumerate()
                     .map(|(k, &usage)| {
                         let cap = capacity_series.get(k).cloned().unwrap_or(0);
-                        let avail = cap.saturating_sub(usage);
+                        let avail = cap.saturating_sub(*usage);
                         Bar::default()
                             .value( match display_mode {
-                                DisplayMode::Usage => usage,
+                                DisplayMode::Usage => *usage,
                                 DisplayMode::Availability => avail,
                             })
                             .label(time_labels.get(k).cloned().unwrap_or_default().into())

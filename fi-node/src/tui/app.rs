@@ -354,7 +354,7 @@ async fn run_app<B: Backend>(
                                     }
                                 },
                                 KeyCode::Enter => app.scroll_mode = ScrollMode::Chart,
-                                KeyCode::Char('a') => app.display_mode.toggle(),
+                                KeyCode::Char('a') => app.display_mode = app.display_mode.toggle(),
                                 _ => {}
                             },
                             ScrollMode::Chart => {
@@ -401,7 +401,7 @@ async fn run_app<B: Backend>(
                                             app.scroll_offset = app.scroll_offset.saturating_add(1);
                                         }
                                     },
-                                    KeyCode::Char('a') => app.display_mode.toggle(),
+                                    KeyCode::Char('a') => app.display_mode = app.display_mode.toggle(),
                                     _ => {}
                                 }
                             }
