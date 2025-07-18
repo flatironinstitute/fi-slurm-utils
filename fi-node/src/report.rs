@@ -410,7 +410,7 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
             let node_names = &group.summary.node_names.clone();
 
         println!(
-            "{}{}{}{}{}{}{}{}{}",
+            "{}{}{}{}{}{}{}{} | {}",
             state_comp.colored_text,
             state_comp.padding,
             padding_str,
@@ -443,14 +443,26 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
                     let gpu_comp = GPUComponent::new(line, &report_widths, allocated);
                     let node_names = &line.node_names.clone();
                     
-                    print!("{}{}", state_comp.colored_text, state_comp.padding);
-                    print!("{}", padding_str);
-                    print!("{}", count_comp.text);
-                    print!("{}", padding_str);
-                    print!("{}", cpu_comp.text);
-                    print!("{}", padding_str);
-                    println!("{}", gpu_comp.text);
-                    println!("{}", if show_node_names {fi_slurm::parser::compress_hostlist(node_names)} else {"".to_string()});
+                    println!(
+                        "{}{}{}{}{}{}{}{} | {}",
+                        state_comp.colored_text,
+                        state_comp.padding,
+                        padding_str,
+                        count_comp.text,
+                        padding_str,
+                        cpu_comp.text,
+                        padding_str,
+                        gpu_comp.text,
+                        if show_node_names {fi_slurm::parser::compress_hostlist(node_names)} else {"".to_string()}
+                    );
+                    // print!("{}{}", state_comp.colored_text, state_comp.padding);
+                    // print!("{}", padding_str);
+                    // print!("{}", count_comp.text);
+                    // print!("{}", padding_str);
+                    // print!("{}", cpu_comp.text);
+                    // print!("{}", padding_str);
+                    // println!("{}", gpu_comp.text);
+                    // println!("{}", if show_node_names {fi_slurm::parser::compress_hostlist(node_names)} else {"".to_string()});
                 }
             }
         }
