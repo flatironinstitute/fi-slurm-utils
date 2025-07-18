@@ -439,7 +439,8 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                 .collect();
             // pick capacity series for this chart
             let key = if current_view == AppView::CpuByAccount { "Total" } else { name.as_str() };
-            let caps = data.capacity_data.get(key).unwrap_or(&Vec::new());
+            let binding = Vec::new();
+            let caps = data.capacity_data.get(key).unwrap_or(&binding);
             // visible capacity window
             let cap_window: Vec<u64> = caps
                 .iter()
