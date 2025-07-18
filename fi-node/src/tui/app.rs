@@ -52,7 +52,6 @@ pub enum AppView {
     GpuByType,
 }
 
-// #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub enum ScrollMode {
     #[default]
@@ -60,6 +59,20 @@ pub enum ScrollMode {
     Chart,
 }
 
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
+pub enum DisplayMode {
+    #[default]
+    Usage,
+    Availability,
+}
+impl DisplayMode {
+    pub fn toggle(&self) -> Self {
+        match self {
+            DisplayMode::Usage => DisplayMode::Availability,
+            DisplayMode::Availability => DisplayMode::Usage,
+        }
+    }
+}
 #[derive(Debug)]
 pub struct ChartData {
     pub source_data: HashMap<String, Vec<u64>>,
@@ -76,6 +89,7 @@ pub struct App {
     pub should_quit: bool,
     pub query_range: i64,
     pub query_time_scale: PrometheusTimeScale,
+    pub display_mode: DisplayMode,
 }
 
 impl App {
@@ -340,6 +354,7 @@ async fn run_app<B: Backend>(
                                     }
                                 },
                                 KeyCode::Enter => app.scroll_mode = ScrollMode::Chart,
+                                KeyCode::Char('a') => app.display_mode.toggle(),
                                 _ => {}
                             },
                             ScrollMode::Chart => {
@@ -386,7 +401,7 @@ async fn run_app<B: Backend>(
                                             app.scroll_offset = app.scroll_offset.saturating_add(1);
                                         }
                                     },
-
+                                    KeyCode::Char('a') => app.display_mode.toggle(),
                                     _ => {}
                                 }
                             }
@@ -483,6 +498,7 @@ fn build_loaded_app(
         should_quit: false,
         query_range,
         query_time_scale,
+        display_mode: DisplayMode::Usage,
     };
     AppState::Loaded(app)
 }

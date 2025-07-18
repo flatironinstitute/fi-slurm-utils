@@ -14,6 +14,8 @@ use ratatui::{
     Frame,
 };
 
+use super::app::DisplayMode;
+
 // --- UI Drawing ---
 
 pub fn ui(f: &mut Frame, app_state: &AppState) {
@@ -53,6 +55,7 @@ pub fn ui(f: &mut Frame, app_state: &AppState) {
                 app.scroll_offset,
                 app.scroll_mode,
                 app.current_view,
+                app.display_mode,
             );
             
             draw_tabs(f, main_chunks[0], app.current_view, Some(page_info), app_state);
@@ -331,7 +334,8 @@ fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView, page_info: Option
 type CurrentPageIdx = usize;
 type TotalPagesCnt = usize;
 
-fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize, scroll_mode: ScrollMode, current_view: AppView) -> (CurrentPageIdx, TotalPagesCnt) {
+// worried that this is doing too much per-frame calculation
+fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize, scroll_mode: ScrollMode, current_view: AppView, display_mode: DisplayMode) -> (CurrentPageIdx, TotalPagesCnt) {
     let colors = [
         Color::Cyan,
         Color::Magenta,
@@ -455,6 +459,9 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                 }).collect();
 
                 // bar values: capacity minus usage = available capacity
+                // /
+                // prime target to move this logic out of draw_charts and cache it somewhere else,
+                // no reason to be doing this once per frame, since it's the same for 
                 let cap_key = if current_view == AppView::CpuByAccount {
                     "Total"
                 } else {
@@ -476,7 +483,10 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                         let cap = capacity_series.get(k).cloned().unwrap_or(0);
                         let avail = cap.saturating_sub(usage);
                         Bar::default()
-                            .value(avail)
+                            .value( match display_mode {
+                                DisplayMode::Usage => usage,
+                                DisplayMode::Availability => avail,
+                            })
                             .label(time_labels.get(k).cloned().unwrap_or_default().into())
                             .style(Style::default().fg(color))
                             .text_value("".to_string())
