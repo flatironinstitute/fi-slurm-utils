@@ -5,9 +5,8 @@ use crate::tui::app::{
 };
 use fi_prometheus::PrometheusTimeScale;
 use ratatui::{
-    crossterm::style::Stylize, layout::{Constraint, Direction, Layout, Rect}, prelude::*, style::{Color, Modifier, Style, Stylize}, symbols::border, text::{Line, Span, Text}, widgets::{Bar, BarChart, BarGroup, Block, Borders, Paragraph, Tabs, Wrap}, Frame
+    layout::{Constraint, Direction, Layout, Rect}, prelude::*, style::{Color, Modifier, Style, Stylize}, symbols::border, text::{Line, Span, Text}, widgets::{Bar, BarChart, BarGroup, Block, Borders, Paragraph, Tabs, Wrap}, Frame
 };
-
 use super::app::DisplayMode;
 
 // --- UI Drawing ---
