@@ -454,12 +454,29 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                     if step == 0 { "Now".to_string() } else { format!("-{}", step) }
                 }).collect();
 
+                // bar values: capacity minus usage = available capacity
+                let cap_key = if current_view == AppView::CpuByAccount {
+                    "Total"
+                } else {
+                    *name
+                };
+                let capacity_series: Vec<u64> = data
+                    .capacity_data
+                    .get(cap_key)
+                    .unwrap_or(&Vec::new())
+                    .iter()
+                    .skip(h_offset)
+                    .take(visible_values.len())
+                    .cloned()
+                    .collect();
                 let mut bar_data: Vec<Bar> = visible_values
                     .iter()
                     .enumerate()
-                    .map(|(k, &val)| {
+                    .map(|(k, &usage)| {
+                        let cap = capacity_series.get(k).cloned().unwrap_or(0);
+                        let avail = cap.saturating_sub(usage);
                         Bar::default()
-                            .value(*val)
+                            .value(avail)
                             .label(time_labels.get(k).cloned().unwrap_or_default().into())
                             .style(Style::default().fg(color))
                             .text_value("".to_string())
