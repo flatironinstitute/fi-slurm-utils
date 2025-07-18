@@ -409,15 +409,19 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
             let gpu_comp = GPUComponent::new(&group.summary, &report_widths, allocated);
             let node_names = &group.summary.node_names.clone();
 
-            // FIX: Print each component separately to ensure alignment.
-            print!("{}{}", state_comp.colored_text, state_comp.padding);
-            print!("{}", padding_str);
-            print!("{}", count_comp.text);
-            print!("{}", padding_str);
-            print!("{}", cpu_comp.text);
-            print!("{}", padding_str);
-            println!("{}", gpu_comp.text);
-            println!("{}", if show_node_names {fi_slurm::parser::compress_hostlist(node_names)} else {"".to_string()});
+        println!(
+            "{state_comp.colored_text}{state_comp.padding}{padding_str}{count_comp.text}{padding_str}{cpu_comp.text}{padding_str}{gpu_comp}{if show_node_names {fi_slurm::parser::compress_hostlist(node_names)} else {"".to_string()}}"
+        );
+
+            // // FIX: Print each component separately to ensure alignment.
+            // print!("{}{}", state_comp.colored_text, state_comp.padding);
+            // print!("{}", padding_str);
+            // print!("{}", count_comp.text);
+            // print!("{}", padding_str);
+            // print!("{}", cpu_comp.text);
+            // print!("{}", padding_str);
+            // println!("{}", gpu_comp.text);
+            // println!("{}", if show_node_names {fi_slurm::parser::compress_hostlist(node_names)} else {"".to_string()});
 
             let mut sorted_subgroups: Vec<&String> = group.subgroups.keys().collect();
             sorted_subgroups.sort();
