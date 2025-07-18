@@ -528,6 +528,7 @@ fn draw_footer(f: &mut Frame, area: Rect, page_info: Option<(CurrentPageIdx, Tot
                 }
                 ScrollMode::Chart => {
                     instructions.push(Span::from(", (h/l, ←/→ to scroll charts)"));
+                    instructions.push(Span::from(", (k/j, ↑/↓ to scroll pages)"));
                     instructions.push(Span::from(", (Esc to scroll pages)"));
                 }
             }
