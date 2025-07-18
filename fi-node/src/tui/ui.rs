@@ -5,11 +5,24 @@ use crate::tui::app::{
 };
 use fi_prometheus::PrometheusTimeScale;
 use ratatui::{
-    layout::{Constraint, Direction, Layout, Rect}, prelude::*, style::{Color, Modifier, Style, Stylize}, symbols::border, text::{Line, Span, Text}, widgets::{Bar, BarChart, BarGroup, Block, Borders, Paragraph, Tabs, Wrap}, Frame
+    layout::{Constraint, Direction, Layout, Rect}, prelude::*, style::{Color, Modifier, Style}, symbols::border, text::{Line, Span, Text}, widgets::{Bar, BarChart, BarGroup, Block, Borders, Paragraph, Tabs, Wrap}, Frame
 };
 use super::app::DisplayMode;
 
 // --- UI Drawing ---
+// Move static styles out of per-frame functions
+const COLORS: [Color; 10] = [
+    Color::Cyan,
+    Color::Magenta,
+    Color::Yellow,
+    Color::Green,
+    Color::Red,
+    Color::LightBlue,
+    Color::LightMagenta,
+    Color::LightYellow,
+    Color::LightGreen,
+    Color::LightRed,
+];
 
 pub fn ui(f: &mut Frame, app_state: &AppState) {
     match app_state {
@@ -366,8 +379,38 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
         Color::LightRed,
     ];
 
+    // sort series once
     let mut sorted_series: Vec<_> = data.source_data.iter().collect();
     sorted_series.sort_by_key(|(name, _)| *name);
+    // prepare per-chart data slices (usage windows + capacity windows + max cap)
+    let per_chart: Vec<(&String, Vec<u64>, Vec<u64>, u64)> = sorted_series
+        .iter()
+        .map(|(name, values)| {
+            let num_points = values.len();
+            let max_h_scroll = num_points.saturating_sub(MAX_BARS_PER_CHART);
+            let h_offset = data.horizontal_scroll_offset.min(max_h_scroll);
+            // visible usage window
+            let usage_window: Vec<u64> = values
+                .iter()
+                .skip(h_offset)
+                .take(MAX_BARS_PER_CHART)
+                .cloned()
+                .collect();
+            // pick capacity series for this chart
+            let key = if current_view == AppView::CpuByAccount { "Total" } else { name.as_str() };
+            let caps = data.capacity_data.get(key).unwrap_or(&Vec::new());
+            // visible capacity window
+            let cap_window: Vec<u64> = caps
+                .iter()
+                .skip(h_offset)
+                .take(usage_window.len())
+                .cloned()
+                .collect();
+            // overall max for MAX bar
+            let max_cap = caps.iter().max().cloned().unwrap_or(0);
+            (name, usage_window, cap_window, max_cap)
+        })
+        .collect();
 
     let num_charts = sorted_series.len();
     if num_charts == 0 {
@@ -416,7 +459,8 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
         .constraints(row_constraints)
         .split(chart_area); // Use the new chart_area
 
-    let mut chart_iter = sorted_series.iter().skip(clamped_offset * num_cols);
+    // only iterate over charts in this page
+    let mut chart_iter = per_chart.iter().skip(clamped_offset * num_cols);
     for i in 0..num_visible_rows {
         if i >= row_chunks.len() { break; }
         let row_area = row_chunks[i];
@@ -475,46 +519,38 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                     if step == 0 { "Now".to_string() } else { format!("-{}", step) }
                 }).collect();
 
-                // bar values: capacity minus usage = available capacity
-                // /
-                // prime target to move this logic out of draw_charts and cache it somewhere else,
-                // no reason to be doing this once per frame, since it's the same for 
-                let cap_key = if current_view == AppView::CpuByAccount {
-                    "Total"
+                // destructure precomputed windows and max cap
+                let (name, usage_window, cap_window, max_cap) = if let Some(tuple) = chart_iter.next() {
+                    tuple
                 } else {
-                    *name
+                    continue;
                 };
-                let capacity_series: Vec<u64> = data
-                    .capacity_data
-                    .get(cap_key)
-                    .unwrap_or(&Vec::new())
-                    .iter()
-                    .skip(h_offset)
-                    .take(visible_values.len())
-                    .cloned()
-                    .collect();
-                let mut bar_data: Vec<Bar> = visible_values
+                // build bars: either raw usage or available (cap - usage)
+                let mut bar_data: Vec<Bar> = usage_window
                     .iter()
                     .enumerate()
                     .map(|(k, &usage)| {
-                        let cap = capacity_series.get(k).cloned().unwrap_or(0);
-                        let avail = cap.saturating_sub(*usage);
+                        let cap = cap_window.get(k).copied().unwrap_or(0);
+                        let v = match display_mode {
+                            DisplayMode::Usage => usage,
+                            DisplayMode::Availability => cap.saturating_sub(usage),
+                        };
                         Bar::default()
-                            .value( match display_mode {
-                                DisplayMode::Usage => *usage,
-                                DisplayMode::Availability => avail,
-                            })
+                            .value(v)
                             .label(time_labels.get(k).cloned().unwrap_or_default().into())
                             .style(Style::default().fg(color))
-                            .text_value("".to_string())
+                            .text_value(String::new())
                     })
                     .collect();
 
-                let chart_specific_max = if current_view == AppView::CpuByAccount {
-                    data.capacity_data.get("Total").and_then(|v| v.iter().max()).cloned().unwrap_or(0)
-                } else {
-                    data.capacity_data.get(*name).and_then(|v| v.iter().max()).cloned().unwrap_or(0)
-                };
+                // append max capacity bar for context
+                bar_data.push(
+                    Bar::default()
+                        .value(max_cap)
+                        .label("MAX".into())
+                        .style(Style::default().fg(Color::White))
+                        .text_value(String::new()),
+                );
                 
                 bar_data.push(
                     Bar::default()
