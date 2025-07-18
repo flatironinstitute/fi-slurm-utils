@@ -306,15 +306,29 @@ fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView, page_info: Option
     };
     titles.push(Line::from(format!("Time Scale: {}", time_unit)));
 
-    let display_mode_indicators = match app_state {
-        AppState::Loaded(app) => match app.display_mode {
-            DisplayMode::Usage => ("Usage".bold(), "Availability".dim()),
-            DisplayMode::Availability => ("Usage".dim(), "Availability".bold()),
-        },
+    // display mode tab
+    let display_mode = match app_state {
+        AppState::Loaded(app) => app.display_mode,
         _ => panic!(),
     };
 
-    titles.push(Line::from(format!("{}/{}",display_mode_indicators.0, display_mode_indicators.1)));
+    let usage_span = Span::styled("Usage", 
+        if display_mode == DisplayMode::Availability {
+            Style::default().add_modifier(Modifier::DIM) 
+        } else { 
+            Style::default().add_modifier(Modifier::BOLD) 
+        },
+    );
+
+    let avail_span = Span::styled("Availability", 
+        if display_mode == DisplayMode::Availability {
+            Style::default().add_modifier(Modifier::BOLD) 
+        } else { 
+            Style::default().add_modifier(Modifier::DIM) 
+        },
+    ); 
+    
+    titles.push(Line::from(vec![ usage_span, Span::raw("/"), avail_span, ]));
 
     let tabs = Tabs::new(titles)
         .block(
