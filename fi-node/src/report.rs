@@ -349,7 +349,7 @@ impl GPUComponent {
 }
 
 /// Formats and prints the aggregated report data to the console
-pub fn print_report(report_data: &ReportData, no_color: bool, _show_node_names: bool, allocated: bool) {
+pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: bool, allocated: bool) {
     let padding: usize = 3;
     let padding_str = " ".repeat(padding);
 
@@ -407,6 +407,7 @@ pub fn print_report(report_data: &ReportData, no_color: bool, _show_node_names: 
             let count_comp = CountComponent::new(group.summary.node_count, report_widths.count_width);
             let cpu_comp = CPUComponent::new(&group.summary, &report_widths, allocated);
             let gpu_comp = GPUComponent::new(&group.summary, &report_widths, allocated);
+            let node_names = &group.summary.node_names.clone();
 
             // FIX: Print each component separately to ensure alignment.
             print!("{}{}", state_comp.colored_text, state_comp.padding);
@@ -416,6 +417,7 @@ pub fn print_report(report_data: &ReportData, no_color: bool, _show_node_names: 
             print!("{}", cpu_comp.text);
             print!("{}", padding_str);
             println!("{}", gpu_comp.text);
+            println!("{}", if show_node_names {fi_slurm::parser::compress_hostlist(node_names)} else {"".to_string()});
 
             let mut sorted_subgroups: Vec<&String> = group.subgroups.keys().collect();
             sorted_subgroups.sort();
@@ -426,6 +428,7 @@ pub fn print_report(report_data: &ReportData, no_color: bool, _show_node_names: 
                     let count_comp = CountComponent::new(line.node_count, report_widths.count_width);
                     let cpu_comp = CPUComponent::new(line, &report_widths, allocated);
                     let gpu_comp = GPUComponent::new(line, &report_widths, allocated);
+                    let node_names = &line.node_names.clone();
                     
                     print!("{}{}", state_comp.colored_text, state_comp.padding);
                     print!("{}", padding_str);
@@ -434,6 +437,7 @@ pub fn print_report(report_data: &ReportData, no_color: bool, _show_node_names: 
                     print!("{}", cpu_comp.text);
                     print!("{}", padding_str);
                     println!("{}", gpu_comp.text);
+                    println!("{}", if show_node_names {fi_slurm::parser::compress_hostlist(node_names)} else {"".to_string()});
                 }
             }
         }
