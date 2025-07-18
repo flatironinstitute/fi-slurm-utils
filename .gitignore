@@ -1,2 +1,6 @@
 /target
 .DS_Store
+.opencode
+.opencode.json
+OpenCode.md
+project.md
