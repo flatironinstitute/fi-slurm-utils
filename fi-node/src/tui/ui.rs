@@ -593,21 +593,6 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                         .style(Style::default().fg(Color::White))
                         .text_value(String::new()),
                 );
-                
-                let chart_specific_max = if current_view == AppView::CpuByAccount {
-                    data.capacity_data.get("Total").and_then(|v| v.iter().max()).cloned().unwrap_or(0)
-                } else {
-                    data.capacity_data.get(*name).and_then(|v| v.iter().max()).cloned().unwrap_or(0)
-                };
-
-                bar_data.push(
-                    Bar::default()
-                        .value(chart_specific_max)
-                        .label("MAX".into())
-                        .style(Style::default().fg(Color::White))
-                        .text_value("".to_string()),
-                );
-
 
                 // Render the bar chart in the lower sub-area
                 let bar_group = BarGroup::default().bars(&bar_data);
