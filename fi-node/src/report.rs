@@ -334,7 +334,7 @@ impl GPUComponent {
      fn new(line: &ReportLine, widths: &ReportWidths, allocated: bool) -> Self {
         if line.total_gpus == 0 {
             let total_width = widths.alloc_or_idle_gpu_width + widths.total_gpu_width + 3;
-            return Self { text: format!("{:^width$}", "-", width = total_width) };
+            return Self { text: format!("{:^width$}", "-", width = total_width-2) };
         }
         let val = if allocated { line.alloc_gpus } else { line.idle_gpus };
         let text = format!(
