@@ -5,13 +5,7 @@ use crate::tui::app::{
 };
 use fi_prometheus::PrometheusTimeScale;
 use ratatui::{
-    prelude::*,
-    layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style, Stylize},
-    symbols::border,
-    text::{Line, Span, Text},
-    widgets::{Bar, BarChart, BarGroup, Block, Borders, Paragraph, Tabs, Wrap},
-    Frame,
+    crossterm::style::Stylize, layout::{Constraint, Direction, Layout, Rect}, prelude::*, style::{Color, Modifier, Style, Stylize}, symbols::border, text::{Line, Span, Text}, widgets::{Bar, BarChart, BarGroup, Block, Borders, Paragraph, Tabs, Wrap}, Frame
 };
 
 use super::app::DisplayMode;
@@ -312,6 +306,16 @@ fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView, page_info: Option
         _ => panic!(), // we should definitely be in a Loaded app state
     };
     titles.push(Line::from(format!("Time Scale: {}", time_unit)));
+
+    let display_mode_indicators = match app_state {
+        AppState::Loaded(app) => match app.display_mode {
+            DisplayMode::Usage => ("Usage".bold(), "Availability".dim()),
+            DisplayMode::Availability => ("Usage".dim(), "Availability".bold()),
+        },
+        _ => panic!(),
+    };
+
+    titles.push(Line::from(format!("{}/{}",display_mode_indicators.0, display_mode_indicators.1)));
 
     let tabs = Tabs::new(titles)
         .block(
