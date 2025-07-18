@@ -8,7 +8,6 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect}, prelude::*, style::{Color, Modifier, Style}, symbols::border, text::{Line, Span, Text}, widgets::{Bar, BarChart, BarGroup, Block, Borders, Paragraph, Tabs, Wrap}, Frame
 };
 use super::app::DisplayMode;
-use crate::tui::app::AppView;
 
 // --- Model: Prepared Charts ---
 /// A precomputed chart series, to minimize per-frame allocations
@@ -450,7 +449,7 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                 .collect();
             // overall max for MAX bar
             let max_cap = caps.iter().max().cloned().unwrap_or(0);
-            (name, usage_window, cap_window, max_cap)
+            (*name, usage_window, cap_window, max_cap)
         })
         .collect();
 
@@ -515,7 +514,7 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
 
         for j in 0..num_cols {
             if j >= col_chunks.len() { break; }
-            if let Some((name, values)) = chart_iter.next() {
+            if let Some((name, values, cap_window, max_cap)) = chart_iter.next() {
                 let cell_area = col_chunks[j];
 
                 let border_style = if scroll_mode == ScrollMode::Chart {
@@ -588,7 +587,7 @@ fn draw_charts(f: &mut Frame, area: Rect, data: &ChartData, scroll_offset: usize
                 // append max capacity bar for context
                 bar_data.push(
                     Bar::default()
-                        .value(max_cap)
+                        .value(*max_cap)
                         .label("MAX".into())
                         .style(Style::default().fg(Color::White))
                         .text_value(String::new()),
