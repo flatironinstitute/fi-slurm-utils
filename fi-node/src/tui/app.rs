@@ -354,6 +354,7 @@ async fn run_app<B: Backend>(
                                     }
                                 },
                                 KeyCode::Enter => app.scroll_mode = ScrollMode::Chart,
+                                KeyCode::Char('a') => app.display_mode = app.display_mode.toggle(),
                                 _ => {}
                             },
                             ScrollMode::Chart => {
