@@ -410,7 +410,16 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
             let node_names = &group.summary.node_names.clone();
 
         println!(
-            "{state_comp.colored_text}{state_comp.padding}{padding_str}{count_comp.text}{padding_str}{cpu_comp.text}{padding_str}{gpu_comp}{if show_node_names {fi_slurm::parser::compress_hostlist(node_names)} else {"".to_string()}}"
+            "{}{}{}{}{}{}{}{}{}",
+            state_comp.colored_text,
+            state_comp.padding,
+            padding_str,
+            count_comp.text,
+            padding_str,
+            cpu_comp.text,
+            padding_str,
+            gpu_comp.text,
+            if show_node_names {fi_slurm::parser::compress_hostlist(node_names)} else {"".to_string()}
         );
 
             // // FIX: Print each component separately to ensure alignment.
