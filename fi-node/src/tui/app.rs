@@ -326,6 +326,8 @@ async fn run_app<B: Backend>(
                                 // KeyCode::Down | KeyCode::PageDown | KeyCode::Char('j') => app.scroll_offset = app.scroll_offset.saturating_add(1),
                                 KeyCode::Down | KeyCode::PageDown | KeyCode::Char('j') => {
                                     let terminal_size = terminal.size()?;
+                                    // compute how many chart-rows fit: subtract tabs (3 lines) and footer (1 line)
+                                    let chartable_height = terminal_size.height.saturating_sub(3 + 1);
                                     let num_cols = (terminal_size.width / MINIMUM_CHART_WIDTH).max(1) as usize;
                                     let num_charts = match app.current_view {
                                         AppView::CpuByAccount => app.cpu_by_account.source_data.len(),
@@ -333,9 +335,8 @@ async fn run_app<B: Backend>(
                                         AppView::GpuByType => app.gpu_by_type.source_data.len(),
                                     };
                                     let total_rows = num_charts.div_ceil(num_cols);
-                                    let num_visible_rows = (terminal_size.height / CHART_HEIGHT) as usize;
+                                    let num_visible_rows = (chartable_height / CHART_HEIGHT) as usize;
                                     let max_scroll_offset = total_rows.saturating_sub(num_visible_rows);
-
                                     if app.scroll_offset < max_scroll_offset {
                                         app.scroll_offset = app.scroll_offset.saturating_add(1);
                                     }
@@ -371,22 +372,22 @@ async fn run_app<B: Backend>(
 
                                     KeyCode::Up | KeyCode::PageUp | KeyCode::Char('k') => app.scroll_offset = app.scroll_offset.saturating_sub(1),
                                     // KeyCode::Down | KeyCode::PageDown | KeyCode::Char('j') => app.scroll_offset = app.scroll_offset.saturating_add(1),
-                                    KeyCode::Down | KeyCode::PageDown | KeyCode::Char('j') => {
-                                        let terminal_size = terminal.size()?;
-                                        let num_cols = (terminal_size.width / MINIMUM_CHART_WIDTH).max(1) as usize;
-                                        let num_charts = match app.current_view {
-                                            AppView::CpuByAccount => app.cpu_by_account.source_data.len(),
-                                            AppView::CpuByNode => app.cpu_by_node.source_data.len(),
-                                            AppView::GpuByType => app.gpu_by_type.source_data.len(),
-                                        };
-                                        let total_rows = num_charts.div_ceil(num_cols);
-                                        let num_visible_rows = (terminal_size.height / CHART_HEIGHT) as usize;
-                                        let max_scroll_offset = total_rows.saturating_sub(num_visible_rows);
-
-                                        if app.scroll_offset < max_scroll_offset {
-                                            app.scroll_offset = app.scroll_offset.saturating_add(1);
-                                        }
-                                    },
+                                KeyCode::Down | KeyCode::PageDown | KeyCode::Char('j') => {
+                                    let terminal_size = terminal.size()?;
+                                    let chartable_height = terminal_size.height.saturating_sub(3 + 1);
+                                    let num_cols = (terminal_size.width / MINIMUM_CHART_WIDTH).max(1) as usize;
+                                    let num_charts = match app.current_view {
+                                        AppView::CpuByAccount => app.cpu_by_account.source_data.len(),
+                                        AppView::CpuByNode => app.cpu_by_node.source_data.len(),
+                                        AppView::GpuByType => app.gpu_by_type.source_data.len(),
+                                    };
+                                    let total_rows = num_charts.div_ceil(num_cols);
+                                    let num_visible_rows = (chartable_height / CHART_HEIGHT) as usize;
+                                    let max_scroll_offset = total_rows.saturating_sub(num_visible_rows);
+                                    if app.scroll_offset < max_scroll_offset {
+                                        app.scroll_offset = app.scroll_offset.saturating_add(1);
+                                    }
+                                },
 
                                     _ => {}
                                 }
