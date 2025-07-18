@@ -229,7 +229,6 @@ async fn run_app<B: Backend>(
                     }
                 }
 
-                // REFACTORED: This entire block is restructured for clarity and correctness.
                 match &mut app_state {
                     AppState::MainMenu { selected } => {
                         match key.code {
