@@ -8,8 +8,10 @@ use std::collections::HashMap;
 // A map of cluster names to their Prometheus endpoint URLs
 fn get_prometheus_url(cluster: &Cluster) -> &'static str {
     match cluster {
-        Cluster::Popeye => "http://popeye-prometheus.flatironinstitute.org:80",
-        Cluster::Rusty => "http://prometheus.flatironinstitute.org:80",
+        Cluster::Popeye => "http://prometheus/",
+        Cluster::Rusty => "http://prometheus/",
+        //Cluster::Popeye => "http://popeye-prometheus.flatironinstitute.org:80",
+        //Cluster::Rusty => "http://prometheus.flatironinstitute.org:80",
     }
 }
 
