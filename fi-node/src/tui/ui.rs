@@ -8,6 +8,48 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect}, prelude::*, style::{Color, Modifier, Style}, symbols::border, text::{Line, Span, Text}, widgets::{Bar, BarChart, BarGroup, Block, Borders, Paragraph, Tabs, Wrap}, Frame
 };
 use super::app::DisplayMode;
+use crate::tui::app::AppView;
+
+// --- Model: Prepared Charts ---
+/// A precomputed chart series, to minimize per-frame allocations
+#[derive(Clone)]
+struct PreparedChart {
+    title: Span<'static>,
+    time_labels: Vec<String>,
+    usage: Vec<u64>,
+    capacity: Vec<u64>,
+    max_cap: u64,
+}
+
+/// Turn raw ChartData into a vector of PreparedChart for a single view
+fn prepare_charts(data: &ChartData, view: AppView) -> Vec<PreparedChart> {
+    // sort series by name
+    let mut entries: Vec<_> = data.source_data.iter().collect();
+    entries.sort_by_key(|(name, _)| *name);
+    entries.into_iter().map(|(name, usage_series)| {
+        // clone full series once
+        let usage = usage_series.clone();
+        // pick capacity key
+        let key = if view == AppView::CpuByAccount { "Total" } else { name.as_str() };
+        let capacity = data.capacity_data.get(key).cloned().unwrap_or_default();
+        let max_cap = capacity.iter().max().cloned().unwrap_or_default();
+        // precompute time labels for each point
+        let len = usage.len().min(capacity.len());
+        let time_labels = (0..len)
+            .map(|i| {
+                let step = len - 1 - i;
+                if step == 0 { "Now".into() } else { format!("-{}", step) }
+            })
+            .collect();
+        PreparedChart {
+            title: Span::from(name.clone()).bold(),
+            time_labels,
+            usage,
+            capacity,
+            max_cap,
+        }
+    }).collect()
+}
 
 // --- UI Drawing ---
 // Move static styles out of per-frame functions
