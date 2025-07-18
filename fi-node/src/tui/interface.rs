@@ -1,5 +1,5 @@
 use crate::tui::app::{AppError, CapacityData, FetchedData, UsageData};
-use fi_prometheus::{get_max_resource, get_usage_by, Cluster, Grouping, Resource, PrometheusTimeScale};
+use fi_prometheus::{get_max_resource, get_usage_by, Grouping, Resource, PrometheusTimeScale};
 use tokio::sync::mpsc;
 use std::time::Duration;
 
@@ -8,8 +8,6 @@ use std::time::Duration;
 const TASK_TIMEOUT: Duration = Duration::from_secs(15);
 
 struct PrometheusRequest {
-    cluster: Cluster, //assume it's the one we're currently connected to? Try to get popeye info
-    //from here?
     grouping: Option<Grouping>,
     resource: Resource,
     range: i64,
@@ -18,15 +16,12 @@ struct PrometheusRequest {
 
 impl PrometheusRequest {
     fn new(
-        cluster: Cluster, //assume it's the one we're currently connected to? Try to get popeye info
-        //from here?
         grouping: Option<Grouping>,
         resource: Resource,
         range: i64,
         time_scale: PrometheusTimeScale,
     ) -> Self {
         Self {
-            cluster,
             grouping,
             resource,
             range,
@@ -57,7 +52,6 @@ fn prometheus_data_request(
     match data_type {
         PrometheusDataType::Usage => {
             let data = get_usage_by(
-                request.cluster,
                 request.grouping.unwrap(), // No longer needs .unwrap()
                 request.resource,
                 request.range,
@@ -72,7 +66,6 @@ fn prometheus_data_request(
 
         PrometheusDataType::Capacity => {
             let data = get_max_resource(
-                request.cluster,
                 request.grouping, // get_max_resource expects an Option
                 request.resource,
                 request.range, // This function also expects an Option
@@ -93,7 +86,6 @@ fn prometheus_data_request(
 pub fn get_cpu_by_account_data(range: i64, time_scale: PrometheusTimeScale) -> Result<UsageData, AppError> {
 
     let request = PrometheusRequest::new( 
-        Cluster::Rusty, 
         Some(Grouping::Account), 
         Resource::Cpus, 
         range, 
@@ -125,7 +117,6 @@ pub async fn get_cpu_by_account_data_async(tx: mpsc::Sender<FetchedData>, range:
 pub fn get_cpu_capacity_by_account(range: i64, time_scale: PrometheusTimeScale) -> Result<CapacityData, AppError> {
 
     let request = PrometheusRequest::new( 
-        Cluster::Rusty, 
         Some(Grouping::Account), 
         Resource::Cpus, 
         range, 
@@ -159,7 +150,6 @@ pub async fn get_cpu_capacity_by_account_async(tx: mpsc::Sender<FetchedData>, ra
 pub fn get_cpu_by_node_data(range: i64, time_scale: PrometheusTimeScale) -> Result<UsageData, AppError> {
 
     let request = PrometheusRequest::new( 
-        Cluster::Rusty, 
         Some(Grouping::Nodes), 
         Resource::Cpus, 
         range, 
@@ -191,7 +181,6 @@ pub async fn get_cpu_by_node_data_async(tx: mpsc::Sender<FetchedData>, range: i6
 pub fn get_cpu_capacity_by_node(range: i64, time_scale: PrometheusTimeScale) -> Result<CapacityData, AppError> {
 
     let request = PrometheusRequest::new( 
-        Cluster::Rusty, 
         Some(Grouping::Nodes), 
         Resource::Cpus, 
         range, 
@@ -225,7 +214,6 @@ pub async fn get_cpu_capacity_by_node_async(tx: mpsc::Sender<FetchedData>, range
 pub fn get_gpu_by_type_data(range: i64, time_scale: PrometheusTimeScale) -> Result<UsageData, AppError> {
 
     let request = PrometheusRequest::new( 
-        Cluster::Rusty, 
         Some(Grouping::GpuType), 
         Resource::Gpus, 
         range, 
@@ -257,7 +245,6 @@ pub async fn get_gpu_by_type_data_async(tx: mpsc::Sender<FetchedData>, range: i6
 pub fn get_gpu_capacity_by_type(range: i64, time_scale: PrometheusTimeScale) -> Result<CapacityData, AppError> {
 
     let request = PrometheusRequest::new( 
-        Cluster::Rusty, 
         Some(Grouping::GpuType), 
         Resource::Gpus, 
         range, 

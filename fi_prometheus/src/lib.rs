@@ -5,23 +5,6 @@ use std::collections::HashMap;
 
 // Configuration and Core Enums
 
-// A map of cluster names to their Prometheus endpoint URLs
-fn get_prometheus_url(cluster: &Cluster) -> &'static str {
-    match cluster {
-        Cluster::Popeye => "http://prometheus/",
-        Cluster::Rusty => "http://prometheus/",
-        //Cluster::Popeye => "http://popeye-prometheus.flatironinstitute.org:80",
-        //Cluster::Rusty => "http://prometheus.flatironinstitute.org:80",
-    }
-}
-
-// Using enums for type safety, similar to Python's Literal type
-#[derive(Debug, Clone, Copy)]
-pub enum Cluster {
-    Popeye,
-    Rusty,
-}
-
 #[derive(Debug, Clone, Copy)]
 pub enum Grouping {
     Account,
@@ -168,12 +151,11 @@ fn capacity_query(grouping: Option<Grouping>, resource: Resource) -> String {
 /// The core function for querying the Prometheus API
 fn query(
     query: &str,
-    cluster: &Cluster,
     start: DateTime<Utc>,
     end: Option<DateTime<Utc>>,
     step: Option<PrometheusTimeScale>,
 ) -> Result<PrometheusResponse, Box<dyn std::error::Error>> {
-    let base_url = get_prometheus_url(cluster);
+    let base_url = "http://prometheus/";
     let client = Client::builder()
         .danger_accept_invalid_certs(true) // Equivalent to `verify=False`
         .timeout(std::time::Duration::from_secs(10))
@@ -279,7 +261,6 @@ fn range_group_by(
 // --- Public API Functions ---
 
 pub fn get_usage_by(
-    cluster: Cluster,
     grouping: Grouping,
     resource: Resource,
     increments: i64,
@@ -290,14 +271,13 @@ pub fn get_usage_by(
     let start_time = time_return.start_time;
 
     let usage_query = usage_query(grouping, resource); // Assuming Cpus for now
-    let result = query(&usage_query, &cluster, start_time, Some(now), Some(step))?;
+    let result = query(&usage_query, start_time, Some(now), Some(step))?;
 
     // Fill missing data points with zeros
     Ok(range_group_by(result, grouping, start_time, step, increments))
 }
 
 pub fn get_max_resource(
-    cluster: Cluster,
     grouping: Option<Grouping>,
     resource: Resource,
     increments: i64,
@@ -308,7 +288,7 @@ pub fn get_max_resource(
     let start_time = time_return.start_time;
     
     let cap_query = capacity_query(grouping, resource); // Assuming Cpus
-    let result = query(&cap_query, &cluster, start_time, Some(now), Some(step))?;
+    let result = query(&cap_query, start_time, Some(now), Some(step))?;
 
     // if days is none, then instantaneous regular groupby
     // otherwise range groupby
