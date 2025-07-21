@@ -35,7 +35,7 @@ fn main() -> Result<(), String> {
     //     return Ok(())
     // }
 
-    if args.terminal {
+    if args.term {
         let _ = tui_execute();
         return Ok(())
     }
@@ -151,8 +151,7 @@ fn main() -> Result<(), String> {
             &tree_report,
             args.no_color,
             args.names,
-            args.sort,
-            args.preempt
+            args.alphabetical,
         );
 
         if args.debug { println!("Finished building tree report: {:?}", start.elapsed()); }
