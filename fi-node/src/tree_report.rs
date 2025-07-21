@@ -263,8 +263,8 @@ fn calculate_max_width(tree_node: &TreeNode, prefix_len: usize) -> usize {
 pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names: bool, sort: bool, preempt: bool) {
     // --- Define Headers ---
     const HEADER_FEATURE: &str = "FEATURE (Avail/Total)";
-    const HEADER_NODES_PREEMPT: &str = "NODES";
-    const HEADER_NODES: &str = "NODES (PREEMPT)";
+    const HEADER_NODES_PREEMPT: &str = "NODES (PREEMPT)";
+    const HEADER_NODES: &str = "NODES";
     const HEADER_CPUS: &str = "CORES";
     const HEADER_NODE_AVAIL: &str = "NODES AVAIL.";
     const HEADER_CPU_AVAIL: &str = "CORES AVAIL.";
