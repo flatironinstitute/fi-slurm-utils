@@ -20,6 +20,7 @@ pub struct TreeNode {
 pub struct ReportLine {
     pub total_nodes: u32,
     pub idle_nodes: u32,
+    pub preempt_nodes: Option<u32>,
     pub total_cpus: u32,
     pub idle_cpus: u32,
     pub alloc_cpus: u32,
@@ -31,7 +32,6 @@ pub type TreeReportData = TreeNode;
 
 // Aggregation Logic
 
-// editing in order to conditionally take into account preempt 
 /// Helper function to determine if a node is available for new work
 fn is_node_available(state: &NodeState) -> bool {
     match state {
@@ -56,6 +56,7 @@ pub fn build_tree_report(
     feature_filter: &[String],
     show_hidden_features: bool,
     show_node_names: bool,
+    preempted_nodes: Option<Vec<usize>>,
 ) -> TreeReportData {
     let mut root = TreeNode {
         name: "TOTAL".to_string(),
@@ -75,13 +76,6 @@ pub fn build_tree_report(
             0
         };
         let is_available = is_node_available(&node.state);
-        // need to also check whether any given job on that node is preempt
-        // what if a job is preempt, but it's a job on a mixed node with another non-preempt job?
-        // maybe the correct solution is further up the chain
-        // do we perhaps want to change Node state much further up, as part of creating the node to
-        // job mappings?
-        // would need to do it in a way we can reconstruct in case we don't want this behavior to
-        // be universal
 
         // Update Grand Total Stats
         root.stats.total_nodes += 1;
@@ -90,6 +84,12 @@ pub fn build_tree_report(
         if is_available {
             root.stats.idle_nodes += 1;
             root.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
+        }
+
+        if let Some(preempted_nodes_ids) = preempted_nodes {
+            if preempted_nodes_ids.contains(&node.id) {
+                root.stats.preempt_nodes += 1;
+            }
         }
 
         // NEW: Determine which features to use for building the tree based on the flag.
@@ -115,6 +115,12 @@ pub fn build_tree_report(
                     current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                 }
 
+                if let Some(preempted_nodes_ids) = preempted_nodes {
+                    if preempted_nodes_ids.contains(&node.id) {
+                        current_level.stats.preempt_nodes += 1;
+                    }
+                }
+
                 if show_node_names {
                     current_level.stats.node_names.push(node.name.clone());
                 }
@@ -136,6 +142,12 @@ pub fn build_tree_report(
                         current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                     }
 
+                    if let Some(preempted_nodes_ids) = preempted_nodes {
+                        if preempted_nodes_ids.contains(&node.id) {
+                            current_level.stats.preempt_nodes += 1;
+                        }
+                    }
+
                     // Build the sub-branch from the *remaining* features,
                     // respecting the show_hidden_features flag.
                     for feature in features_for_tree.iter().filter(|f| f.as_str() != filter) {
@@ -148,6 +160,12 @@ pub fn build_tree_report(
                         if is_available {
                             current_level.stats.idle_nodes += 1;
                             current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
+                        }
+
+                        if let Some(preempted_nodes_ids) = preempted_nodes {
+                            if preempted_nodes_ids.contains(&node.id) {
+                                current_level.stats.preempt_nodes += 1;
+                            }
                         }
 
                         if show_node_names {
@@ -192,7 +210,18 @@ fn calculate_column_widths(tree_node: &TreeNode) -> ColumnWidths {
 }
 
 /// based on the pre-calculated maximum widths
-fn format_tree_stat_column(current: u32, total: u32, max_current_width: usize, max_total_width: usize) -> String {
+fn format_tree_stat_column(current: u32, total: u32, max_current_width: usize, max_total_width: usize, preempt_nodes: Option<u32>) -> String {
+    if let Some(preempt_count) = preempt_nodes {
+        let preempt_w = preempt_count.to_string().len() + 2; // to account for the parens
+        format!(
+            "{:>current_w$}({:>preempt_w})/{:>total_w$} ",
+            current,
+            preempt_count,
+            total,
+            current_w = max_current_width + ,
+            total_w = max_total_width
+        )
+    }
     format!(
         "{:>current_w$}/{:>total_w$} ",
         current,
@@ -250,7 +279,7 @@ fn calculate_max_width(tree_node: &TreeNode, prefix_len: usize) -> usize {
 }
 
 
-pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names: bool, sort: bool) {
+pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names: bool, sort: bool, preempt: bool) {
     // --- Define Headers ---
     const HEADER_FEATURE: &str = "FEATURE (Avail/Total)";
     const HEADER_NODES: &str = "NODES";
@@ -284,8 +313,8 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
     };
 
     // Print the determined top-level line with Right Alignment for data
-    let node_text = format_tree_stat_column(top_level_node.stats.idle_nodes, top_level_node.stats.total_nodes, col_widths.max_idle_nodes, col_widths.max_total_nodes);
-    let cpu_text = format_tree_stat_column(top_level_node.stats.idle_cpus, top_level_node.stats.total_cpus, col_widths.max_idle_cpus, col_widths.max_total_cpus);
+    let node_text = format_tree_stat_column(top_level_node.stats.idle_nodes, top_level_node.stats.total_nodes, col_widths.max_idle_nodes, col_widths.max_total_nodes, top_level_node.stats.preempt_nodes);
+    let cpu_text = format_tree_stat_column(top_level_node.stats.idle_cpus, top_level_node.stats.total_cpus, col_widths.max_idle_cpus, col_widths.max_total_cpus, None);
     let node_bar = create_avail_bar(top_level_node.stats.idle_nodes, top_level_node.stats.total_nodes, bar_width, Color::Green, no_color);
     let cpu_bar = create_avail_bar(top_level_node.stats.idle_cpus, top_level_node.stats.total_cpus, bar_width, Color::Cyan, no_color);
 
@@ -371,8 +400,8 @@ fn print_node_recursive(
     let connector = if is_last { "└──" } else { "├──" };
     let display_name = format!("{}{}{}", prefix, connector, collapsed_name);
 
-    let node_text = format_tree_stat_column(current_node.stats.idle_nodes, current_node.stats.total_nodes, col_widths.max_idle_nodes, col_widths.max_total_nodes);
-    let cpu_text = format_tree_stat_column(current_node.stats.idle_cpus, current_node.stats.total_cpus, col_widths.max_idle_cpus, col_widths.max_total_cpus);
+    let node_text = format_tree_stat_column(current_node.stats.idle_nodes, current_node.stats.total_nodes, col_widths.max_idle_nodes, col_widths.max_total_nodes, current_node.stats.preempt_nodes);
+    let cpu_text = format_tree_stat_column(current_node.stats.idle_cpus, current_node.stats.total_cpus, col_widths.max_idle_cpus, col_widths.max_total_cpus, None);
     let node_bar = create_avail_bar(current_node.stats.idle_nodes, current_node.stats.total_nodes, bar_width, Color::Green, no_color);
     let cpu_bar = create_avail_bar(current_node.stats.idle_cpus, current_node.stats.total_cpus, bar_width, Color::Cyan, no_color);
     let node_names = &current_node.stats.node_names.clone();

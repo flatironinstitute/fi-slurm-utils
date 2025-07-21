@@ -82,9 +82,9 @@ fn main() -> Result<(), String> {
         println!("Finished building node to job map: {:?}", start.elapsed()); 
     }
 
-    if args.preempt {
-        preempt_node(&mut nodes_collection, &node_to_job_map, &jobs_collection);
-    }
+    let preempted_nodes = if args.preempt {
+        Some(preempt_node(&mut nodes_collection, &node_to_job_map, &jobs_collection))
+    } else { None };
 
     let filtered_nodes = filter::filter_nodes_by_feature(&nodes_collection, &args.feature, args.exact);
     if args.debug && !args.feature.is_empty() { println!("Finished filtering data: {:?}", start.elapsed()); }
@@ -146,12 +146,14 @@ fn main() -> Result<(), String> {
             &args.feature,
             args.verbose,
             args.names,
+            preempted_nodes
         );
         tree_report::print_tree_report(
             &tree_report,
             args.no_color,
             args.names,
             args.alphabetical,
+            args.preempt
         );
 
         if args.debug { println!("Finished building tree report: {:?}", start.elapsed()); }
@@ -177,13 +179,15 @@ fn build_node_to_job_map(slurm_jobs: &SlurmJobs) -> HashMap<usize, Vec<u32>> {
     node_to_job_map
 }
 
+struct PreemptNodes(Vec<usize>);
+
 // function to crawl through the node to job map and change the status of a given node if the job/s
 // running on it are preempt
 fn preempt_node(
     slurm_nodes: &mut SlurmNodes, 
     node_to_job_map: &HashMap<usize, Vec<u32>>, 
     slurm_jobs: &SlurmJobs
-) {
+) -> PreemptNodes {
     // iterate through the jobs, figure out which are preempt
     // grabbing their ids, cross-reference to the ids of the nodes they're running on. This can be
     // many to many
@@ -194,6 +198,8 @@ fn preempt_node(
     // iterate over jobs first, then check in the mappings which nodes might be changed
     // and then change those nodes accordingly
 
+    // do we also want to return those job ids, or the ids of those nodes which were reclassified?
+    // and maybe also how many cores? No, let's just stick to nodes for now
     let now: DateTime<Utc> = Utc::now();
 
     let mut preemptable_jobs: HashSet<u32> = HashSet::new();
@@ -237,16 +243,20 @@ fn preempt_node(
     // we leave mixed be, because if the jobs running on it were all preempt, the node would be in
     // the othe category
 
+    let mut preempted_nodes: Vec<usize> = Vec::new();
+
     for node in slurm_nodes.nodes.iter_mut() {
         if all_preempt.contains(&node.id) {
             match &node.state {
                 NodeState::Allocated | NodeState::Mixed => {
+                    preempted_nodes.push(&node.id);
                     node.state = NodeState::Idle
                 },
                 NodeState::Compound {base, flags} => {
                     match **base {
                         // NodeState::Allocated | NodeState::Mixed => {
                         NodeState::Allocated | NodeState::Mixed => {
+                            preempted_nodes.push(&node.id);
                             node.state = NodeState::Compound { base: Box::new(NodeState::Idle), flags: flags.to_vec() }
                         },
                         _ => (),
@@ -257,10 +267,12 @@ fn preempt_node(
         } else if partially_preempt.contains(&node.id) {
             match &node.state {
                 NodeState::Allocated => {
+                    preempted_nodes.push(&node.id);
                     node.state = NodeState::Mixed
                 },
                 NodeState::Compound {base, flags} => {
                     if **base == NodeState::Allocated {
+                        preempted_nodes.push(&node.id);
                         node.state = NodeState::Compound { base: Box::new(NodeState::Mixed), flags: flags.to_vec() }
                     }
                 },
@@ -268,6 +280,8 @@ fn preempt_node(
             }
         }
     }
+
+    PreemptNodes(preempted_nodes)
 }
 
 /// A command-line utility to report the state of a Slurm cluster,
