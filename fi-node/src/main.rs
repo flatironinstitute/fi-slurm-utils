@@ -153,7 +153,6 @@ fn main() -> Result<(), String> {
             args.no_color,
             args.names,
             args.alphabetical,
-            args.preempt
         );
 
         if args.debug { println!("Finished building tree report: {:?}", start.elapsed()); }
@@ -179,7 +178,7 @@ fn build_node_to_job_map(slurm_jobs: &SlurmJobs) -> HashMap<usize, Vec<u32>> {
     node_to_job_map
 }
 
-struct PreemptNodes(Vec<usize>);
+pub struct PreemptNodes(Vec<usize>);
 
 // function to crawl through the node to job map and change the status of a given node if the job/s
 // running on it are preempt
@@ -249,14 +248,14 @@ fn preempt_node(
         if all_preempt.contains(&node.id) {
             match &node.state {
                 NodeState::Allocated | NodeState::Mixed => {
-                    preempted_nodes.push(&node.id);
+                    preempted_nodes.push(node.id);
                     node.state = NodeState::Idle
                 },
                 NodeState::Compound {base, flags} => {
                     match **base {
                         // NodeState::Allocated | NodeState::Mixed => {
                         NodeState::Allocated | NodeState::Mixed => {
-                            preempted_nodes.push(&node.id);
+                            preempted_nodes.push(node.id);
                             node.state = NodeState::Compound { base: Box::new(NodeState::Idle), flags: flags.to_vec() }
                         },
                         _ => (),
@@ -267,12 +266,12 @@ fn preempt_node(
         } else if partially_preempt.contains(&node.id) {
             match &node.state {
                 NodeState::Allocated => {
-                    preempted_nodes.push(&node.id);
+                    preempted_nodes.push(node.id);
                     node.state = NodeState::Mixed
                 },
                 NodeState::Compound {base, flags} => {
                     if **base == NodeState::Allocated {
-                        preempted_nodes.push(&node.id);
+                        preempted_nodes.push(node.id);
                         node.state = NodeState::Compound { base: Box::new(NodeState::Mixed), flags: flags.to_vec() }
                     }
                 },
