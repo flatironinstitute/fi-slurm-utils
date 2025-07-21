@@ -89,9 +89,7 @@ pub fn build_tree_report(
 
         if let Some(preempted_nodes_ids) = &preempted_nodes {
             if preempted_nodes_ids.0.contains(&node.id) {
-                if let Some(count) = &mut root.stats.preempt_nodes {
-                    *count += 1;
-                }
+                *root.stats.preempt_nodes.get_or_insert(0) += 1;
             }
         }
 
@@ -120,9 +118,7 @@ pub fn build_tree_report(
 
                 if let Some(preempted_nodes_ids) = &preempted_nodes {
                     if preempted_nodes_ids.0.contains(&node.id) {
-                        if let Some(count) = &mut current_level.stats.preempt_nodes {
-                            *count += 1;
-                        }
+                        *current_level.stats.preempt_nodes.get_or_insert(0) += 1;
                     }
                 }
 
@@ -149,9 +145,7 @@ pub fn build_tree_report(
 
                     if let Some(preempted_nodes_ids) = &preempted_nodes {
                         if preempted_nodes_ids.0.contains(&node.id) {
-                            if let Some(count) = &mut current_level.stats.preempt_nodes {
-                                *count += 1;
-                            }
+                            *current_level.stats.preempt_nodes.get_or_insert(0) += 1;
                         }
                     }
 
@@ -171,9 +165,7 @@ pub fn build_tree_report(
 
                         if let Some(preempted_nodes_ids) = &preempted_nodes {
                             if preempted_nodes_ids.0.contains(&node.id) {
-                                if let Some(count) = &mut current_level.stats.preempt_nodes {
-                                    *count += 1;
-                                }
+                                *current_level.stats.preempt_nodes.get_or_insert(0) += 1;
                             }
                         }
 
@@ -221,7 +213,7 @@ fn calculate_column_widths(tree_node: &TreeNode) -> ColumnWidths {
 /// based on the pre-calculated maximum widths
 fn format_tree_stat_column(current: u32, total: u32, max_current_width: usize, max_total_width: usize, preempt_nodes: Option<u32>) -> String {
     if let Some(preempt_count) = preempt_nodes {
-        let preempt_w_w = preempt_count.to_string().len() + 2; // to account for the parens
+        let preempt_w_w = preempt_count.to_string().len(); 
         format!(
             "{:>current_w$}({:>preempt_w$})/{:>total_w$} ",
             current,
