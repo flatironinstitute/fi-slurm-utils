@@ -62,6 +62,7 @@ pub fn build_report(
     node_to_job_map: &HashMap<usize, Vec<u32>>,
     show_node_names: bool,
     allocated: bool,
+    verbose: bool,
 ) -> ReportData {
     let mut report_data = ReportData::new();
 
@@ -152,7 +153,13 @@ pub fn build_report(
 
         // --- Update Subgroups (GPU or Feature) ---
         if let Some(gpu) = &node.gpu_info {
-            let subgroup_line = group.subgroups.entry(gpu.name.clone()).or_default();
+            let subgroup_key = if !verbose && gpu.name.starts_with("gpu:") {
+                "gpu".to_string()
+            } else {
+                gpu.name.clone()
+            };
+            
+            let subgroup_line = group.subgroups.entry(subgroup_key).or_default();
             
             subgroup_line.node_count += 1;
             subgroup_line.total_cpus += node.cpus as u32;
