@@ -377,9 +377,7 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
     ].iter().cloned().collect();
 
     let mut sorted_states: Vec<&NodeState> = report_data.keys().collect();
-    // UPDATED: Use a more complex sort_by closure for multi-level sorting
     sorted_states.sort_by(|a, b| {
-        // Helper function to create a comparable key from a NodeState
         let to_key = |state: &&NodeState| {
             let (base_state, flags) = match state {
                 NodeState::Compound { base, flags } => (base.as_ref(), flags),
@@ -393,8 +391,7 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
                 .collect();
             flag_priorities.sort_unstable(); // Sort by priority numbers for canonical comparison
 
-            // The key: (base priority, number of flags, vector of sorted flag priorities)
-            (base_priority, flags.len(), flag_priorities)
+            (base_priority, flag_priorities)
         };
 
         to_key(a).cmp(&to_key(b))
