@@ -153,6 +153,7 @@ fn main() -> Result<(), String> {
             args.no_color,
             args.names,
             args.alphabetical,
+            args.preempt,
         );
 
         if args.debug { println!("Finished building tree report: {:?}", start.elapsed()); }

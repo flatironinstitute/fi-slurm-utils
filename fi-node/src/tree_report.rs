@@ -260,10 +260,11 @@ fn calculate_max_width(tree_node: &TreeNode, prefix_len: usize) -> usize {
         .max(current_width)
 }
 
-pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names: bool, sort: bool) {
+pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names: bool, sort: bool, preempt: bool) {
     // --- Define Headers ---
     const HEADER_FEATURE: &str = "FEATURE (Avail/Total)";
-    const HEADER_NODES: &str = "NODES";
+    const HEADER_NODES_PREEMPT: &str = "NODES";
+    const HEADER_NODES: &str = "NODES (PREEMPT)";
     const HEADER_CPUS: &str = "CORES";
     const HEADER_NODE_AVAIL: &str = "NODES AVAIL.";
     const HEADER_CPU_AVAIL: &str = "CORES AVAIL.";
@@ -289,7 +290,12 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
     let cpus_data_width = col_widths.max_idle_cpus + col_widths.max_total_cpus + 1;
 
     // The final column width is the larger of the header or the data
-    let nodes_final_width = nodes_data_width.max(HEADER_NODES.len());
+    let nodes_final_width =  if preempt {
+        nodes_data_width.max(HEADER_NODES_PREEMPT.len())
+    } else {
+        nodes_data_width.max(HEADER_NODES.len())
+    };
+
     let cpus_final_width = cpus_data_width.max(HEADER_CPUS.len());
     let bar_final_width = (bar_width + 2).max(HEADER_NODE_AVAIL.len()); // +2 for "||"
 
@@ -345,7 +351,7 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
     println!(
         "{:<feature_w$} {:<nodes_w$}  {:<bar_w$}{:<cpus_w$}  {:<bar_w$}",
         HEADER_FEATURE.bold(),
-        HEADER_NODES.bold(),
+        if preempt {HEADER_NODES_PREEMPT.bold()} else {HEADER_NODES.bold()},
         HEADER_NODE_AVAIL.bold(),
         HEADER_CPUS.bold(),
         HEADER_CPU_AVAIL.bold(),
