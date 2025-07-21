@@ -152,6 +152,7 @@ fn main() -> Result<(), String> {
             args.no_color,
             args.names,
             args.sort,
+            args.preempt
         );
 
         if args.debug { println!("Finished building tree report: {:?}", start.elapsed()); }
@@ -273,14 +274,14 @@ fn preempt_node(
 /// A command-line utility to report the state of a Slurm cluster,
 /// showing a summary of nodes grouped by state and feature
 #[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
+#[command(version, about, long_about = "This command-line and terminal application was built by Lehman Garrison, Nicolas Posner, Dylan Simon, and Alex Chavkin at the Scientific Computing Core of the Flatiron Institute. By default, it displays the availability of different node types as a tree diagram, as queried from the locally running instance of Slurm. For support, contact nrposner@uchicago.edu")]
 struct Args {
-    /// Enable debug-level logging to print the pipeline steps to terminal
     #[arg(long)]
-    #[arg(help = "Prints the step-by-step process of querying Slurm")]
+    #[arg(help = "Prints debug-level logging steps to terminal")]
     debug: bool,
     #[arg(short, long)]
     #[arg(help = "Prints the detailed, state-by-state report of node availability")]
+    #[arg(long_help = "Primarily meant for internal use by SCC members in order to get detailed views of the overall state of the cluster and its individual nodes. It divides the nodes into top-level state, Idle, Mixed, Allocated, Down, or Unknown, along with compound state flags like DRAIN, RES, MAINT when present, and provides a count of nodes and the availability/utilization of their cores and gpus.")]
     detailed: bool,
     #[arg(short, long)]
     #[arg(help = "Prints the top-level summary report for each feature type")]
@@ -294,8 +295,9 @@ struct Args {
     #[arg(help = "Disable colors in output")]
     no_color: bool,
     #[arg(long)]
-    #[arg(help = "Activates TUI (in development)")]
-    terminal: bool,
+    #[arg(help = "Displays historical cluster data in Terminal User Interface (TUI).")]
+    #[arg(long_help = "The TUI queries the locally connected Slurm cluster using the 'http://prometheus/' URL and eagerly retrieves the data from the last 30 days in 1 day increments. The range and increment of data can be customized by selecting 'Custom Query' in setup. Note that the loading times from Prometheus are directly related to the number of requested increments, not the total time range. Requesting the last month's data in 1 minute increments will take a very, very long time.")]
+    term: bool,
     #[arg(short, long)]
     #[arg(help = "Shows redundant nodes traits in tree report")]
     verbose: bool,
@@ -307,13 +309,14 @@ struct Args {
     allocated: bool,
     #[arg(short, long)]
     #[arg(help = "Classifies preemptable jobs as idle")]
+    #[arg(long_help = "Reclassifies the base state of nodes according to the preemptability of the jobs running on them: an allocated node with some jobs which are preemptable will be reclassified as Mixed, while an Allocated or Mixed node where all jobs are preemptable will be reclassified as Idle.")]
     preempt: bool,
     #[arg(long)]
     test: bool,
     /// Sort tree report hierarchy by node count (descending)
     #[arg(long)]
-    #[arg(help = "Sort tree report hierarchy in alphabetical order")]
-    sort: bool,
+    #[arg(help = "Sort tree report hierarchy in alphabetical order instead of the default sorting by node count.")]
+    alphabetical: bool,
 }
 
 
