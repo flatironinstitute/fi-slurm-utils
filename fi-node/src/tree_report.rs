@@ -217,18 +217,6 @@ fn calculate_column_widths(tree_node: &TreeNode) -> ColumnWidths {
     widths
 }
 
-/// based on the pre-calculated maximum widths
-fn format_tree_stat_column(current: u32, total: u32, preempt_nodes: Option<u32>) -> String {
-    if let Some(preempt_count) = preempt_nodes {
-        // Format as "current(preempt)/total" with color
-        format!("{}({})/{}", current, preempt_count.to_string().yellow(), total)
-    } else {
-        // Format as "current/total"
-        format!("{}/{}", current, total)
-    }
-}
-
-
 /// Creates a colored bar string for available resources (nodes or CPUs)
 fn create_avail_bar(current: u32, total: u32, width: usize, color: Color, no_color: bool) -> String {
     if total == 0 {
@@ -240,10 +228,7 @@ fn create_avail_bar(current: u32, total: u32, width: usize, color: Color, no_col
     let percentage = current as f64 / total as f64;
 
     let bars = count_blocks(20, percentage);
-
-    //let filled_len = (width as f64 * percentage).round() as usize;
-
-    //let filled = "■".repeat(filled_len).color(if no_color { Color::White} else { color });
+    
     let filled = "█".repeat(bars.0).color(if no_color { Color::White} else { color });
     let empty = " ".repeat(bars.1);
 
@@ -289,7 +274,7 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
     
     let col_widths = calculate_column_widths(root);
 
-    // FIX: Calculate data width for the NODES column, accounting for the preempt count string
+    // Calculate data width for the NODES column, accounting for the preempt count string
     let nodes_data_width = {
         let base_width = col_widths.max_idle_nodes + col_widths.max_total_nodes + 1; // for "/"
         if col_widths.max_preempt_nodes_width > 0 {
@@ -318,12 +303,43 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
     } else {
         (root, &root.children)
     };
+    
+    let stats = &top_level_node.stats;
 
-    // FIX: Call the simplified format function
-    let node_text = format_tree_stat_column(top_level_node.stats.idle_nodes, top_level_node.stats.total_nodes, top_level_node.stats.preempt_nodes);
-    let cpu_text = format_tree_stat_column(top_level_node.stats.idle_cpus, top_level_node.stats.total_cpus, None);
-    let node_bar = create_avail_bar(top_level_node.stats.idle_nodes, top_level_node.stats.total_nodes, bar_width, Color::Green, no_color);
-    let cpu_bar = create_avail_bar(top_level_node.stats.idle_cpus, top_level_node.stats.total_cpus, bar_width, Color::Cyan, no_color);
+    let (node_text, uncolored_node_text) = {
+        let idle_str = format!("{:>width$}", stats.idle_nodes, width = col_widths.max_idle_nodes);
+        let total_str = format!("{:>width$}", stats.total_nodes, width = col_widths.max_total_nodes);
+
+        if let Some(preempt_count) = stats.preempt_nodes {
+            let preempt_str_colored = format!("({:>width$})", preempt_count, width = col_widths.max_preempt_nodes_width).yellow().to_string();
+            let preempt_str_uncolored = format!("({:>width$})", preempt_count, width = col_widths.max_preempt_nodes_width);
+            (
+                format!("{}{}/{}", idle_str, preempt_str_colored, total_str),
+                format!("{}{}/{}", idle_str, preempt_str_uncolored, total_str)
+            )
+        } else {
+            let text = if col_widths.max_preempt_nodes_width > 0 {
+                let padding = " ".repeat(col_widths.max_preempt_nodes_width + 2);
+                format!("{}{}/{}", idle_str, padding, total_str)
+            } else {
+                format!("{}/{}", idle_str, total_str)
+            };
+            (text.clone(), text)
+        }
+    };
+    let nodes_width_adjusted = nodes_final_width + node_text.len() - uncolored_node_text.len();
+
+    let cpu_text = format!(
+        "{:>idle_w$}/{:>total_w$}",
+        stats.idle_cpus,
+        stats.total_cpus,
+        idle_w = col_widths.max_idle_cpus,
+        total_w = col_widths.max_total_cpus
+    );
+    let cpus_width_adjusted = cpus_final_width;
+
+    let node_bar = create_avail_bar(stats.idle_nodes, stats.total_nodes, bar_width, Color::Green, no_color);
+    let cpu_bar = create_avail_bar(stats.idle_cpus, stats.total_cpus, bar_width, Color::Cyan, no_color);
 
     // Print Headers with left-alignment
     println!(
@@ -340,10 +356,10 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
     );
 
     // Print Separator Line
-    let total_width = max_feature_width + nodes_final_width + cpus_final_width + bar_final_width * 2 + 6; // +4 for spaces between columns
-    println!("{}", "-".repeat(total_width));
+    let total_width = max_feature_width + nodes_final_width + cpus_final_width + bar_final_width * 2 + 6; // +6 for spaces
+    println!("{}", "-".repeat(total_width - 2));
 
-    // FIX: Use the calculated final widths to right-align the formatted text
+    // Print the top-level line using the adjusted widths for proper alignment
     println!(
         "{:<feature_w$} {:>nodes_w$} {} {:>cpus_w$} {}",
         top_level_node.name.bold(),
@@ -352,8 +368,8 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
         cpu_text,
         cpu_bar,
         feature_w = max_feature_width,
-        nodes_w = nodes_final_width,
-        cpus_w = cpus_final_width
+        nodes_w = nodes_width_adjusted,
+        cpus_w = cpus_width_adjusted
     );
 
     // Print the children recursively
@@ -371,6 +387,7 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
             is_last,
             no_color,
             (max_feature_width, bar_width, nodes_final_width, cpus_final_width),
+            &col_widths,
             show_node_names,
             sort,
         );
@@ -385,6 +402,7 @@ fn print_node_recursive(
     is_last: bool,
     no_color: bool,
     widths: (usize, usize, usize, usize),
+    col_widths: &ColumnWidths,
     show_node_names: bool,
     sort: bool,
 ) {
@@ -405,15 +423,45 @@ fn print_node_recursive(
     let collapsed_name = path_parts.join(", ");
     let connector = if is_last { "└──" } else { "├──" };
     let display_name = format!("{}{}{}", prefix, connector, collapsed_name);
+    
+    let stats = &current_node.stats;
 
-    // FIX: Call the simplified format function
-    let node_text = format_tree_stat_column(current_node.stats.idle_nodes, current_node.stats.total_nodes, current_node.stats.preempt_nodes);
-    let cpu_text = format_tree_stat_column(current_node.stats.idle_cpus, current_node.stats.total_cpus, None);
-    let node_bar = create_avail_bar(current_node.stats.idle_nodes, current_node.stats.total_nodes, bar_width, Color::Green, no_color);
-    let cpu_bar = create_avail_bar(current_node.stats.idle_cpus, current_node.stats.total_cpus, bar_width, Color::Cyan, no_color);
+    let (node_text, uncolored_node_text) = {
+        let idle_str = format!("{:>width$}", stats.idle_nodes, width = col_widths.max_idle_nodes);
+        let total_str = format!("{:>width$}", stats.total_nodes, width = col_widths.max_total_nodes);
+
+        if let Some(preempt_count) = stats.preempt_nodes {
+            let preempt_str_colored = format!("({:>width$})", preempt_count, width = col_widths.max_preempt_nodes_width).yellow().to_string();
+            let preempt_str_uncolored = format!("({:>width$})", preempt_count, width = col_widths.max_preempt_nodes_width);
+            (
+                format!("{}{}/{}", idle_str, preempt_str_colored, total_str),
+                format!("{}{}/{}", idle_str, preempt_str_uncolored, total_str)
+            )
+        } else {
+            let text = if col_widths.max_preempt_nodes_width > 0 {
+                let padding = " ".repeat(col_widths.max_preempt_nodes_width + 2);
+                format!("{}{}/{}", idle_str, padding, total_str)
+            } else {
+                format!("{}/{}", idle_str, total_str)
+            };
+            (text.clone(), text)
+        }
+    };
+    let nodes_width_adjusted = nodes_final_width + node_text.len() - uncolored_node_text.len();
+
+    let cpu_text = format!(
+        "{:>idle_w$}/{:>total_w$}",
+        stats.idle_cpus,
+        stats.total_cpus,
+        idle_w = col_widths.max_idle_cpus,
+        total_w = col_widths.max_total_cpus
+    );
+    let cpus_width_adjusted = cpus_final_width;
+
+    let node_bar = create_avail_bar(stats.idle_nodes, stats.total_nodes, bar_width, Color::Green, no_color);
+    let cpu_bar = create_avail_bar(stats.idle_cpus, stats.total_cpus, bar_width, Color::Cyan, no_color);
     let node_names = &current_node.stats.node_names.clone();
 
-    // FIX: Use the final widths passed in to right-align the text
     println!(
         "{:<feature_w$} {:>nodes_w$} {} {:>cpus_w$} {} {}",
         display_name.bold(),
@@ -423,8 +471,8 @@ fn print_node_recursive(
         cpu_bar,
         if show_node_names {fi_slurm::parser::compress_hostlist(node_names)} else {"".to_string()},
         feature_w = max_width,
-        nodes_w = nodes_final_width,
-        cpus_w = cpus_final_width,
+        nodes_w = nodes_width_adjusted,
+        cpus_w = cpus_width_adjusted,
     );
 
     let full_child_prefix = format!("{}{}", prefix, if is_last { "   " } else { "│  " });
@@ -443,6 +491,7 @@ fn print_node_recursive(
             is_child_last,
             no_color,
             (max_width, bar_width, nodes_final_width, cpus_final_width),
+            col_widths,
             show_node_names,
             sort,
         );
