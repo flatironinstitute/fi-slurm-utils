@@ -187,6 +187,7 @@ pub fn build_tree_report(
 struct ColumnWidths {
     max_idle_nodes: usize,
     max_total_nodes: usize,
+    max_preempt_nodes_width: usize,
     max_idle_cpus: usize,
     max_total_cpus: usize,
 }
@@ -195,14 +196,20 @@ fn calculate_column_widths(tree_node: &TreeNode) -> ColumnWidths {
     let mut widths = ColumnWidths {
         max_idle_nodes: tree_node.stats.idle_nodes.to_string().len(),
         max_total_nodes: tree_node.stats.total_nodes.to_string().len(),
+        max_preempt_nodes_width: 0, // Start at 0
         max_idle_cpus: tree_node.stats.idle_cpus.to_string().len(),
         max_total_cpus: tree_node.stats.total_cpus.to_string().len(),
     };
+
+    if let Some(count) = tree_node.stats.preempt_nodes {
+        widths.max_preempt_nodes_width = count.to_string().len();
+    }
 
     for child in tree_node.children.values() {
         let child_widths = calculate_column_widths(child);
         widths.max_idle_nodes = widths.max_idle_nodes.max(child_widths.max_idle_nodes);
         widths.max_total_nodes = widths.max_total_nodes.max(child_widths.max_total_nodes);
+        widths.max_preempt_nodes_width = widths.max_preempt_nodes_width.max(child_widths.max_preempt_nodes_width);
         widths.max_idle_cpus = widths.max_idle_cpus.max(child_widths.max_idle_cpus);
         widths.max_total_cpus = widths.max_total_cpus.max(child_widths.max_total_cpus);
     }
@@ -211,26 +218,13 @@ fn calculate_column_widths(tree_node: &TreeNode) -> ColumnWidths {
 }
 
 /// based on the pre-calculated maximum widths
-fn format_tree_stat_column(current: u32, total: u32, max_current_width: usize, max_total_width: usize, preempt_nodes: Option<u32>) -> String {
+fn format_tree_stat_column(current: u32, total: u32, preempt_nodes: Option<u32>) -> String {
     if let Some(preempt_count) = preempt_nodes {
-        let preempt_w_w = preempt_count.to_string().len(); 
-        format!(
-            "{:>current_w$}({:>preempt_w$})/{:>total_w$} ",
-            current,
-            preempt_count,
-            total,
-            current_w = max_current_width,
-            preempt_w = preempt_w_w,
-            total_w = max_total_width
-        )
+        // Format as "current(preempt)/total" with color
+        format!("{}({})/{}", current, preempt_count.to_string().yellow(), total)
     } else {
-        format!(
-            "{:>current_w$}/{:>total_w$} ",
-            current,
-            total,
-            current_w = max_current_width,
-            total_w = max_total_width
-        )
+        // Format as "current/total"
+        format!("{}/{}", current, total)
     }
 }
 
@@ -281,7 +275,6 @@ fn calculate_max_width(tree_node: &TreeNode, prefix_len: usize) -> usize {
         .max(current_width)
 }
 
-
 pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names: bool, sort: bool) {
     // --- Define Headers ---
     const HEADER_FEATURE: &str = "FEATURE (Avail/Total)";
@@ -295,8 +288,19 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
     let bar_width = 20;
     
     let col_widths = calculate_column_widths(root);
-    // Correctly calculate the width of the data string (e.g., "123/4567")
-    let nodes_data_width = col_widths.max_idle_nodes + col_widths.max_total_nodes + 1; // +1 for "/"
+
+    // FIX: Calculate data width for the NODES column, accounting for the preempt count string
+    let nodes_data_width = {
+        let base_width = col_widths.max_idle_nodes + col_widths.max_total_nodes + 1; // for "/"
+        if col_widths.max_preempt_nodes_width > 0 {
+            // Add width for the preempt count and the "()" characters
+            base_width + col_widths.max_preempt_nodes_width + 2
+        } else {
+            base_width
+        }
+    };
+    
+    // CPU column width calculation remains the same
     let cpus_data_width = col_widths.max_idle_cpus + col_widths.max_total_cpus + 1;
 
     // The final column width is the larger of the header or the data
@@ -315,9 +319,9 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
         (root, &root.children)
     };
 
-    // Print the determined top-level line with Right Alignment for data
-    let node_text = format_tree_stat_column(top_level_node.stats.idle_nodes, top_level_node.stats.total_nodes, col_widths.max_idle_nodes, col_widths.max_total_nodes, top_level_node.stats.preempt_nodes);
-    let cpu_text = format_tree_stat_column(top_level_node.stats.idle_cpus, top_level_node.stats.total_cpus, col_widths.max_idle_cpus, col_widths.max_total_cpus, None);
+    // FIX: Call the simplified format function
+    let node_text = format_tree_stat_column(top_level_node.stats.idle_nodes, top_level_node.stats.total_nodes, top_level_node.stats.preempt_nodes);
+    let cpu_text = format_tree_stat_column(top_level_node.stats.idle_cpus, top_level_node.stats.total_cpus, None);
     let node_bar = create_avail_bar(top_level_node.stats.idle_nodes, top_level_node.stats.total_nodes, bar_width, Color::Green, no_color);
     let cpu_bar = create_avail_bar(top_level_node.stats.idle_cpus, top_level_node.stats.total_cpus, bar_width, Color::Cyan, no_color);
 
@@ -339,8 +343,9 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
     let total_width = max_feature_width + nodes_final_width + cpus_final_width + bar_final_width * 2 + 6; // +4 for spaces between columns
     println!("{}", "-".repeat(total_width));
 
+    // FIX: Use the calculated final widths to right-align the formatted text
     println!(
-        "{:<feature_w$} {:>nodes_w$} {:>cpus_w$} {} {}",
+        "{:<feature_w$} {:>nodes_w$} {} {:>cpus_w$} {}",
         top_level_node.name.bold(),
         node_text,
         node_bar,
@@ -366,7 +371,6 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
             is_last,
             no_color,
             (max_feature_width, bar_width, nodes_final_width, cpus_final_width),
-            &col_widths,
             show_node_names,
             sort,
         );
@@ -381,7 +385,6 @@ fn print_node_recursive(
     is_last: bool,
     no_color: bool,
     widths: (usize, usize, usize, usize),
-    col_widths: &ColumnWidths,
     show_node_names: bool,
     sort: bool,
 ) {
@@ -403,14 +406,16 @@ fn print_node_recursive(
     let connector = if is_last { "└──" } else { "├──" };
     let display_name = format!("{}{}{}", prefix, connector, collapsed_name);
 
-    let node_text = format_tree_stat_column(current_node.stats.idle_nodes, current_node.stats.total_nodes, col_widths.max_idle_nodes, col_widths.max_total_nodes, current_node.stats.preempt_nodes);
-    let cpu_text = format_tree_stat_column(current_node.stats.idle_cpus, current_node.stats.total_cpus, col_widths.max_idle_cpus, col_widths.max_total_cpus, None);
+    // FIX: Call the simplified format function
+    let node_text = format_tree_stat_column(current_node.stats.idle_nodes, current_node.stats.total_nodes, current_node.stats.preempt_nodes);
+    let cpu_text = format_tree_stat_column(current_node.stats.idle_cpus, current_node.stats.total_cpus, None);
     let node_bar = create_avail_bar(current_node.stats.idle_nodes, current_node.stats.total_nodes, bar_width, Color::Green, no_color);
     let cpu_bar = create_avail_bar(current_node.stats.idle_cpus, current_node.stats.total_cpus, bar_width, Color::Cyan, no_color);
     let node_names = &current_node.stats.node_names.clone();
 
+    // FIX: Use the final widths passed in to right-align the text
     println!(
-        "{:<feature_w$} {:>nodes_w$} {:>cpus_w$} {} {} {}",
+        "{:<feature_w$} {:>nodes_w$} {} {:>cpus_w$} {} {}",
         display_name.bold(),
         node_text,
         node_bar,
@@ -438,7 +443,6 @@ fn print_node_recursive(
             is_child_last,
             no_color,
             (max_width, bar_width, nodes_final_width, cpus_final_width),
-            col_widths,
             show_node_names,
             sort,
         );
