@@ -202,7 +202,8 @@ fn calculate_column_widths(tree_node: &TreeNode) -> ColumnWidths {
     };
 
     if let Some(count) = tree_node.stats.preempt_nodes {
-        widths.max_preempt_nodes_width = count.to_string().len();
+        let in_paren_val = tree_node.stats.idle_nodes.saturating_sub(count);
+        widths.max_preempt_nodes_width = in_paren_val.to_string().len();
     }
 
     for child in tree_node.children.values() {
@@ -260,11 +261,12 @@ fn calculate_max_width(tree_node: &TreeNode, prefix_len: usize) -> usize {
         .max(current_width)
 }
 
+
 pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names: bool, sort: bool, preempt: bool) {
     // --- Define Headers ---
     const HEADER_FEATURE: &str = "FEATURE (Avail/Total)";
-    const HEADER_NODES_PREEMPT: &str = "NODES (PREEMPT)";
     const HEADER_NODES: &str = "NODES";
+    const HEADER_NODES_PREEMPT: &str = "NODES (PREEMPT)";
     const HEADER_CPUS: &str = "CORES";
     const HEADER_NODE_AVAIL: &str = "NODES AVAIL.";
     const HEADER_CPU_AVAIL: &str = "CORES AVAIL.";
@@ -317,11 +319,12 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
         let total_str = format!("{:>width$}", stats.total_nodes, width = col_widths.max_total_nodes);
 
         if let Some(preempt_count) = stats.preempt_nodes {
-            let preempt_str_colored = format!("({:>width$})", preempt_count, width = col_widths.max_preempt_nodes_width).yellow().to_string();
-            let preempt_str_uncolored = format!("({:>width$})", preempt_count, width = col_widths.max_preempt_nodes_width);
+            let in_paren_val = stats.idle_nodes.saturating_sub(preempt_count);
+            let paren_str_colored = format!("({:>width$})", in_paren_val, width = col_widths.max_preempt_nodes_width).yellow().to_string();
+            let paren_str_uncolored = format!("({:>width$})", in_paren_val, width = col_widths.max_preempt_nodes_width);
             (
-                format!("{}{}/{}", idle_str, preempt_str_colored, total_str),
-                format!("{}{}/{}", idle_str, preempt_str_uncolored, total_str)
+                format!("{}{}/{}", idle_str, paren_str_colored, total_str),
+                format!("{}{}/{}", idle_str, paren_str_uncolored, total_str)
             )
         } else {
             let text = if col_widths.max_preempt_nodes_width > 0 {
@@ -437,11 +440,12 @@ fn print_node_recursive(
         let total_str = format!("{:>width$}", stats.total_nodes, width = col_widths.max_total_nodes);
 
         if let Some(preempt_count) = stats.preempt_nodes {
-            let preempt_str_colored = format!("({:>width$})", preempt_count, width = col_widths.max_preempt_nodes_width).yellow().to_string();
-            let preempt_str_uncolored = format!("({:>width$})", preempt_count, width = col_widths.max_preempt_nodes_width);
+            let in_paren_val = stats.idle_nodes.saturating_sub(preempt_count);
+            let paren_str_colored = format!("({:>width$})", in_paren_val, width = col_widths.max_preempt_nodes_width).yellow().to_string();
+            let paren_str_uncolored = format!("({:>width$})", in_paren_val, width = col_widths.max_preempt_nodes_width);
             (
-                format!("{}{}/{}", idle_str, preempt_str_colored, total_str),
-                format!("{}{}/{}", idle_str, preempt_str_uncolored, total_str)
+                format!("{}{}/{}", idle_str, paren_str_colored, total_str),
+                format!("{}{}/{}", idle_str, paren_str_uncolored, total_str)
             )
         } else {
             let text = if col_widths.max_preempt_nodes_width > 0 {
