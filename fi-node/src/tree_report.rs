@@ -343,7 +343,7 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
 
     // Print Headers with left-alignment
     println!(
-        "{:<feature_w$} {:<nodes_w$}   {:<bar_w$}{:<cpus_w$}   {:<bar_w$}",
+        "{:<feature_w$} {:<nodes_w$}  {:<bar_w$}{:<cpus_w$}  {:<bar_w$}",
         HEADER_FEATURE.bold(),
         HEADER_NODES.bold(),
         HEADER_NODE_AVAIL.bold(),
