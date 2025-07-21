@@ -5,7 +5,7 @@ use std::time::Duration;
 
 // --- Prometheus Interface ---
 
-const TASK_TIMEOUT: Duration = Duration::from_secs(15);
+const TASK_TIMEOUT: Duration = Duration::from_secs(20);
 
 struct PrometheusRequest {
     cluster: Cluster, //assume it's the one we're currently connected to? Try to get popeye info

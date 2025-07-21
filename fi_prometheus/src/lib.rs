@@ -176,7 +176,7 @@ fn query(
     let base_url = get_prometheus_url(cluster);
     let client = Client::builder()
         .danger_accept_invalid_certs(true) // Equivalent to `verify=False`
-        .timeout(std::time::Duration::from_secs(10))
+        .timeout(std::time::Duration::from_secs(20))
         .build()?;
 
     let mut params = HashMap::new();

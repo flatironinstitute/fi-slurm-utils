@@ -41,7 +41,7 @@ pub enum AppError {
     ChannelSend(String),
     #[error("Failed to get maximum capacity: {0}")]
     MaxFail(String),
-    #[error("Data fetching timed out after 10 seconds")]
+    #[error("Data fetching timed out after 20 seconds")]
     TimeOut,
 }
 
@@ -200,7 +200,7 @@ async fn run_app<B: Backend>(
     mut rx: mpsc::Receiver<FetchedData>,
 ) -> io::Result<()> {
 
-    const LOADING_TIMEOUT_TICKS: usize = 100;
+    const LOADING_TIMEOUT_TICKS: usize = 200;
     // Start the app in the MainMenu state.
     let mut app_state = AppState::MainMenu { selected: MainMenuSelection::Default };
     
