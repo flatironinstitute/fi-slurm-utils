@@ -61,8 +61,8 @@ pub enum ScrollMode {
 
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub enum DisplayMode {
-    #[default]
     Usage,
+    #[default]
     Availability,
 }
 impl DisplayMode {
@@ -497,7 +497,7 @@ fn build_loaded_app(
         should_quit: false,
         query_range,
         query_time_scale,
-        display_mode: DisplayMode::Usage,
+        display_mode: DisplayMode::default(),
     };
     AppState::Loaded(app)
 }

@@ -328,7 +328,7 @@ fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView, page_info: Option
         },
     ); 
     
-    titles.push(Line::from(vec![ usage_span, Span::raw("/"), avail_span, ]));
+    titles.push(Line::from(vec![ avail_span, Span::raw("/"), usage_span, ]));
 
     let tabs = Tabs::new(titles)
         .block(
