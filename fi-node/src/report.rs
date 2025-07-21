@@ -366,13 +366,38 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
     .cloned()
     .collect();
 
+    let flag_order: HashMap<&str, usize> = [
+        ("EXTERNAL", 0), ("RES", 1), ("UNDRAIN", 2), ("CLOUD", 3),
+        ("RESUME", 4), ("DRAIN", 5), ("COMPLETING", 6), ("NO_RESPOND", 7),
+        ("POWERED_DOWN", 8), ("FAIL", 9), ("POWERING_UP", 10), ("MAINT", 11),
+        ("REBOOT_REQUESTED", 12), ("REBOOT_CANCEL", 13), ("POWERING_DOWN", 14),
+        ("DYNAMIC_FUTURE", 15), ("REBOOT_ISSUED", 16), ("PLANNED", 17),
+        ("INVALID_REG", 18), ("POWER_DOWN", 19), ("POWER_UP", 20),
+        ("POWER_DRAIN", 21), ("DYNAMIC_NORM", 22), ("BLOCKED", 23)
+    ].iter().cloned().collect();
+
     let mut sorted_states: Vec<&NodeState> = report_data.keys().collect();
-    sorted_states.sort_by_key(|a| {
-        if let NodeState::Compound { base, .. } = a {
-            state_order.get(base).unwrap_or(&99)
-        } else {
-            state_order.get(a).unwrap_or(&99)
-        }
+    // UPDATED: Use a more complex sort_by closure for multi-level sorting
+    sorted_states.sort_by(|a, b| {
+        // Helper function to create a comparable key from a NodeState
+        let to_key = |state: &&NodeState| {
+            let (base_state, flags) = match state {
+                NodeState::Compound { base, flags } => (base.as_ref(), flags),
+                _ => (*state, &Vec::new()), // Treat simple state as having no flags
+            };
+            let base_priority = *state_order.get(base_state).unwrap_or(&99);
+
+            let mut flag_priorities: Vec<usize> = flags
+                .iter()
+                .map(|f| *flag_order.get(f.to_uppercase().as_str()).unwrap_or(&99))
+                .collect();
+            flag_priorities.sort_unstable(); // Sort by priority numbers for canonical comparison
+
+            // The key: (base priority, number of flags, vector of sorted flag priorities)
+            (base_priority, flags.len(), flag_priorities)
+        };
+
+        to_key(a).cmp(&to_key(b))
     });
 
     // --- Print Headers ---
