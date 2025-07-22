@@ -90,8 +90,20 @@ pub fn build_tree_report(
         } else {
             0
         };
-        let is_available = is_node_available(&node.state);
-        let is_mixed = is_node_mixed(&node.state);
+
+        let derived_state = if alloc_cpus_for_node > 0 && alloc_cpus_for_node < node.cpus as u32 {
+            match &node.state {
+                NodeState::Compound { flags, .. } => NodeState::Compound { base: Box::new(NodeState::Mixed), flags: flags.to_vec()},
+                _ => NodeState::Mixed,
+            }
+        } else {
+            // Otherwise, we trust the state reported by Slurm
+            node.state.clone()
+        };
+
+
+        let is_available = is_node_available(&derived_state);
+        let is_mixed = is_node_mixed(&derived_state);
 
         // Update Grand Total Stats
         root.stats.total_nodes += 1;
