@@ -294,7 +294,7 @@ struct Args {
     debug: bool,
     #[arg(short, long)]
     #[arg(help = "Prints the detailed, state-by-state report of node availability")]
-    #[arg(long_help = "Primarily meant for internal use by SCC members in order to get detailed views of the overall state of the cluster and its individual nodes. It divides the nodes into top-level state, Idle, Mixed, Allocated, Down, or Unknown, along with compound state flags like DRAIN, RES, MAINT when present, and provides a count of nodes and the availability/utilization of their cores and gpus.")]
+    #[arg(long_help = "Primarily meant for internal use by SCC members in order to get detailed views of the overall state of the cluster and its individual nodes. It divides the nodes into top-level state, Idle, Mixed, Allocated, Down, or Unknown, along with compound state flags like DRAIN, RES, MAINT when present, and provides a count of nodes and the availability/utilization of their cores and gpus. Unlike the default tree report, the detailed report declares 'available' any cpu core or gpu which belongs to a node that is IDLE or which is unallocate on a MIXED node, regardless of compound state flags like DRAIN or MAINT.")]
     detailed: bool,
     #[arg(short, long)]
     #[arg(help = "Prints the top-level summary report for each feature type")]
