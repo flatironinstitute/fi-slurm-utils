@@ -566,14 +566,14 @@ fn draw_footer(f: &mut Frame, area: Rect, page_info: Option<(CurrentPageIdx, Tot
                 ScrollMode::Page => {
                     instructions.push(Span::from(", (h/l, ←/→, Tab, or numbers) to switch views"));
                     if total > 1 {
-                        instructions.push(Span::from(", (k/j, ↑/↓ to scroll pages)"));
+                        instructions.push(Span::from(", (k/j, ↑/↓) to scroll pages"));
                     }
-                    instructions.push(Span::from(", (Enter to scroll charts)"));
+                    instructions.push(Span::from(", (Enter) to scroll charts"));
                 }
                 ScrollMode::Chart => {
-                    instructions.push(Span::from(", (h/l, ←/→ to scroll charts)"));
-                    instructions.push(Span::from(", (k/j, ↑/↓ to scroll pages)"));
-                    instructions.push(Span::from(", (Esc to scroll pages)"));
+                    instructions.push(Span::from(", (h/l, ←/→) to scroll charts"));
+                    instructions.push(Span::from(", (k/j, ↑/↓) to scroll pages"));
+                    instructions.push(Span::from(", (Esc) to scroll pages"));
                 }
             }
         }
