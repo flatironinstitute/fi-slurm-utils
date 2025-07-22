@@ -53,7 +53,7 @@ fn is_node_mixed(state: &NodeState) -> bool {
         NodeState::Mixed => true,
         NodeState::Compound { base, flags } => {
             if **base == NodeState::Mixed {
-                // Node is idle, but check for disqualifying flags
+                // Node is mixed, but check for disqualifying flags
                 !flags.iter().any(|flag| flag == "MAINT" || flag == "DOWN" || flag == "DRAIN" || flag == "INVALID_REG")
             } else {
                 false
@@ -91,6 +91,7 @@ pub fn build_tree_report(
             0
         };
         let is_available = is_node_available(&node.state);
+        let is_mixed = is_node_mixed(&node.state);
 
         // Update Grand Total Stats
         root.stats.total_nodes += 1;
@@ -99,7 +100,7 @@ pub fn build_tree_report(
         if is_available {
             root.stats.idle_nodes += 1;
             root.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
-        } else if is_node_mixed(&node.state) {
+        } else if is_mixed {
             root.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
         }
 
@@ -109,7 +110,6 @@ pub fn build_tree_report(
             }
         }
 
-        // NEW: Determine which features to use for building the tree based on the flag.
         let features_for_tree: Vec<_> = if show_hidden_features {
             node.features.iter().collect()
         } else {
@@ -130,7 +130,7 @@ pub fn build_tree_report(
                 if is_available {
                     current_level.stats.idle_nodes += 1;
                     current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
-                } else if is_node_mixed(&node.state) {
+                } else if is_mixed {
                     current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                 }
                 if let Some(preempted_nodes_ids) = &preempted_nodes {
@@ -158,7 +158,7 @@ pub fn build_tree_report(
                     if is_available {
                         current_level.stats.idle_nodes += 1;
                         current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
-                    } else if is_node_mixed(&node.state) {
+                    } else if is_mixed {
                         current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                     }
 
@@ -180,7 +180,7 @@ pub fn build_tree_report(
                         if is_available {
                             current_level.stats.idle_nodes += 1;
                             current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
-                        } else if is_node_mixed(&node.state) {
+                        } else if is_mixed {
                             current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                         }
 
