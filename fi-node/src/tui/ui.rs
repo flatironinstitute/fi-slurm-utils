@@ -312,21 +312,17 @@ fn draw_tabs(f: &mut Frame, area: Rect, current_view: AppView, page_info: Option
         _ => panic!(),
     };
 
-    let usage_span = Span::styled("Usage", 
-        if display_mode == DisplayMode::Availability {
-            Style::default().add_modifier(Modifier::DIM) 
-        } else { 
-            Style::default().add_modifier(Modifier::BOLD) 
-        },
-    );
+    let avail_span = if display_mode == DisplayMode::Availability {
+        Span::styled("Availability", Style::default().add_modifier(Modifier::BOLD))
+    } else {
+        Span::styled("Availability(a)", Style::default().add_modifier(Modifier::DIM))
+    };
 
-    let avail_span = Span::styled("Availability", 
-        if display_mode == DisplayMode::Availability {
-            Style::default().add_modifier(Modifier::BOLD) 
-        } else { 
-            Style::default().add_modifier(Modifier::DIM) 
-        },
-    ); 
+    let usage_span = if display_mode == DisplayMode::Availability {
+        Span::styled("Usage(a)", Style::default().add_modifier(Modifier::DIM))
+    } else {
+        Span::styled("Usage", Style::default().add_modifier(Modifier::BOLD))
+    };
     
     titles.push(Line::from(vec![ avail_span, Span::raw("/"), usage_span, ]));
 
