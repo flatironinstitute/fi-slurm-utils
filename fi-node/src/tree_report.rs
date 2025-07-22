@@ -131,7 +131,7 @@ pub fn build_tree_report(
                     current_level.stats.idle_nodes += 1;
                     current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                 } else if is_node_mixed(&node.state) {
-                    root.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
+                    current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                 }
                 if let Some(preempted_nodes_ids) = &preempted_nodes {
                     if preempted_nodes_ids.0.contains(&node.id) {
@@ -159,7 +159,7 @@ pub fn build_tree_report(
                         current_level.stats.idle_nodes += 1;
                         current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                     } else if is_node_mixed(&node.state) {
-                        root.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
+                        current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                     }
 
                     if let Some(preempted_nodes_ids) = &preempted_nodes {
@@ -181,7 +181,7 @@ pub fn build_tree_report(
                             current_level.stats.idle_nodes += 1;
                             current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                         } else if is_node_mixed(&node.state) {
-                            root.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
+                            current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                         }
 
                         if let Some(preempted_nodes_ids) = &preempted_nodes {
