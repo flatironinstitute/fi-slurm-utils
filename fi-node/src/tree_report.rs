@@ -48,6 +48,20 @@ fn is_node_available(state: &NodeState) -> bool {
         _ => false,
     }
 }
+fn is_node_mixed(state: &NodeState) -> bool {
+    match state {
+        NodeState::Mixed => true,
+        NodeState::Compound { base, flags } => {
+            if **base == NodeState::Mixed {
+                // Node is idle, but check for disqualifying flags
+                !flags.iter().any(|flag| flag == "MAINT" || flag == "DOWN" || flag == "DRAIN" || flag == "INVALID_REG")
+            } else {
+                false
+            }
+        }
+        _ => false,
+    }
+}
 
 /// Builds a hierarchical tree report from a flat list of Slurm nodes
 pub fn build_tree_report(
@@ -85,6 +99,8 @@ pub fn build_tree_report(
         if is_available {
             root.stats.idle_nodes += 1;
             root.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
+        } else if is_node_mixed(&node.state) {
+            root.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
         }
 
         if let Some(preempted_nodes_ids) = &preempted_nodes {
@@ -114,8 +130,9 @@ pub fn build_tree_report(
                 if is_available {
                     current_level.stats.idle_nodes += 1;
                     current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
+                } else if is_node_mixed(&node.state) {
+                    root.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                 }
-
                 if let Some(preempted_nodes_ids) = &preempted_nodes {
                     if preempted_nodes_ids.0.contains(&node.id) {
                         *current_level.stats.preempt_nodes.get_or_insert(0) += 1;
@@ -141,6 +158,8 @@ pub fn build_tree_report(
                     if is_available {
                         current_level.stats.idle_nodes += 1;
                         current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
+                    } else if is_node_mixed(&node.state) {
+                        root.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                     }
 
                     if let Some(preempted_nodes_ids) = &preempted_nodes {
@@ -161,6 +180,8 @@ pub fn build_tree_report(
                         if is_available {
                             current_level.stats.idle_nodes += 1;
                             current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
+                        } else if is_node_mixed(&node.state) {
+                            root.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                         }
 
                         if let Some(preempted_nodes_ids) = &preempted_nodes {
