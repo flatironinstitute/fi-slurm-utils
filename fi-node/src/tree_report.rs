@@ -134,9 +134,9 @@ pub fn build_tree_report(
             root.stats.idle_nodes += 1;
             root.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
         } else if is_mixed && preempt {
-            root.stats.idle_cpus += node.cpus as u32;
+            root.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
             if preempted_node_ids.contains(&node.id) {
-                *root.stats.preempt_cpus.get_or_insert(0) += node.cpus as u32;
+                *root.stats.preempt_cpus.get_or_insert(0) += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
             }
         } else if is_mixed && !preempt {
             root.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
@@ -172,9 +172,9 @@ pub fn build_tree_report(
                     current_level.stats.idle_nodes += 1;
                     current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                 } else if is_mixed && preempt {
-                    current_level.stats.idle_cpus += node.cpus as u32;
+                    current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                     if preempted_node_ids.contains(&node.id) {
-                        *current_level.stats.preempt_cpus.get_or_insert(0) += node.cpus as u32;
+                        *current_level.stats.preempt_cpus.get_or_insert(0) += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                     }
                 } else if is_mixed && !preempt {
                     current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
@@ -209,10 +209,9 @@ pub fn build_tree_report(
                         current_level.stats.idle_nodes += 1;
                         current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                     } else if is_mixed && preempt {
-                        current_level.stats.idle_cpus += node.cpus as u32;
+                        current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                         if preempted_node_ids.contains(&node.id) {
-                            *current_level.stats.preempt_cpus.get_or_insert(0) += node.cpus as u32;
-                        }
+                            *current_level.stats.preempt_cpus.get_or_insert(0) += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);                       }
                     } else if is_mixed && !preempt {
                         current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                     }
@@ -239,9 +238,9 @@ pub fn build_tree_report(
                             current_level.stats.idle_nodes += 1;
                             current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                         } else if is_mixed && preempt {
-                            current_level.stats.idle_cpus += node.cpus as u32;
+                            current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                             if preempted_node_ids.contains(&node.id) {
-                                *current_level.stats.preempt_cpus.get_or_insert(0) += node.cpus as u32;
+                                *current_level.stats.preempt_cpus.get_or_insert(0) += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                             }
                         } else if is_mixed && !preempt {
                             current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
@@ -349,6 +348,7 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
     const HEADER_FEATURE: &str = "FEATURE (Avail/Total)";
     const HEADER_NODES_PREEMPT: &str = "NODES (PREEMPTABLE)";
     const HEADER_NODES: &str = "NODES";
+    const HEADER_CPUS_PREEMPT: &str = "CORES (PREEMPTABLE) ";
     const HEADER_CPUS: &str = "CORES";
     const HEADER_NODE_AVAIL: &str = "NODES AVAIL.";
     const HEADER_CPU_AVAIL: &str = "CORES AVAIL.";
@@ -380,7 +380,11 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
         nodes_data_width.max(HEADER_NODES.len())
     };
 
-    let cpus_final_width = (cpus_data_width).max(HEADER_CPUS.len());
+    let cpus_final_width = if preempt {
+        (cpus_data_width).max(HEADER_CPUS_PREEMPT.len())
+    } else {
+        (cpus_data_width).max(HEADER_CPUS.len())
+    };
     let bar_final_width = (bar_width + 2).max(HEADER_NODE_AVAIL.len()); // +2 for "||"
 
     // Determine what to print as the top level
@@ -451,7 +455,7 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
         HEADER_FEATURE.bold(),
         if preempt {HEADER_NODES_PREEMPT.bold()} else {HEADER_NODES.bold()},
         HEADER_NODE_AVAIL.bold(),
-        HEADER_CPUS.bold(),
+        if preempt {HEADER_CPUS_PREEMPT.bold()} else {HEADER_CPUS.bold()},
         HEADER_CPU_AVAIL.bold(),
         feature_w = max_feature_width,
         nodes_w = nodes_final_width,
