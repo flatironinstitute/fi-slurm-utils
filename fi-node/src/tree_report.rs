@@ -64,6 +64,7 @@ fn is_node_mixed(state: &NodeState) -> bool {
 }
 
 /// Builds a hierarchical tree report from a flat list of Slurm nodes
+#[allow(clippy::too_many_arguments)]
 pub fn build_tree_report(
     nodes: &[&Node],
     jobs: &SlurmJobs,
@@ -107,9 +108,9 @@ pub fn build_tree_report(
         let is_mixed = is_node_mixed(&derived_state);
 
         let preempted_node_ids = if preempt { 
-            &preempted_nodes.unwrap()
+            &preempted_nodes.as_ref().unwrap().0
         } else {
-            Vec::new()
+            &Vec::new()
         };
 
         // Update Grand Total Stats
@@ -123,7 +124,7 @@ pub fn build_tree_report(
             root.stats.idle_nodes += 1;
             root.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
 
-            if preempted_node_ids.0.contains(&node.id) {
+            if preempted_node_ids.contains(&node.id) {
                 *root.stats.preempt_nodes.get_or_insert(0) += 1;
             }
         } else if is_available && !preempt {
@@ -155,7 +156,7 @@ pub fn build_tree_report(
                     current_level.stats.idle_nodes += 1;
                     current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
 
-                    if preempted_node_ids.0.contains(&node.id) {
+                    if preempted_node_ids.contains(&node.id) {
                         *current_level.stats.preempt_nodes.get_or_insert(0) += 1;
                     }
                 } else if is_available && !preempt {
@@ -186,7 +187,7 @@ pub fn build_tree_report(
                         current_level.stats.idle_nodes += 1;
                         current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
 
-                        if preempted_node_ids.0.contains(&node.id) {
+                        if preempted_node_ids.contains(&node.id) {
                             *current_level.stats.preempt_nodes.get_or_insert(0) += 1;
                         }
                     } else if is_available && !preempt {
@@ -210,7 +211,7 @@ pub fn build_tree_report(
                             current_level.stats.idle_nodes += 1;
                             current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
 
-                            if preempted_node_ids.0.contains(&node.id) {
+                            if preempted_node_ids.contains(&node.id) {
                                 *current_level.stats.preempt_nodes.get_or_insert(0) += 1;
                             }
                         } else if is_available && !preempt {
@@ -368,8 +369,8 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
         let total_str = format!("{:>width$}", stats.total_nodes, width = col_widths.max_total_nodes);
 
         if let Some(preempt_count) = stats.preempt_nodes {
-            let preempt_str_colored = format!("({:>width$})", preempt_count, width = col_widths.max_preempt_nodes_width).yellow().to_string();
-            let preempt_str_uncolored = format!("({:>width$})", preempt_count, width = col_widths.max_preempt_nodes_width);
+            let preempt_str_colored = format!("(-{:>width$})", preempt_count, width = col_widths.max_preempt_nodes_width).yellow().to_string();
+            let preempt_str_uncolored = format!("-({:>width$})", preempt_count, width = col_widths.max_preempt_nodes_width);
             (
                 format!("{}{}/{}", idle_str, preempt_str_colored, total_str),
                 format!("{}{}/{}", idle_str, preempt_str_uncolored, total_str)
@@ -488,8 +489,8 @@ fn print_node_recursive(
         let total_str = format!("{:>width$}", stats.total_nodes, width = col_widths.max_total_nodes);
 
         if let Some(preempt_count) = stats.preempt_nodes {
-            let preempt_str_colored = format!("({:>width$})", preempt_count, width = col_widths.max_preempt_nodes_width).yellow().to_string();
-            let preempt_str_uncolored = format!("({:>width$})", preempt_count, width = col_widths.max_preempt_nodes_width);
+            let preempt_str_colored = format!("(-{:>width$})", preempt_count, width = col_widths.max_preempt_nodes_width).yellow().to_string();
+            let preempt_str_uncolored = format!("(-{:>width$})", preempt_count, width = col_widths.max_preempt_nodes_width);
             (
                 format!("{}{}/{}", idle_str, preempt_str_colored, total_str),
                 format!("{}{}/{}", idle_str, preempt_str_uncolored, total_str)

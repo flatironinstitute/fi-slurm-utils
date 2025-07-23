@@ -173,6 +173,7 @@ fn build_node_to_job_map(slurm_jobs: &SlurmJobs) -> HashMap<usize, Vec<u32>> {
     node_to_job_map
 }
 
+#[derive(Clone)]
 pub struct PreemptNodes(Vec<usize>);
 
 // function to crawl through the node to job map and change the status of a given node if the job/s
