@@ -1132,6 +1132,33 @@ pub const BB_STATE_STAGED_OUT: u32 = 50;
 pub const BB_STATE_TEARDOWN: u32 = 65;
 pub const BB_STATE_TEARDOWN_FAIL: u32 = 67;
 pub const BB_STATE_COMPLETE: u32 = 69;
+pub const QOS_FLAG_BASE: u32 = 268435455;
+pub const QOS_FLAG_NOTSET: u32 = 268435456;
+pub const QOS_FLAG_ADD: u32 = 536870912;
+pub const QOS_FLAG_REMOVE: u32 = 1073741824;
+pub const SLURMDB_RES_FLAG_BASE: u32 = 268435455;
+pub const SLURMDB_RES_FLAG_NOTSET: u32 = 268435456;
+pub const SLURMDB_RES_FLAG_ADD: u32 = 536870912;
+pub const SLURMDB_RES_FLAG_REMOVE: u32 = 1073741824;
+pub const FEDERATION_FLAG_BASE: u32 = 268435455;
+pub const FEDERATION_FLAG_NOTSET: u32 = 268435456;
+pub const FEDERATION_FLAG_ADD: u32 = 536870912;
+pub const FEDERATION_FLAG_REMOVE: u32 = 1073741824;
+pub const CLUSTER_FED_STATE_BASE: u32 = 15;
+pub const CLUSTER_FED_STATE_FLAGS: u32 = 65520;
+pub const CLUSTER_FED_STATE_DRAIN: u32 = 16;
+pub const CLUSTER_FED_STATE_REMOVE: u32 = 32;
+pub const SLURMDB_JOB_FLAG_NONE: u32 = 0;
+pub const SLURMDB_JOB_CLEAR_SCHED: u32 = 15;
+pub const SLURMDB_PURGE_BASE: u32 = 65535;
+pub const SLURMDB_PURGE_FLAGS: u32 = 4294901760;
+pub const SLURMDB_PURGE_HOURS: u32 = 65536;
+pub const SLURMDB_PURGE_DAYS: u32 = 131072;
+pub const SLURMDB_PURGE_MONTHS: u32 = 262144;
+pub const SLURMDB_PURGE_ARCHIVE: u32 = 524288;
+pub const SLURMDB_FS_USE_PARENT: u32 = 2147483647;
+pub const SLURMDB_CLASSIFIED_FLAG: u32 = 256;
+pub const SLURMDB_CLASS_BASE: u32 = 255;
 pub type wchar_t = ::std::os::raw::c_int;
 #[repr(C)]
 #[repr(align(16))]
@@ -4359,11 +4386,6 @@ unsafe extern "C" {
 }
 pub type sluid_t = u64;
 pub type slurm_addr_t = sockaddr_storage;
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct slurmdb_cluster_rec {
-    _unused: [u8; 0],
-}
 pub type slurmdb_cluster_rec_t = slurmdb_cluster_rec;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -10368,6 +10390,3163 @@ unsafe extern "C" {
 }
 unsafe extern "C" {
     pub fn slurm_remove_crontab(uid: uid_t, gid: gid_t) -> ::std::os::raw::c_int;
+}
+pub const slurmdb_admin_level_t_SLURMDB_ADMIN_NOTSET: slurmdb_admin_level_t = 0;
+pub const slurmdb_admin_level_t_SLURMDB_ADMIN_NONE: slurmdb_admin_level_t = 1;
+pub const slurmdb_admin_level_t_SLURMDB_ADMIN_OPERATOR: slurmdb_admin_level_t = 2;
+pub const slurmdb_admin_level_t_SLURMDB_ADMIN_SUPER_USER: slurmdb_admin_level_t = 3;
+pub type slurmdb_admin_level_t = ::std::os::raw::c_uint;
+pub const slurmdb_classification_type_t_SLURMDB_CLASS_NONE: slurmdb_classification_type_t = 0;
+pub const slurmdb_classification_type_t_SLURMDB_CLASS_CAPABILITY: slurmdb_classification_type_t = 1;
+pub const slurmdb_classification_type_t_SLURMDB_CLASS_CAPACITY: slurmdb_classification_type_t = 2;
+pub const slurmdb_classification_type_t_SLURMDB_CLASS_CAPAPACITY: slurmdb_classification_type_t = 3;
+pub type slurmdb_classification_type_t = ::std::os::raw::c_uint;
+pub const slurmdb_event_type_t_SLURMDB_EVENT_ALL: slurmdb_event_type_t = 0;
+pub const slurmdb_event_type_t_SLURMDB_EVENT_CLUSTER: slurmdb_event_type_t = 1;
+pub const slurmdb_event_type_t_SLURMDB_EVENT_NODE: slurmdb_event_type_t = 2;
+pub type slurmdb_event_type_t = ::std::os::raw::c_uint;
+pub const slurmdb_problem_type_t_SLURMDB_PROBLEM_NOT_SET: slurmdb_problem_type_t = 0;
+pub const slurmdb_problem_type_t_SLURMDB_PROBLEM_ACCT_NO_ASSOC: slurmdb_problem_type_t = 1;
+pub const slurmdb_problem_type_t_SLURMDB_PROBLEM_ACCT_NO_USERS: slurmdb_problem_type_t = 2;
+pub const slurmdb_problem_type_t_SLURMDB_PROBLEM_USER_NO_ASSOC: slurmdb_problem_type_t = 3;
+pub const slurmdb_problem_type_t_SLURMDB_PROBLEM_USER_NO_UID: slurmdb_problem_type_t = 4;
+pub type slurmdb_problem_type_t = ::std::os::raw::c_uint;
+pub const slurmdb_report_sort_t_SLURMDB_REPORT_SORT_TIME: slurmdb_report_sort_t = 0;
+pub const slurmdb_report_sort_t_SLURMDB_REPORT_SORT_NAME: slurmdb_report_sort_t = 1;
+pub type slurmdb_report_sort_t = ::std::os::raw::c_uint;
+pub const slurmdb_report_time_format_t_SLURMDB_REPORT_TIME_SECS: slurmdb_report_time_format_t = 0;
+pub const slurmdb_report_time_format_t_SLURMDB_REPORT_TIME_MINS: slurmdb_report_time_format_t = 1;
+pub const slurmdb_report_time_format_t_SLURMDB_REPORT_TIME_HOURS: slurmdb_report_time_format_t = 2;
+pub const slurmdb_report_time_format_t_SLURMDB_REPORT_TIME_PERCENT: slurmdb_report_time_format_t =
+    3;
+pub const slurmdb_report_time_format_t_SLURMDB_REPORT_TIME_SECS_PER: slurmdb_report_time_format_t =
+    4;
+pub const slurmdb_report_time_format_t_SLURMDB_REPORT_TIME_MINS_PER: slurmdb_report_time_format_t =
+    5;
+pub const slurmdb_report_time_format_t_SLURMDB_REPORT_TIME_HOURS_PER: slurmdb_report_time_format_t =
+    6;
+pub type slurmdb_report_time_format_t = ::std::os::raw::c_uint;
+pub const slurmdb_resource_type_t_SLURMDB_RESOURCE_NOTSET: slurmdb_resource_type_t = 0;
+pub const slurmdb_resource_type_t_SLURMDB_RESOURCE_LICENSE: slurmdb_resource_type_t = 1;
+pub type slurmdb_resource_type_t = ::std::os::raw::c_uint;
+pub const slurmdb_update_type_t_SLURMDB_UPDATE_NOTSET: slurmdb_update_type_t = 0;
+pub const slurmdb_update_type_t_SLURMDB_ADD_USER: slurmdb_update_type_t = 1;
+pub const slurmdb_update_type_t_SLURMDB_ADD_ASSOC: slurmdb_update_type_t = 2;
+pub const slurmdb_update_type_t_SLURMDB_ADD_COORD: slurmdb_update_type_t = 3;
+pub const slurmdb_update_type_t_SLURMDB_MODIFY_USER: slurmdb_update_type_t = 4;
+pub const slurmdb_update_type_t_SLURMDB_MODIFY_ASSOC: slurmdb_update_type_t = 5;
+pub const slurmdb_update_type_t_SLURMDB_REMOVE_USER: slurmdb_update_type_t = 6;
+pub const slurmdb_update_type_t_SLURMDB_REMOVE_ASSOC: slurmdb_update_type_t = 7;
+pub const slurmdb_update_type_t_SLURMDB_REMOVE_COORD: slurmdb_update_type_t = 8;
+pub const slurmdb_update_type_t_SLURMDB_ADD_QOS: slurmdb_update_type_t = 9;
+pub const slurmdb_update_type_t_SLURMDB_REMOVE_QOS: slurmdb_update_type_t = 10;
+pub const slurmdb_update_type_t_SLURMDB_MODIFY_QOS: slurmdb_update_type_t = 11;
+pub const slurmdb_update_type_t_SLURMDB_ADD_WCKEY: slurmdb_update_type_t = 12;
+pub const slurmdb_update_type_t_SLURMDB_REMOVE_WCKEY: slurmdb_update_type_t = 13;
+pub const slurmdb_update_type_t_SLURMDB_MODIFY_WCKEY: slurmdb_update_type_t = 14;
+pub const slurmdb_update_type_t_SLURMDB_ADD_CLUSTER: slurmdb_update_type_t = 15;
+pub const slurmdb_update_type_t_SLURMDB_REMOVE_CLUSTER: slurmdb_update_type_t = 16;
+pub const slurmdb_update_type_t_SLURMDB_REMOVE_ASSOC_USAGE: slurmdb_update_type_t = 17;
+pub const slurmdb_update_type_t_SLURMDB_ADD_RES: slurmdb_update_type_t = 18;
+pub const slurmdb_update_type_t_SLURMDB_REMOVE_RES: slurmdb_update_type_t = 19;
+pub const slurmdb_update_type_t_SLURMDB_MODIFY_RES: slurmdb_update_type_t = 20;
+pub const slurmdb_update_type_t_SLURMDB_UPDATE_QOS_USAGE: slurmdb_update_type_t = 21;
+pub const slurmdb_update_type_t_SLURMDB_ADD_TRES: slurmdb_update_type_t = 22;
+pub const slurmdb_update_type_t_SLURMDB_UPDATE_FEDS: slurmdb_update_type_t = 23;
+pub type slurmdb_update_type_t = ::std::os::raw::c_uint;
+pub const cluster_fed_states_CLUSTER_FED_STATE_NA: cluster_fed_states = 0;
+pub const cluster_fed_states_CLUSTER_FED_STATE_ACTIVE: cluster_fed_states = 1;
+pub const cluster_fed_states_CLUSTER_FED_STATE_INACTIVE: cluster_fed_states = 2;
+pub type cluster_fed_states = ::std::os::raw::c_uint;
+pub const slurmdb_assoc_flags_t_ASSOC_FLAG_NONE: slurmdb_assoc_flags_t = 0;
+pub const slurmdb_assoc_flags_t_ASSOC_FLAG_DELETED: slurmdb_assoc_flags_t = 1;
+pub const slurmdb_assoc_flags_t_ASSOC_FLAG_NO_UPDATE: slurmdb_assoc_flags_t = 2;
+pub const slurmdb_assoc_flags_t_ASSOC_FLAG_EXACT: slurmdb_assoc_flags_t = 4;
+pub const slurmdb_assoc_flags_t_ASSOC_FLAG_USER_COORD_NO: slurmdb_assoc_flags_t = 8;
+pub const slurmdb_assoc_flags_t_ASSOC_FLAG_BASE: slurmdb_assoc_flags_t = 65535;
+pub const slurmdb_assoc_flags_t_ASSOC_FLAG_USER_COORD: slurmdb_assoc_flags_t = 65536;
+pub const slurmdb_assoc_flags_t_ASSOC_FLAG_INVALID: slurmdb_assoc_flags_t = 65537;
+pub type slurmdb_assoc_flags_t = ::std::os::raw::c_uint;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_tres_rec_t {
+    pub alloc_secs: u64,
+    pub rec_count: u32,
+    pub count: u64,
+    pub id: u32,
+    pub name: *mut ::std::os::raw::c_char,
+    pub type_: *mut ::std::os::raw::c_char,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_tres_rec_t"][::std::mem::size_of::<slurmdb_tres_rec_t>() - 48usize];
+    ["Alignment of slurmdb_tres_rec_t"][::std::mem::align_of::<slurmdb_tres_rec_t>() - 8usize];
+    ["Offset of field: slurmdb_tres_rec_t::alloc_secs"]
+        [::std::mem::offset_of!(slurmdb_tres_rec_t, alloc_secs) - 0usize];
+    ["Offset of field: slurmdb_tres_rec_t::rec_count"]
+        [::std::mem::offset_of!(slurmdb_tres_rec_t, rec_count) - 8usize];
+    ["Offset of field: slurmdb_tres_rec_t::count"]
+        [::std::mem::offset_of!(slurmdb_tres_rec_t, count) - 16usize];
+    ["Offset of field: slurmdb_tres_rec_t::id"]
+        [::std::mem::offset_of!(slurmdb_tres_rec_t, id) - 24usize];
+    ["Offset of field: slurmdb_tres_rec_t::name"]
+        [::std::mem::offset_of!(slurmdb_tres_rec_t, name) - 32usize];
+    ["Offset of field: slurmdb_tres_rec_t::type_"]
+        [::std::mem::offset_of!(slurmdb_tres_rec_t, type_) - 40usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_assoc_cond_t {
+    pub acct_list: *mut list_t,
+    pub cluster_list: *mut list_t,
+    pub def_qos_id_list: *mut list_t,
+    pub flags: u32,
+    pub format_list: *mut list_t,
+    pub id_list: *mut list_t,
+    pub parent_acct_list: *mut list_t,
+    pub partition_list: *mut list_t,
+    pub qos_list: *mut list_t,
+    pub usage_end: time_t,
+    pub usage_start: time_t,
+    pub user_list: *mut list_t,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_assoc_cond_t"][::std::mem::size_of::<slurmdb_assoc_cond_t>() - 96usize];
+    ["Alignment of slurmdb_assoc_cond_t"][::std::mem::align_of::<slurmdb_assoc_cond_t>() - 8usize];
+    ["Offset of field: slurmdb_assoc_cond_t::acct_list"]
+        [::std::mem::offset_of!(slurmdb_assoc_cond_t, acct_list) - 0usize];
+    ["Offset of field: slurmdb_assoc_cond_t::cluster_list"]
+        [::std::mem::offset_of!(slurmdb_assoc_cond_t, cluster_list) - 8usize];
+    ["Offset of field: slurmdb_assoc_cond_t::def_qos_id_list"]
+        [::std::mem::offset_of!(slurmdb_assoc_cond_t, def_qos_id_list) - 16usize];
+    ["Offset of field: slurmdb_assoc_cond_t::flags"]
+        [::std::mem::offset_of!(slurmdb_assoc_cond_t, flags) - 24usize];
+    ["Offset of field: slurmdb_assoc_cond_t::format_list"]
+        [::std::mem::offset_of!(slurmdb_assoc_cond_t, format_list) - 32usize];
+    ["Offset of field: slurmdb_assoc_cond_t::id_list"]
+        [::std::mem::offset_of!(slurmdb_assoc_cond_t, id_list) - 40usize];
+    ["Offset of field: slurmdb_assoc_cond_t::parent_acct_list"]
+        [::std::mem::offset_of!(slurmdb_assoc_cond_t, parent_acct_list) - 48usize];
+    ["Offset of field: slurmdb_assoc_cond_t::partition_list"]
+        [::std::mem::offset_of!(slurmdb_assoc_cond_t, partition_list) - 56usize];
+    ["Offset of field: slurmdb_assoc_cond_t::qos_list"]
+        [::std::mem::offset_of!(slurmdb_assoc_cond_t, qos_list) - 64usize];
+    ["Offset of field: slurmdb_assoc_cond_t::usage_end"]
+        [::std::mem::offset_of!(slurmdb_assoc_cond_t, usage_end) - 72usize];
+    ["Offset of field: slurmdb_assoc_cond_t::usage_start"]
+        [::std::mem::offset_of!(slurmdb_assoc_cond_t, usage_start) - 80usize];
+    ["Offset of field: slurmdb_assoc_cond_t::user_list"]
+        [::std::mem::offset_of!(slurmdb_assoc_cond_t, user_list) - 88usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_job_cond_t {
+    pub acct_list: *mut list_t,
+    pub associd_list: *mut list_t,
+    pub cluster_list: *mut list_t,
+    pub constraint_list: *mut list_t,
+    pub cpus_max: u32,
+    pub cpus_min: u32,
+    pub db_flags: u32,
+    pub exitcode: i32,
+    pub flags: u32,
+    pub format_list: *mut list_t,
+    pub groupid_list: *mut list_t,
+    pub jobname_list: *mut list_t,
+    pub nodes_max: u32,
+    pub nodes_min: u32,
+    pub partition_list: *mut list_t,
+    pub qos_list: *mut list_t,
+    pub reason_list: *mut list_t,
+    pub resv_list: *mut list_t,
+    pub resvid_list: *mut list_t,
+    pub state_list: *mut list_t,
+    pub step_list: *mut list_t,
+    pub timelimit_max: u32,
+    pub timelimit_min: u32,
+    pub usage_end: time_t,
+    pub usage_start: time_t,
+    pub used_nodes: *mut ::std::os::raw::c_char,
+    pub userid_list: *mut list_t,
+    pub wckey_list: *mut list_t,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_job_cond_t"][::std::mem::size_of::<slurmdb_job_cond_t>() - 192usize];
+    ["Alignment of slurmdb_job_cond_t"][::std::mem::align_of::<slurmdb_job_cond_t>() - 8usize];
+    ["Offset of field: slurmdb_job_cond_t::acct_list"]
+        [::std::mem::offset_of!(slurmdb_job_cond_t, acct_list) - 0usize];
+    ["Offset of field: slurmdb_job_cond_t::associd_list"]
+        [::std::mem::offset_of!(slurmdb_job_cond_t, associd_list) - 8usize];
+    ["Offset of field: slurmdb_job_cond_t::cluster_list"]
+        [::std::mem::offset_of!(slurmdb_job_cond_t, cluster_list) - 16usize];
+    ["Offset of field: slurmdb_job_cond_t::constraint_list"]
+        [::std::mem::offset_of!(slurmdb_job_cond_t, constraint_list) - 24usize];
+    ["Offset of field: slurmdb_job_cond_t::cpus_max"]
+        [::std::mem::offset_of!(slurmdb_job_cond_t, cpus_max) - 32usize];
+    ["Offset of field: slurmdb_job_cond_t::cpus_min"]
+        [::std::mem::offset_of!(slurmdb_job_cond_t, cpus_min) - 36usize];
+    ["Offset of field: slurmdb_job_cond_t::db_flags"]
+        [::std::mem::offset_of!(slurmdb_job_cond_t, db_flags) - 40usize];
+    ["Offset of field: slurmdb_job_cond_t::exitcode"]
+        [::std::mem::offset_of!(slurmdb_job_cond_t, exitcode) - 44usize];
+    ["Offset of field: slurmdb_job_cond_t::flags"]
+        [::std::mem::offset_of!(slurmdb_job_cond_t, flags) - 48usize];
+    ["Offset of field: slurmdb_job_cond_t::format_list"]
+        [::std::mem::offset_of!(slurmdb_job_cond_t, format_list) - 56usize];
+    ["Offset of field: slurmdb_job_cond_t::groupid_list"]
+        [::std::mem::offset_of!(slurmdb_job_cond_t, groupid_list) - 64usize];
+    ["Offset of field: slurmdb_job_cond_t::jobname_list"]
+        [::std::mem::offset_of!(slurmdb_job_cond_t, jobname_list) - 72usize];
+    ["Offset of field: slurmdb_job_cond_t::nodes_max"]
+        [::std::mem::offset_of!(slurmdb_job_cond_t, nodes_max) - 80usize];
+    ["Offset of field: slurmdb_job_cond_t::nodes_min"]
+        [::std::mem::offset_of!(slurmdb_job_cond_t, nodes_min) - 84usize];
+    ["Offset of field: slurmdb_job_cond_t::partition_list"]
+        [::std::mem::offset_of!(slurmdb_job_cond_t, partition_list) - 88usize];
+    ["Offset of field: slurmdb_job_cond_t::qos_list"]
+        [::std::mem::offset_of!(slurmdb_job_cond_t, qos_list) - 96usize];
+    ["Offset of field: slurmdb_job_cond_t::reason_list"]
+        [::std::mem::offset_of!(slurmdb_job_cond_t, reason_list) - 104usize];
+    ["Offset of field: slurmdb_job_cond_t::resv_list"]
+        [::std::mem::offset_of!(slurmdb_job_cond_t, resv_list) - 112usize];
+    ["Offset of field: slurmdb_job_cond_t::resvid_list"]
+        [::std::mem::offset_of!(slurmdb_job_cond_t, resvid_list) - 120usize];
+    ["Offset of field: slurmdb_job_cond_t::state_list"]
+        [::std::mem::offset_of!(slurmdb_job_cond_t, state_list) - 128usize];
+    ["Offset of field: slurmdb_job_cond_t::step_list"]
+        [::std::mem::offset_of!(slurmdb_job_cond_t, step_list) - 136usize];
+    ["Offset of field: slurmdb_job_cond_t::timelimit_max"]
+        [::std::mem::offset_of!(slurmdb_job_cond_t, timelimit_max) - 144usize];
+    ["Offset of field: slurmdb_job_cond_t::timelimit_min"]
+        [::std::mem::offset_of!(slurmdb_job_cond_t, timelimit_min) - 148usize];
+    ["Offset of field: slurmdb_job_cond_t::usage_end"]
+        [::std::mem::offset_of!(slurmdb_job_cond_t, usage_end) - 152usize];
+    ["Offset of field: slurmdb_job_cond_t::usage_start"]
+        [::std::mem::offset_of!(slurmdb_job_cond_t, usage_start) - 160usize];
+    ["Offset of field: slurmdb_job_cond_t::used_nodes"]
+        [::std::mem::offset_of!(slurmdb_job_cond_t, used_nodes) - 168usize];
+    ["Offset of field: slurmdb_job_cond_t::userid_list"]
+        [::std::mem::offset_of!(slurmdb_job_cond_t, userid_list) - 176usize];
+    ["Offset of field: slurmdb_job_cond_t::wckey_list"]
+        [::std::mem::offset_of!(slurmdb_job_cond_t, wckey_list) - 184usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_stats_t {
+    pub act_cpufreq: f64,
+    pub consumed_energy: u64,
+    pub tres_usage_in_ave: *mut ::std::os::raw::c_char,
+    pub tres_usage_in_max: *mut ::std::os::raw::c_char,
+    pub tres_usage_in_max_nodeid: *mut ::std::os::raw::c_char,
+    pub tres_usage_in_max_taskid: *mut ::std::os::raw::c_char,
+    pub tres_usage_in_min: *mut ::std::os::raw::c_char,
+    pub tres_usage_in_min_nodeid: *mut ::std::os::raw::c_char,
+    pub tres_usage_in_min_taskid: *mut ::std::os::raw::c_char,
+    pub tres_usage_in_tot: *mut ::std::os::raw::c_char,
+    pub tres_usage_out_ave: *mut ::std::os::raw::c_char,
+    pub tres_usage_out_max: *mut ::std::os::raw::c_char,
+    pub tres_usage_out_max_nodeid: *mut ::std::os::raw::c_char,
+    pub tres_usage_out_max_taskid: *mut ::std::os::raw::c_char,
+    pub tres_usage_out_min: *mut ::std::os::raw::c_char,
+    pub tres_usage_out_min_nodeid: *mut ::std::os::raw::c_char,
+    pub tres_usage_out_min_taskid: *mut ::std::os::raw::c_char,
+    pub tres_usage_out_tot: *mut ::std::os::raw::c_char,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_stats_t"][::std::mem::size_of::<slurmdb_stats_t>() - 144usize];
+    ["Alignment of slurmdb_stats_t"][::std::mem::align_of::<slurmdb_stats_t>() - 8usize];
+    ["Offset of field: slurmdb_stats_t::act_cpufreq"]
+        [::std::mem::offset_of!(slurmdb_stats_t, act_cpufreq) - 0usize];
+    ["Offset of field: slurmdb_stats_t::consumed_energy"]
+        [::std::mem::offset_of!(slurmdb_stats_t, consumed_energy) - 8usize];
+    ["Offset of field: slurmdb_stats_t::tres_usage_in_ave"]
+        [::std::mem::offset_of!(slurmdb_stats_t, tres_usage_in_ave) - 16usize];
+    ["Offset of field: slurmdb_stats_t::tres_usage_in_max"]
+        [::std::mem::offset_of!(slurmdb_stats_t, tres_usage_in_max) - 24usize];
+    ["Offset of field: slurmdb_stats_t::tres_usage_in_max_nodeid"]
+        [::std::mem::offset_of!(slurmdb_stats_t, tres_usage_in_max_nodeid) - 32usize];
+    ["Offset of field: slurmdb_stats_t::tres_usage_in_max_taskid"]
+        [::std::mem::offset_of!(slurmdb_stats_t, tres_usage_in_max_taskid) - 40usize];
+    ["Offset of field: slurmdb_stats_t::tres_usage_in_min"]
+        [::std::mem::offset_of!(slurmdb_stats_t, tres_usage_in_min) - 48usize];
+    ["Offset of field: slurmdb_stats_t::tres_usage_in_min_nodeid"]
+        [::std::mem::offset_of!(slurmdb_stats_t, tres_usage_in_min_nodeid) - 56usize];
+    ["Offset of field: slurmdb_stats_t::tres_usage_in_min_taskid"]
+        [::std::mem::offset_of!(slurmdb_stats_t, tres_usage_in_min_taskid) - 64usize];
+    ["Offset of field: slurmdb_stats_t::tres_usage_in_tot"]
+        [::std::mem::offset_of!(slurmdb_stats_t, tres_usage_in_tot) - 72usize];
+    ["Offset of field: slurmdb_stats_t::tres_usage_out_ave"]
+        [::std::mem::offset_of!(slurmdb_stats_t, tres_usage_out_ave) - 80usize];
+    ["Offset of field: slurmdb_stats_t::tres_usage_out_max"]
+        [::std::mem::offset_of!(slurmdb_stats_t, tres_usage_out_max) - 88usize];
+    ["Offset of field: slurmdb_stats_t::tres_usage_out_max_nodeid"]
+        [::std::mem::offset_of!(slurmdb_stats_t, tres_usage_out_max_nodeid) - 96usize];
+    ["Offset of field: slurmdb_stats_t::tres_usage_out_max_taskid"]
+        [::std::mem::offset_of!(slurmdb_stats_t, tres_usage_out_max_taskid) - 104usize];
+    ["Offset of field: slurmdb_stats_t::tres_usage_out_min"]
+        [::std::mem::offset_of!(slurmdb_stats_t, tres_usage_out_min) - 112usize];
+    ["Offset of field: slurmdb_stats_t::tres_usage_out_min_nodeid"]
+        [::std::mem::offset_of!(slurmdb_stats_t, tres_usage_out_min_nodeid) - 120usize];
+    ["Offset of field: slurmdb_stats_t::tres_usage_out_min_taskid"]
+        [::std::mem::offset_of!(slurmdb_stats_t, tres_usage_out_min_taskid) - 128usize];
+    ["Offset of field: slurmdb_stats_t::tres_usage_out_tot"]
+        [::std::mem::offset_of!(slurmdb_stats_t, tres_usage_out_tot) - 136usize];
+};
+pub const slurmdb_acct_flags_t_SLURMDB_ACCT_FLAG_NONE: slurmdb_acct_flags_t = 0;
+pub const slurmdb_acct_flags_t_SLURMDB_ACCT_FLAG_DELETED: slurmdb_acct_flags_t = 1;
+pub const slurmdb_acct_flags_t_SLURMDB_ACCT_FLAG_WASSOC: slurmdb_acct_flags_t = 2;
+pub const slurmdb_acct_flags_t_SLURMDB_ACCT_FLAG_WCOORD: slurmdb_acct_flags_t = 4;
+pub const slurmdb_acct_flags_t_SLURMDB_ACCT_FLAG_USER_COORD_NO: slurmdb_acct_flags_t = 8;
+pub const slurmdb_acct_flags_t_SLURMDB_ACCT_FLAG_BASE: slurmdb_acct_flags_t = 65535;
+pub const slurmdb_acct_flags_t_SLURMDB_ACCT_FLAG_USER_COORD: slurmdb_acct_flags_t = 65536;
+pub const slurmdb_acct_flags_t_SLURMDB_ACCT_FLAG_INVALID: slurmdb_acct_flags_t = 65537;
+pub type slurmdb_acct_flags_t = ::std::os::raw::c_uint;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_account_cond_t {
+    pub assoc_cond: *mut slurmdb_assoc_cond_t,
+    pub description_list: *mut list_t,
+    pub flags: slurmdb_acct_flags_t,
+    pub organization_list: *mut list_t,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_account_cond_t"][::std::mem::size_of::<slurmdb_account_cond_t>() - 32usize];
+    ["Alignment of slurmdb_account_cond_t"]
+        [::std::mem::align_of::<slurmdb_account_cond_t>() - 8usize];
+    ["Offset of field: slurmdb_account_cond_t::assoc_cond"]
+        [::std::mem::offset_of!(slurmdb_account_cond_t, assoc_cond) - 0usize];
+    ["Offset of field: slurmdb_account_cond_t::description_list"]
+        [::std::mem::offset_of!(slurmdb_account_cond_t, description_list) - 8usize];
+    ["Offset of field: slurmdb_account_cond_t::flags"]
+        [::std::mem::offset_of!(slurmdb_account_cond_t, flags) - 16usize];
+    ["Offset of field: slurmdb_account_cond_t::organization_list"]
+        [::std::mem::offset_of!(slurmdb_account_cond_t, organization_list) - 24usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_account_rec_t {
+    pub assoc_list: *mut list_t,
+    pub coordinators: *mut list_t,
+    pub description: *mut ::std::os::raw::c_char,
+    pub flags: slurmdb_acct_flags_t,
+    pub name: *mut ::std::os::raw::c_char,
+    pub organization: *mut ::std::os::raw::c_char,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_account_rec_t"][::std::mem::size_of::<slurmdb_account_rec_t>() - 48usize];
+    ["Alignment of slurmdb_account_rec_t"]
+        [::std::mem::align_of::<slurmdb_account_rec_t>() - 8usize];
+    ["Offset of field: slurmdb_account_rec_t::assoc_list"]
+        [::std::mem::offset_of!(slurmdb_account_rec_t, assoc_list) - 0usize];
+    ["Offset of field: slurmdb_account_rec_t::coordinators"]
+        [::std::mem::offset_of!(slurmdb_account_rec_t, coordinators) - 8usize];
+    ["Offset of field: slurmdb_account_rec_t::description"]
+        [::std::mem::offset_of!(slurmdb_account_rec_t, description) - 16usize];
+    ["Offset of field: slurmdb_account_rec_t::flags"]
+        [::std::mem::offset_of!(slurmdb_account_rec_t, flags) - 24usize];
+    ["Offset of field: slurmdb_account_rec_t::name"]
+        [::std::mem::offset_of!(slurmdb_account_rec_t, name) - 32usize];
+    ["Offset of field: slurmdb_account_rec_t::organization"]
+        [::std::mem::offset_of!(slurmdb_account_rec_t, organization) - 40usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_accounting_rec_t {
+    pub alloc_secs: u64,
+    pub id: u32,
+    pub id_alt: u32,
+    pub period_start: time_t,
+    pub tres_rec: slurmdb_tres_rec_t,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_accounting_rec_t"]
+        [::std::mem::size_of::<slurmdb_accounting_rec_t>() - 72usize];
+    ["Alignment of slurmdb_accounting_rec_t"]
+        [::std::mem::align_of::<slurmdb_accounting_rec_t>() - 8usize];
+    ["Offset of field: slurmdb_accounting_rec_t::alloc_secs"]
+        [::std::mem::offset_of!(slurmdb_accounting_rec_t, alloc_secs) - 0usize];
+    ["Offset of field: slurmdb_accounting_rec_t::id"]
+        [::std::mem::offset_of!(slurmdb_accounting_rec_t, id) - 8usize];
+    ["Offset of field: slurmdb_accounting_rec_t::id_alt"]
+        [::std::mem::offset_of!(slurmdb_accounting_rec_t, id_alt) - 12usize];
+    ["Offset of field: slurmdb_accounting_rec_t::period_start"]
+        [::std::mem::offset_of!(slurmdb_accounting_rec_t, period_start) - 16usize];
+    ["Offset of field: slurmdb_accounting_rec_t::tres_rec"]
+        [::std::mem::offset_of!(slurmdb_accounting_rec_t, tres_rec) - 24usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_archive_cond_t {
+    pub archive_dir: *mut ::std::os::raw::c_char,
+    pub archive_script: *mut ::std::os::raw::c_char,
+    pub job_cond: *mut slurmdb_job_cond_t,
+    pub purge_event: u32,
+    pub purge_job: u32,
+    pub purge_resv: u32,
+    pub purge_step: u32,
+    pub purge_suspend: u32,
+    pub purge_txn: u32,
+    pub purge_usage: u32,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_archive_cond_t"][::std::mem::size_of::<slurmdb_archive_cond_t>() - 56usize];
+    ["Alignment of slurmdb_archive_cond_t"]
+        [::std::mem::align_of::<slurmdb_archive_cond_t>() - 8usize];
+    ["Offset of field: slurmdb_archive_cond_t::archive_dir"]
+        [::std::mem::offset_of!(slurmdb_archive_cond_t, archive_dir) - 0usize];
+    ["Offset of field: slurmdb_archive_cond_t::archive_script"]
+        [::std::mem::offset_of!(slurmdb_archive_cond_t, archive_script) - 8usize];
+    ["Offset of field: slurmdb_archive_cond_t::job_cond"]
+        [::std::mem::offset_of!(slurmdb_archive_cond_t, job_cond) - 16usize];
+    ["Offset of field: slurmdb_archive_cond_t::purge_event"]
+        [::std::mem::offset_of!(slurmdb_archive_cond_t, purge_event) - 24usize];
+    ["Offset of field: slurmdb_archive_cond_t::purge_job"]
+        [::std::mem::offset_of!(slurmdb_archive_cond_t, purge_job) - 28usize];
+    ["Offset of field: slurmdb_archive_cond_t::purge_resv"]
+        [::std::mem::offset_of!(slurmdb_archive_cond_t, purge_resv) - 32usize];
+    ["Offset of field: slurmdb_archive_cond_t::purge_step"]
+        [::std::mem::offset_of!(slurmdb_archive_cond_t, purge_step) - 36usize];
+    ["Offset of field: slurmdb_archive_cond_t::purge_suspend"]
+        [::std::mem::offset_of!(slurmdb_archive_cond_t, purge_suspend) - 40usize];
+    ["Offset of field: slurmdb_archive_cond_t::purge_txn"]
+        [::std::mem::offset_of!(slurmdb_archive_cond_t, purge_txn) - 44usize];
+    ["Offset of field: slurmdb_archive_cond_t::purge_usage"]
+        [::std::mem::offset_of!(slurmdb_archive_cond_t, purge_usage) - 48usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_archive_rec_t {
+    pub archive_file: *mut ::std::os::raw::c_char,
+    pub insert: *mut ::std::os::raw::c_char,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_archive_rec_t"][::std::mem::size_of::<slurmdb_archive_rec_t>() - 16usize];
+    ["Alignment of slurmdb_archive_rec_t"]
+        [::std::mem::align_of::<slurmdb_archive_rec_t>() - 8usize];
+    ["Offset of field: slurmdb_archive_rec_t::archive_file"]
+        [::std::mem::offset_of!(slurmdb_archive_rec_t, archive_file) - 0usize];
+    ["Offset of field: slurmdb_archive_rec_t::insert"]
+        [::std::mem::offset_of!(slurmdb_archive_rec_t, insert) - 8usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_tres_cond_t {
+    pub count: u64,
+    pub format_list: *mut list_t,
+    pub id_list: *mut list_t,
+    pub name_list: *mut list_t,
+    pub type_list: *mut list_t,
+    pub with_deleted: u16,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_tres_cond_t"][::std::mem::size_of::<slurmdb_tres_cond_t>() - 48usize];
+    ["Alignment of slurmdb_tres_cond_t"][::std::mem::align_of::<slurmdb_tres_cond_t>() - 8usize];
+    ["Offset of field: slurmdb_tres_cond_t::count"]
+        [::std::mem::offset_of!(slurmdb_tres_cond_t, count) - 0usize];
+    ["Offset of field: slurmdb_tres_cond_t::format_list"]
+        [::std::mem::offset_of!(slurmdb_tres_cond_t, format_list) - 8usize];
+    ["Offset of field: slurmdb_tres_cond_t::id_list"]
+        [::std::mem::offset_of!(slurmdb_tres_cond_t, id_list) - 16usize];
+    ["Offset of field: slurmdb_tres_cond_t::name_list"]
+        [::std::mem::offset_of!(slurmdb_tres_cond_t, name_list) - 24usize];
+    ["Offset of field: slurmdb_tres_cond_t::type_list"]
+        [::std::mem::offset_of!(slurmdb_tres_cond_t, type_list) - 32usize];
+    ["Offset of field: slurmdb_tres_cond_t::with_deleted"]
+        [::std::mem::offset_of!(slurmdb_tres_cond_t, with_deleted) - 40usize];
+};
+pub type slurmdb_assoc_usage_t = slurmdb_assoc_usage;
+pub type slurmdb_bf_usage_t = slurmdb_bf_usage;
+pub type slurmdb_user_rec_t = slurmdb_user_rec;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_assoc_rec {
+    pub accounting_list: *mut list_t,
+    pub acct: *mut ::std::os::raw::c_char,
+    pub assoc_next: *mut slurmdb_assoc_rec,
+    pub assoc_next_id: *mut slurmdb_assoc_rec,
+    pub bf_usage: *mut slurmdb_bf_usage_t,
+    pub cluster: *mut ::std::os::raw::c_char,
+    pub comment: *mut ::std::os::raw::c_char,
+    pub def_qos_id: u32,
+    pub flags: slurmdb_assoc_flags_t,
+    pub grp_jobs: u32,
+    pub grp_jobs_accrue: u32,
+    pub grp_submit_jobs: u32,
+    pub grp_tres: *mut ::std::os::raw::c_char,
+    pub grp_tres_ctld: *mut u64,
+    pub grp_tres_mins: *mut ::std::os::raw::c_char,
+    pub grp_tres_mins_ctld: *mut u64,
+    pub grp_tres_run_mins: *mut ::std::os::raw::c_char,
+    pub grp_tres_run_mins_ctld: *mut u64,
+    pub grp_wall: u32,
+    pub id: u32,
+    pub is_def: u16,
+    pub leaf_usage: *mut slurmdb_assoc_usage_t,
+    pub lft: u32,
+    pub lineage: *mut ::std::os::raw::c_char,
+    pub max_jobs: u32,
+    pub max_jobs_accrue: u32,
+    pub max_submit_jobs: u32,
+    pub max_tres_mins_pj: *mut ::std::os::raw::c_char,
+    pub max_tres_mins_ctld: *mut u64,
+    pub max_tres_run_mins: *mut ::std::os::raw::c_char,
+    pub max_tres_run_mins_ctld: *mut u64,
+    pub max_tres_pj: *mut ::std::os::raw::c_char,
+    pub max_tres_ctld: *mut u64,
+    pub max_tres_pn: *mut ::std::os::raw::c_char,
+    pub max_tres_pn_ctld: *mut u64,
+    pub max_wall_pj: u32,
+    pub min_prio_thresh: u32,
+    pub parent_acct: *mut ::std::os::raw::c_char,
+    pub parent_id: u32,
+    pub partition: *mut ::std::os::raw::c_char,
+    pub priority: u32,
+    pub qos_list: *mut list_t,
+    pub rgt: u32,
+    pub shares_raw: u32,
+    pub uid: u32,
+    pub usage: *mut slurmdb_assoc_usage_t,
+    pub user: *mut ::std::os::raw::c_char,
+    pub user_rec: *mut slurmdb_user_rec_t,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_assoc_rec"][::std::mem::size_of::<slurmdb_assoc_rec>() - 336usize];
+    ["Alignment of slurmdb_assoc_rec"][::std::mem::align_of::<slurmdb_assoc_rec>() - 8usize];
+    ["Offset of field: slurmdb_assoc_rec::accounting_list"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, accounting_list) - 0usize];
+    ["Offset of field: slurmdb_assoc_rec::acct"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, acct) - 8usize];
+    ["Offset of field: slurmdb_assoc_rec::assoc_next"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, assoc_next) - 16usize];
+    ["Offset of field: slurmdb_assoc_rec::assoc_next_id"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, assoc_next_id) - 24usize];
+    ["Offset of field: slurmdb_assoc_rec::bf_usage"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, bf_usage) - 32usize];
+    ["Offset of field: slurmdb_assoc_rec::cluster"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, cluster) - 40usize];
+    ["Offset of field: slurmdb_assoc_rec::comment"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, comment) - 48usize];
+    ["Offset of field: slurmdb_assoc_rec::def_qos_id"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, def_qos_id) - 56usize];
+    ["Offset of field: slurmdb_assoc_rec::flags"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, flags) - 60usize];
+    ["Offset of field: slurmdb_assoc_rec::grp_jobs"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, grp_jobs) - 64usize];
+    ["Offset of field: slurmdb_assoc_rec::grp_jobs_accrue"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, grp_jobs_accrue) - 68usize];
+    ["Offset of field: slurmdb_assoc_rec::grp_submit_jobs"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, grp_submit_jobs) - 72usize];
+    ["Offset of field: slurmdb_assoc_rec::grp_tres"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, grp_tres) - 80usize];
+    ["Offset of field: slurmdb_assoc_rec::grp_tres_ctld"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, grp_tres_ctld) - 88usize];
+    ["Offset of field: slurmdb_assoc_rec::grp_tres_mins"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, grp_tres_mins) - 96usize];
+    ["Offset of field: slurmdb_assoc_rec::grp_tres_mins_ctld"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, grp_tres_mins_ctld) - 104usize];
+    ["Offset of field: slurmdb_assoc_rec::grp_tres_run_mins"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, grp_tres_run_mins) - 112usize];
+    ["Offset of field: slurmdb_assoc_rec::grp_tres_run_mins_ctld"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, grp_tres_run_mins_ctld) - 120usize];
+    ["Offset of field: slurmdb_assoc_rec::grp_wall"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, grp_wall) - 128usize];
+    ["Offset of field: slurmdb_assoc_rec::id"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, id) - 132usize];
+    ["Offset of field: slurmdb_assoc_rec::is_def"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, is_def) - 136usize];
+    ["Offset of field: slurmdb_assoc_rec::leaf_usage"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, leaf_usage) - 144usize];
+    ["Offset of field: slurmdb_assoc_rec::lft"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, lft) - 152usize];
+    ["Offset of field: slurmdb_assoc_rec::lineage"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, lineage) - 160usize];
+    ["Offset of field: slurmdb_assoc_rec::max_jobs"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, max_jobs) - 168usize];
+    ["Offset of field: slurmdb_assoc_rec::max_jobs_accrue"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, max_jobs_accrue) - 172usize];
+    ["Offset of field: slurmdb_assoc_rec::max_submit_jobs"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, max_submit_jobs) - 176usize];
+    ["Offset of field: slurmdb_assoc_rec::max_tres_mins_pj"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, max_tres_mins_pj) - 184usize];
+    ["Offset of field: slurmdb_assoc_rec::max_tres_mins_ctld"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, max_tres_mins_ctld) - 192usize];
+    ["Offset of field: slurmdb_assoc_rec::max_tres_run_mins"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, max_tres_run_mins) - 200usize];
+    ["Offset of field: slurmdb_assoc_rec::max_tres_run_mins_ctld"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, max_tres_run_mins_ctld) - 208usize];
+    ["Offset of field: slurmdb_assoc_rec::max_tres_pj"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, max_tres_pj) - 216usize];
+    ["Offset of field: slurmdb_assoc_rec::max_tres_ctld"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, max_tres_ctld) - 224usize];
+    ["Offset of field: slurmdb_assoc_rec::max_tres_pn"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, max_tres_pn) - 232usize];
+    ["Offset of field: slurmdb_assoc_rec::max_tres_pn_ctld"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, max_tres_pn_ctld) - 240usize];
+    ["Offset of field: slurmdb_assoc_rec::max_wall_pj"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, max_wall_pj) - 248usize];
+    ["Offset of field: slurmdb_assoc_rec::min_prio_thresh"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, min_prio_thresh) - 252usize];
+    ["Offset of field: slurmdb_assoc_rec::parent_acct"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, parent_acct) - 256usize];
+    ["Offset of field: slurmdb_assoc_rec::parent_id"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, parent_id) - 264usize];
+    ["Offset of field: slurmdb_assoc_rec::partition"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, partition) - 272usize];
+    ["Offset of field: slurmdb_assoc_rec::priority"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, priority) - 280usize];
+    ["Offset of field: slurmdb_assoc_rec::qos_list"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, qos_list) - 288usize];
+    ["Offset of field: slurmdb_assoc_rec::rgt"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, rgt) - 296usize];
+    ["Offset of field: slurmdb_assoc_rec::shares_raw"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, shares_raw) - 300usize];
+    ["Offset of field: slurmdb_assoc_rec::uid"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, uid) - 304usize];
+    ["Offset of field: slurmdb_assoc_rec::usage"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, usage) - 312usize];
+    ["Offset of field: slurmdb_assoc_rec::user"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, user) - 320usize];
+    ["Offset of field: slurmdb_assoc_rec::user_rec"]
+        [::std::mem::offset_of!(slurmdb_assoc_rec, user_rec) - 328usize];
+};
+pub type slurmdb_assoc_rec_t = slurmdb_assoc_rec;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_add_assoc_cond_t {
+    pub acct_list: *mut list_t,
+    pub assoc: slurmdb_assoc_rec_t,
+    pub cluster_list: *mut list_t,
+    pub default_acct: *mut ::std::os::raw::c_char,
+    pub partition_list: *mut list_t,
+    pub user_list: *mut list_t,
+    pub wckey_list: *mut list_t,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_add_assoc_cond_t"]
+        [::std::mem::size_of::<slurmdb_add_assoc_cond_t>() - 384usize];
+    ["Alignment of slurmdb_add_assoc_cond_t"]
+        [::std::mem::align_of::<slurmdb_add_assoc_cond_t>() - 8usize];
+    ["Offset of field: slurmdb_add_assoc_cond_t::acct_list"]
+        [::std::mem::offset_of!(slurmdb_add_assoc_cond_t, acct_list) - 0usize];
+    ["Offset of field: slurmdb_add_assoc_cond_t::assoc"]
+        [::std::mem::offset_of!(slurmdb_add_assoc_cond_t, assoc) - 8usize];
+    ["Offset of field: slurmdb_add_assoc_cond_t::cluster_list"]
+        [::std::mem::offset_of!(slurmdb_add_assoc_cond_t, cluster_list) - 344usize];
+    ["Offset of field: slurmdb_add_assoc_cond_t::default_acct"]
+        [::std::mem::offset_of!(slurmdb_add_assoc_cond_t, default_acct) - 352usize];
+    ["Offset of field: slurmdb_add_assoc_cond_t::partition_list"]
+        [::std::mem::offset_of!(slurmdb_add_assoc_cond_t, partition_list) - 360usize];
+    ["Offset of field: slurmdb_add_assoc_cond_t::user_list"]
+        [::std::mem::offset_of!(slurmdb_add_assoc_cond_t, user_list) - 368usize];
+    ["Offset of field: slurmdb_add_assoc_cond_t::wckey_list"]
+        [::std::mem::offset_of!(slurmdb_add_assoc_cond_t, wckey_list) - 376usize];
+};
+#[repr(C)]
+#[repr(align(16))]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_assoc_usage {
+    pub accrue_cnt: u32,
+    pub children_list: *mut list_t,
+    pub grp_node_bitmap: *mut bitstr_t,
+    pub grp_node_job_cnt: *mut u16,
+    pub grp_used_tres: *mut u64,
+    pub grp_used_tres_run_secs: *mut u64,
+    pub grp_used_wall: f64,
+    pub fs_factor: f64,
+    pub level_shares: u32,
+    pub parent_assoc_ptr: *mut slurmdb_assoc_rec_t,
+    pub priority_norm: f64,
+    pub fs_assoc_ptr: *mut slurmdb_assoc_rec_t,
+    pub shares_norm: f64,
+    pub tres_cnt: u32,
+    pub __bindgen_padding_0: [u64; 0usize],
+    pub usage_efctv: u128,
+    pub usage_norm: u128,
+    pub usage_raw: u128,
+    pub usage_tres_raw: *mut u128,
+    pub used_jobs: u32,
+    pub used_submit_jobs: u32,
+    pub level_fs: u128,
+    pub valid_qos: *mut bitstr_t,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_assoc_usage"][::std::mem::size_of::<slurmdb_assoc_usage>() - 208usize];
+    ["Alignment of slurmdb_assoc_usage"][::std::mem::align_of::<slurmdb_assoc_usage>() - 16usize];
+    ["Offset of field: slurmdb_assoc_usage::accrue_cnt"]
+        [::std::mem::offset_of!(slurmdb_assoc_usage, accrue_cnt) - 0usize];
+    ["Offset of field: slurmdb_assoc_usage::children_list"]
+        [::std::mem::offset_of!(slurmdb_assoc_usage, children_list) - 8usize];
+    ["Offset of field: slurmdb_assoc_usage::grp_node_bitmap"]
+        [::std::mem::offset_of!(slurmdb_assoc_usage, grp_node_bitmap) - 16usize];
+    ["Offset of field: slurmdb_assoc_usage::grp_node_job_cnt"]
+        [::std::mem::offset_of!(slurmdb_assoc_usage, grp_node_job_cnt) - 24usize];
+    ["Offset of field: slurmdb_assoc_usage::grp_used_tres"]
+        [::std::mem::offset_of!(slurmdb_assoc_usage, grp_used_tres) - 32usize];
+    ["Offset of field: slurmdb_assoc_usage::grp_used_tres_run_secs"]
+        [::std::mem::offset_of!(slurmdb_assoc_usage, grp_used_tres_run_secs) - 40usize];
+    ["Offset of field: slurmdb_assoc_usage::grp_used_wall"]
+        [::std::mem::offset_of!(slurmdb_assoc_usage, grp_used_wall) - 48usize];
+    ["Offset of field: slurmdb_assoc_usage::fs_factor"]
+        [::std::mem::offset_of!(slurmdb_assoc_usage, fs_factor) - 56usize];
+    ["Offset of field: slurmdb_assoc_usage::level_shares"]
+        [::std::mem::offset_of!(slurmdb_assoc_usage, level_shares) - 64usize];
+    ["Offset of field: slurmdb_assoc_usage::parent_assoc_ptr"]
+        [::std::mem::offset_of!(slurmdb_assoc_usage, parent_assoc_ptr) - 72usize];
+    ["Offset of field: slurmdb_assoc_usage::priority_norm"]
+        [::std::mem::offset_of!(slurmdb_assoc_usage, priority_norm) - 80usize];
+    ["Offset of field: slurmdb_assoc_usage::fs_assoc_ptr"]
+        [::std::mem::offset_of!(slurmdb_assoc_usage, fs_assoc_ptr) - 88usize];
+    ["Offset of field: slurmdb_assoc_usage::shares_norm"]
+        [::std::mem::offset_of!(slurmdb_assoc_usage, shares_norm) - 96usize];
+    ["Offset of field: slurmdb_assoc_usage::tres_cnt"]
+        [::std::mem::offset_of!(slurmdb_assoc_usage, tres_cnt) - 104usize];
+    ["Offset of field: slurmdb_assoc_usage::usage_efctv"]
+        [::std::mem::offset_of!(slurmdb_assoc_usage, usage_efctv) - 112usize];
+    ["Offset of field: slurmdb_assoc_usage::usage_norm"]
+        [::std::mem::offset_of!(slurmdb_assoc_usage, usage_norm) - 128usize];
+    ["Offset of field: slurmdb_assoc_usage::usage_raw"]
+        [::std::mem::offset_of!(slurmdb_assoc_usage, usage_raw) - 144usize];
+    ["Offset of field: slurmdb_assoc_usage::usage_tres_raw"]
+        [::std::mem::offset_of!(slurmdb_assoc_usage, usage_tres_raw) - 160usize];
+    ["Offset of field: slurmdb_assoc_usage::used_jobs"]
+        [::std::mem::offset_of!(slurmdb_assoc_usage, used_jobs) - 168usize];
+    ["Offset of field: slurmdb_assoc_usage::used_submit_jobs"]
+        [::std::mem::offset_of!(slurmdb_assoc_usage, used_submit_jobs) - 172usize];
+    ["Offset of field: slurmdb_assoc_usage::level_fs"]
+        [::std::mem::offset_of!(slurmdb_assoc_usage, level_fs) - 176usize];
+    ["Offset of field: slurmdb_assoc_usage::valid_qos"]
+        [::std::mem::offset_of!(slurmdb_assoc_usage, valid_qos) - 192usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_bf_usage {
+    pub count: u64,
+    pub last_sched: time_t,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_bf_usage"][::std::mem::size_of::<slurmdb_bf_usage>() - 16usize];
+    ["Alignment of slurmdb_bf_usage"][::std::mem::align_of::<slurmdb_bf_usage>() - 8usize];
+    ["Offset of field: slurmdb_bf_usage::count"]
+        [::std::mem::offset_of!(slurmdb_bf_usage, count) - 0usize];
+    ["Offset of field: slurmdb_bf_usage::last_sched"]
+        [::std::mem::offset_of!(slurmdb_bf_usage, last_sched) - 8usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_cluster_cond_t {
+    pub classification: u16,
+    pub cluster_list: *mut list_t,
+    pub federation_list: *mut list_t,
+    pub flags: u32,
+    pub format_list: *mut list_t,
+    pub rpc_version_list: *mut list_t,
+    pub usage_end: time_t,
+    pub usage_start: time_t,
+    pub with_deleted: u16,
+    pub with_usage: u16,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_cluster_cond_t"][::std::mem::size_of::<slurmdb_cluster_cond_t>() - 72usize];
+    ["Alignment of slurmdb_cluster_cond_t"]
+        [::std::mem::align_of::<slurmdb_cluster_cond_t>() - 8usize];
+    ["Offset of field: slurmdb_cluster_cond_t::classification"]
+        [::std::mem::offset_of!(slurmdb_cluster_cond_t, classification) - 0usize];
+    ["Offset of field: slurmdb_cluster_cond_t::cluster_list"]
+        [::std::mem::offset_of!(slurmdb_cluster_cond_t, cluster_list) - 8usize];
+    ["Offset of field: slurmdb_cluster_cond_t::federation_list"]
+        [::std::mem::offset_of!(slurmdb_cluster_cond_t, federation_list) - 16usize];
+    ["Offset of field: slurmdb_cluster_cond_t::flags"]
+        [::std::mem::offset_of!(slurmdb_cluster_cond_t, flags) - 24usize];
+    ["Offset of field: slurmdb_cluster_cond_t::format_list"]
+        [::std::mem::offset_of!(slurmdb_cluster_cond_t, format_list) - 32usize];
+    ["Offset of field: slurmdb_cluster_cond_t::rpc_version_list"]
+        [::std::mem::offset_of!(slurmdb_cluster_cond_t, rpc_version_list) - 40usize];
+    ["Offset of field: slurmdb_cluster_cond_t::usage_end"]
+        [::std::mem::offset_of!(slurmdb_cluster_cond_t, usage_end) - 48usize];
+    ["Offset of field: slurmdb_cluster_cond_t::usage_start"]
+        [::std::mem::offset_of!(slurmdb_cluster_cond_t, usage_start) - 56usize];
+    ["Offset of field: slurmdb_cluster_cond_t::with_deleted"]
+        [::std::mem::offset_of!(slurmdb_cluster_cond_t, with_deleted) - 64usize];
+    ["Offset of field: slurmdb_cluster_cond_t::with_usage"]
+        [::std::mem::offset_of!(slurmdb_cluster_cond_t, with_usage) - 66usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_cluster_fed_t {
+    pub feature_list: *mut list_t,
+    pub id: u32,
+    pub name: *mut ::std::os::raw::c_char,
+    pub recv: *mut ::std::os::raw::c_void,
+    pub send: *mut ::std::os::raw::c_void,
+    pub state: u32,
+    pub sync_recvd: bool,
+    pub sync_sent: bool,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_cluster_fed_t"][::std::mem::size_of::<slurmdb_cluster_fed_t>() - 48usize];
+    ["Alignment of slurmdb_cluster_fed_t"]
+        [::std::mem::align_of::<slurmdb_cluster_fed_t>() - 8usize];
+    ["Offset of field: slurmdb_cluster_fed_t::feature_list"]
+        [::std::mem::offset_of!(slurmdb_cluster_fed_t, feature_list) - 0usize];
+    ["Offset of field: slurmdb_cluster_fed_t::id"]
+        [::std::mem::offset_of!(slurmdb_cluster_fed_t, id) - 8usize];
+    ["Offset of field: slurmdb_cluster_fed_t::name"]
+        [::std::mem::offset_of!(slurmdb_cluster_fed_t, name) - 16usize];
+    ["Offset of field: slurmdb_cluster_fed_t::recv"]
+        [::std::mem::offset_of!(slurmdb_cluster_fed_t, recv) - 24usize];
+    ["Offset of field: slurmdb_cluster_fed_t::send"]
+        [::std::mem::offset_of!(slurmdb_cluster_fed_t, send) - 32usize];
+    ["Offset of field: slurmdb_cluster_fed_t::state"]
+        [::std::mem::offset_of!(slurmdb_cluster_fed_t, state) - 40usize];
+    ["Offset of field: slurmdb_cluster_fed_t::sync_recvd"]
+        [::std::mem::offset_of!(slurmdb_cluster_fed_t, sync_recvd) - 44usize];
+    ["Offset of field: slurmdb_cluster_fed_t::sync_sent"]
+        [::std::mem::offset_of!(slurmdb_cluster_fed_t, sync_sent) - 45usize];
+};
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct slurmdb_cluster_rec {
+    pub accounting_list: *mut list_t,
+    pub classification: u16,
+    pub comm_fail_time: time_t,
+    pub control_addr: slurm_addr_t,
+    pub control_host: *mut ::std::os::raw::c_char,
+    pub control_port: u32,
+    pub dimensions: u16,
+    pub dim_size: *mut ::std::os::raw::c_int,
+    pub id: u16,
+    pub fed: slurmdb_cluster_fed_t,
+    pub flags: u32,
+    pub lock: pthread_mutex_t,
+    pub name: *mut ::std::os::raw::c_char,
+    pub nodes: *mut ::std::os::raw::c_char,
+    pub root_assoc: *mut slurmdb_assoc_rec_t,
+    pub rpc_version: u16,
+    pub send_rpc: *mut list_t,
+    pub tres_str: *mut ::std::os::raw::c_char,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_cluster_rec"][::std::mem::size_of::<slurmdb_cluster_rec>() - 328usize];
+    ["Alignment of slurmdb_cluster_rec"][::std::mem::align_of::<slurmdb_cluster_rec>() - 8usize];
+    ["Offset of field: slurmdb_cluster_rec::accounting_list"]
+        [::std::mem::offset_of!(slurmdb_cluster_rec, accounting_list) - 0usize];
+    ["Offset of field: slurmdb_cluster_rec::classification"]
+        [::std::mem::offset_of!(slurmdb_cluster_rec, classification) - 8usize];
+    ["Offset of field: slurmdb_cluster_rec::comm_fail_time"]
+        [::std::mem::offset_of!(slurmdb_cluster_rec, comm_fail_time) - 16usize];
+    ["Offset of field: slurmdb_cluster_rec::control_addr"]
+        [::std::mem::offset_of!(slurmdb_cluster_rec, control_addr) - 24usize];
+    ["Offset of field: slurmdb_cluster_rec::control_host"]
+        [::std::mem::offset_of!(slurmdb_cluster_rec, control_host) - 152usize];
+    ["Offset of field: slurmdb_cluster_rec::control_port"]
+        [::std::mem::offset_of!(slurmdb_cluster_rec, control_port) - 160usize];
+    ["Offset of field: slurmdb_cluster_rec::dimensions"]
+        [::std::mem::offset_of!(slurmdb_cluster_rec, dimensions) - 164usize];
+    ["Offset of field: slurmdb_cluster_rec::dim_size"]
+        [::std::mem::offset_of!(slurmdb_cluster_rec, dim_size) - 168usize];
+    ["Offset of field: slurmdb_cluster_rec::id"]
+        [::std::mem::offset_of!(slurmdb_cluster_rec, id) - 176usize];
+    ["Offset of field: slurmdb_cluster_rec::fed"]
+        [::std::mem::offset_of!(slurmdb_cluster_rec, fed) - 184usize];
+    ["Offset of field: slurmdb_cluster_rec::flags"]
+        [::std::mem::offset_of!(slurmdb_cluster_rec, flags) - 232usize];
+    ["Offset of field: slurmdb_cluster_rec::lock"]
+        [::std::mem::offset_of!(slurmdb_cluster_rec, lock) - 240usize];
+    ["Offset of field: slurmdb_cluster_rec::name"]
+        [::std::mem::offset_of!(slurmdb_cluster_rec, name) - 280usize];
+    ["Offset of field: slurmdb_cluster_rec::nodes"]
+        [::std::mem::offset_of!(slurmdb_cluster_rec, nodes) - 288usize];
+    ["Offset of field: slurmdb_cluster_rec::root_assoc"]
+        [::std::mem::offset_of!(slurmdb_cluster_rec, root_assoc) - 296usize];
+    ["Offset of field: slurmdb_cluster_rec::rpc_version"]
+        [::std::mem::offset_of!(slurmdb_cluster_rec, rpc_version) - 304usize];
+    ["Offset of field: slurmdb_cluster_rec::send_rpc"]
+        [::std::mem::offset_of!(slurmdb_cluster_rec, send_rpc) - 312usize];
+    ["Offset of field: slurmdb_cluster_rec::tres_str"]
+        [::std::mem::offset_of!(slurmdb_cluster_rec, tres_str) - 320usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_cluster_accounting_rec_t {
+    pub alloc_secs: u64,
+    pub down_secs: u64,
+    pub idle_secs: u64,
+    pub over_secs: u64,
+    pub pdown_secs: u64,
+    pub period_start: time_t,
+    pub plan_secs: u64,
+    pub tres_rec: slurmdb_tres_rec_t,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_cluster_accounting_rec_t"]
+        [::std::mem::size_of::<slurmdb_cluster_accounting_rec_t>() - 104usize];
+    ["Alignment of slurmdb_cluster_accounting_rec_t"]
+        [::std::mem::align_of::<slurmdb_cluster_accounting_rec_t>() - 8usize];
+    ["Offset of field: slurmdb_cluster_accounting_rec_t::alloc_secs"]
+        [::std::mem::offset_of!(slurmdb_cluster_accounting_rec_t, alloc_secs) - 0usize];
+    ["Offset of field: slurmdb_cluster_accounting_rec_t::down_secs"]
+        [::std::mem::offset_of!(slurmdb_cluster_accounting_rec_t, down_secs) - 8usize];
+    ["Offset of field: slurmdb_cluster_accounting_rec_t::idle_secs"]
+        [::std::mem::offset_of!(slurmdb_cluster_accounting_rec_t, idle_secs) - 16usize];
+    ["Offset of field: slurmdb_cluster_accounting_rec_t::over_secs"]
+        [::std::mem::offset_of!(slurmdb_cluster_accounting_rec_t, over_secs) - 24usize];
+    ["Offset of field: slurmdb_cluster_accounting_rec_t::pdown_secs"]
+        [::std::mem::offset_of!(slurmdb_cluster_accounting_rec_t, pdown_secs) - 32usize];
+    ["Offset of field: slurmdb_cluster_accounting_rec_t::period_start"]
+        [::std::mem::offset_of!(slurmdb_cluster_accounting_rec_t, period_start) - 40usize];
+    ["Offset of field: slurmdb_cluster_accounting_rec_t::plan_secs"]
+        [::std::mem::offset_of!(slurmdb_cluster_accounting_rec_t, plan_secs) - 48usize];
+    ["Offset of field: slurmdb_cluster_accounting_rec_t::tres_rec"]
+        [::std::mem::offset_of!(slurmdb_cluster_accounting_rec_t, tres_rec) - 56usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_clus_res_rec_t {
+    pub cluster: *mut ::std::os::raw::c_char,
+    pub allowed: u32,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_clus_res_rec_t"][::std::mem::size_of::<slurmdb_clus_res_rec_t>() - 16usize];
+    ["Alignment of slurmdb_clus_res_rec_t"]
+        [::std::mem::align_of::<slurmdb_clus_res_rec_t>() - 8usize];
+    ["Offset of field: slurmdb_clus_res_rec_t::cluster"]
+        [::std::mem::offset_of!(slurmdb_clus_res_rec_t, cluster) - 0usize];
+    ["Offset of field: slurmdb_clus_res_rec_t::allowed"]
+        [::std::mem::offset_of!(slurmdb_clus_res_rec_t, allowed) - 8usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_coord_rec_t {
+    pub name: *mut ::std::os::raw::c_char,
+    pub direct: u16,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_coord_rec_t"][::std::mem::size_of::<slurmdb_coord_rec_t>() - 16usize];
+    ["Alignment of slurmdb_coord_rec_t"][::std::mem::align_of::<slurmdb_coord_rec_t>() - 8usize];
+    ["Offset of field: slurmdb_coord_rec_t::name"]
+        [::std::mem::offset_of!(slurmdb_coord_rec_t, name) - 0usize];
+    ["Offset of field: slurmdb_coord_rec_t::direct"]
+        [::std::mem::offset_of!(slurmdb_coord_rec_t, direct) - 8usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_event_cond_t {
+    pub cluster_list: *mut list_t,
+    pub cond_flags: u32,
+    pub cpus_max: u32,
+    pub cpus_min: u32,
+    pub event_type: u16,
+    pub format_list: *mut list_t,
+    pub node_list: *mut ::std::os::raw::c_char,
+    pub period_end: time_t,
+    pub period_start: time_t,
+    pub reason_list: *mut list_t,
+    pub reason_uid_list: *mut list_t,
+    pub state_list: *mut list_t,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_event_cond_t"][::std::mem::size_of::<slurmdb_event_cond_t>() - 80usize];
+    ["Alignment of slurmdb_event_cond_t"][::std::mem::align_of::<slurmdb_event_cond_t>() - 8usize];
+    ["Offset of field: slurmdb_event_cond_t::cluster_list"]
+        [::std::mem::offset_of!(slurmdb_event_cond_t, cluster_list) - 0usize];
+    ["Offset of field: slurmdb_event_cond_t::cond_flags"]
+        [::std::mem::offset_of!(slurmdb_event_cond_t, cond_flags) - 8usize];
+    ["Offset of field: slurmdb_event_cond_t::cpus_max"]
+        [::std::mem::offset_of!(slurmdb_event_cond_t, cpus_max) - 12usize];
+    ["Offset of field: slurmdb_event_cond_t::cpus_min"]
+        [::std::mem::offset_of!(slurmdb_event_cond_t, cpus_min) - 16usize];
+    ["Offset of field: slurmdb_event_cond_t::event_type"]
+        [::std::mem::offset_of!(slurmdb_event_cond_t, event_type) - 20usize];
+    ["Offset of field: slurmdb_event_cond_t::format_list"]
+        [::std::mem::offset_of!(slurmdb_event_cond_t, format_list) - 24usize];
+    ["Offset of field: slurmdb_event_cond_t::node_list"]
+        [::std::mem::offset_of!(slurmdb_event_cond_t, node_list) - 32usize];
+    ["Offset of field: slurmdb_event_cond_t::period_end"]
+        [::std::mem::offset_of!(slurmdb_event_cond_t, period_end) - 40usize];
+    ["Offset of field: slurmdb_event_cond_t::period_start"]
+        [::std::mem::offset_of!(slurmdb_event_cond_t, period_start) - 48usize];
+    ["Offset of field: slurmdb_event_cond_t::reason_list"]
+        [::std::mem::offset_of!(slurmdb_event_cond_t, reason_list) - 56usize];
+    ["Offset of field: slurmdb_event_cond_t::reason_uid_list"]
+        [::std::mem::offset_of!(slurmdb_event_cond_t, reason_uid_list) - 64usize];
+    ["Offset of field: slurmdb_event_cond_t::state_list"]
+        [::std::mem::offset_of!(slurmdb_event_cond_t, state_list) - 72usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_event_rec_t {
+    pub cluster: *mut ::std::os::raw::c_char,
+    pub cluster_nodes: *mut ::std::os::raw::c_char,
+    pub event_type: u16,
+    pub node_name: *mut ::std::os::raw::c_char,
+    pub period_end: time_t,
+    pub period_start: time_t,
+    pub reason: *mut ::std::os::raw::c_char,
+    pub reason_uid: u32,
+    pub state: u32,
+    pub tres_str: *mut ::std::os::raw::c_char,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_event_rec_t"][::std::mem::size_of::<slurmdb_event_rec_t>() - 72usize];
+    ["Alignment of slurmdb_event_rec_t"][::std::mem::align_of::<slurmdb_event_rec_t>() - 8usize];
+    ["Offset of field: slurmdb_event_rec_t::cluster"]
+        [::std::mem::offset_of!(slurmdb_event_rec_t, cluster) - 0usize];
+    ["Offset of field: slurmdb_event_rec_t::cluster_nodes"]
+        [::std::mem::offset_of!(slurmdb_event_rec_t, cluster_nodes) - 8usize];
+    ["Offset of field: slurmdb_event_rec_t::event_type"]
+        [::std::mem::offset_of!(slurmdb_event_rec_t, event_type) - 16usize];
+    ["Offset of field: slurmdb_event_rec_t::node_name"]
+        [::std::mem::offset_of!(slurmdb_event_rec_t, node_name) - 24usize];
+    ["Offset of field: slurmdb_event_rec_t::period_end"]
+        [::std::mem::offset_of!(slurmdb_event_rec_t, period_end) - 32usize];
+    ["Offset of field: slurmdb_event_rec_t::period_start"]
+        [::std::mem::offset_of!(slurmdb_event_rec_t, period_start) - 40usize];
+    ["Offset of field: slurmdb_event_rec_t::reason"]
+        [::std::mem::offset_of!(slurmdb_event_rec_t, reason) - 48usize];
+    ["Offset of field: slurmdb_event_rec_t::reason_uid"]
+        [::std::mem::offset_of!(slurmdb_event_rec_t, reason_uid) - 56usize];
+    ["Offset of field: slurmdb_event_rec_t::state"]
+        [::std::mem::offset_of!(slurmdb_event_rec_t, state) - 60usize];
+    ["Offset of field: slurmdb_event_rec_t::tres_str"]
+        [::std::mem::offset_of!(slurmdb_event_rec_t, tres_str) - 64usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_federation_cond_t {
+    pub cluster_list: *mut list_t,
+    pub federation_list: *mut list_t,
+    pub format_list: *mut list_t,
+    pub with_deleted: u16,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_federation_cond_t"]
+        [::std::mem::size_of::<slurmdb_federation_cond_t>() - 32usize];
+    ["Alignment of slurmdb_federation_cond_t"]
+        [::std::mem::align_of::<slurmdb_federation_cond_t>() - 8usize];
+    ["Offset of field: slurmdb_federation_cond_t::cluster_list"]
+        [::std::mem::offset_of!(slurmdb_federation_cond_t, cluster_list) - 0usize];
+    ["Offset of field: slurmdb_federation_cond_t::federation_list"]
+        [::std::mem::offset_of!(slurmdb_federation_cond_t, federation_list) - 8usize];
+    ["Offset of field: slurmdb_federation_cond_t::format_list"]
+        [::std::mem::offset_of!(slurmdb_federation_cond_t, format_list) - 16usize];
+    ["Offset of field: slurmdb_federation_cond_t::with_deleted"]
+        [::std::mem::offset_of!(slurmdb_federation_cond_t, with_deleted) - 24usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_federation_rec_t {
+    pub name: *mut ::std::os::raw::c_char,
+    pub flags: u32,
+    pub cluster_list: *mut list_t,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_federation_rec_t"]
+        [::std::mem::size_of::<slurmdb_federation_rec_t>() - 24usize];
+    ["Alignment of slurmdb_federation_rec_t"]
+        [::std::mem::align_of::<slurmdb_federation_rec_t>() - 8usize];
+    ["Offset of field: slurmdb_federation_rec_t::name"]
+        [::std::mem::offset_of!(slurmdb_federation_rec_t, name) - 0usize];
+    ["Offset of field: slurmdb_federation_rec_t::flags"]
+        [::std::mem::offset_of!(slurmdb_federation_rec_t, flags) - 8usize];
+    ["Offset of field: slurmdb_federation_rec_t::cluster_list"]
+        [::std::mem::offset_of!(slurmdb_federation_rec_t, cluster_list) - 16usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_instance_cond_t {
+    pub cluster_list: *mut list_t,
+    pub extra_list: *mut list_t,
+    pub format_list: *mut list_t,
+    pub instance_id_list: *mut list_t,
+    pub instance_type_list: *mut list_t,
+    pub node_list: *mut ::std::os::raw::c_char,
+    pub time_end: time_t,
+    pub time_start: time_t,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_instance_cond_t"][::std::mem::size_of::<slurmdb_instance_cond_t>() - 64usize];
+    ["Alignment of slurmdb_instance_cond_t"]
+        [::std::mem::align_of::<slurmdb_instance_cond_t>() - 8usize];
+    ["Offset of field: slurmdb_instance_cond_t::cluster_list"]
+        [::std::mem::offset_of!(slurmdb_instance_cond_t, cluster_list) - 0usize];
+    ["Offset of field: slurmdb_instance_cond_t::extra_list"]
+        [::std::mem::offset_of!(slurmdb_instance_cond_t, extra_list) - 8usize];
+    ["Offset of field: slurmdb_instance_cond_t::format_list"]
+        [::std::mem::offset_of!(slurmdb_instance_cond_t, format_list) - 16usize];
+    ["Offset of field: slurmdb_instance_cond_t::instance_id_list"]
+        [::std::mem::offset_of!(slurmdb_instance_cond_t, instance_id_list) - 24usize];
+    ["Offset of field: slurmdb_instance_cond_t::instance_type_list"]
+        [::std::mem::offset_of!(slurmdb_instance_cond_t, instance_type_list) - 32usize];
+    ["Offset of field: slurmdb_instance_cond_t::node_list"]
+        [::std::mem::offset_of!(slurmdb_instance_cond_t, node_list) - 40usize];
+    ["Offset of field: slurmdb_instance_cond_t::time_end"]
+        [::std::mem::offset_of!(slurmdb_instance_cond_t, time_end) - 48usize];
+    ["Offset of field: slurmdb_instance_cond_t::time_start"]
+        [::std::mem::offset_of!(slurmdb_instance_cond_t, time_start) - 56usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_instance_rec_t {
+    pub cluster: *mut ::std::os::raw::c_char,
+    pub extra: *mut ::std::os::raw::c_char,
+    pub instance_id: *mut ::std::os::raw::c_char,
+    pub instance_type: *mut ::std::os::raw::c_char,
+    pub node_name: *mut ::std::os::raw::c_char,
+    pub time_end: time_t,
+    pub time_start: time_t,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_instance_rec_t"][::std::mem::size_of::<slurmdb_instance_rec_t>() - 56usize];
+    ["Alignment of slurmdb_instance_rec_t"]
+        [::std::mem::align_of::<slurmdb_instance_rec_t>() - 8usize];
+    ["Offset of field: slurmdb_instance_rec_t::cluster"]
+        [::std::mem::offset_of!(slurmdb_instance_rec_t, cluster) - 0usize];
+    ["Offset of field: slurmdb_instance_rec_t::extra"]
+        [::std::mem::offset_of!(slurmdb_instance_rec_t, extra) - 8usize];
+    ["Offset of field: slurmdb_instance_rec_t::instance_id"]
+        [::std::mem::offset_of!(slurmdb_instance_rec_t, instance_id) - 16usize];
+    ["Offset of field: slurmdb_instance_rec_t::instance_type"]
+        [::std::mem::offset_of!(slurmdb_instance_rec_t, instance_type) - 24usize];
+    ["Offset of field: slurmdb_instance_rec_t::node_name"]
+        [::std::mem::offset_of!(slurmdb_instance_rec_t, node_name) - 32usize];
+    ["Offset of field: slurmdb_instance_rec_t::time_end"]
+        [::std::mem::offset_of!(slurmdb_instance_rec_t, time_end) - 40usize];
+    ["Offset of field: slurmdb_instance_rec_t::time_start"]
+        [::std::mem::offset_of!(slurmdb_instance_rec_t, time_start) - 48usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_job_rec_t {
+    pub account: *mut ::std::os::raw::c_char,
+    pub admin_comment: *mut ::std::os::raw::c_char,
+    pub alloc_nodes: u32,
+    pub array_job_id: u32,
+    pub array_max_tasks: u32,
+    pub array_task_id: u32,
+    pub array_task_str: *mut ::std::os::raw::c_char,
+    pub associd: u32,
+    pub blockid: *mut ::std::os::raw::c_char,
+    pub cluster: *mut ::std::os::raw::c_char,
+    pub constraints: *mut ::std::os::raw::c_char,
+    pub container: *mut ::std::os::raw::c_char,
+    pub db_index: u64,
+    pub derived_ec: u32,
+    pub derived_es: *mut ::std::os::raw::c_char,
+    pub elapsed: u32,
+    pub eligible: time_t,
+    pub end: time_t,
+    pub env: *mut ::std::os::raw::c_char,
+    pub exitcode: u32,
+    pub extra: *mut ::std::os::raw::c_char,
+    pub failed_node: *mut ::std::os::raw::c_char,
+    pub flags: u32,
+    pub first_step_ptr: *mut ::std::os::raw::c_void,
+    pub gid: u32,
+    pub het_job_id: u32,
+    pub het_job_offset: u32,
+    pub jobid: u32,
+    pub jobname: *mut ::std::os::raw::c_char,
+    pub lft: u32,
+    pub lineage: *mut ::std::os::raw::c_char,
+    pub licenses: *mut ::std::os::raw::c_char,
+    pub mcs_label: *mut ::std::os::raw::c_char,
+    pub nodes: *mut ::std::os::raw::c_char,
+    pub partition: *mut ::std::os::raw::c_char,
+    pub priority: u32,
+    pub qosid: u32,
+    pub qos_req: *mut ::std::os::raw::c_char,
+    pub req_cpus: u32,
+    pub req_mem: u64,
+    pub requid: u32,
+    pub restart_cnt: u16,
+    pub resvid: u32,
+    pub resv_name: *mut ::std::os::raw::c_char,
+    pub script: *mut ::std::os::raw::c_char,
+    pub show_full: u32,
+    pub start: time_t,
+    pub state: u32,
+    pub state_reason_prev: u32,
+    pub steps: *mut list_t,
+    pub std_err: *mut ::std::os::raw::c_char,
+    pub std_in: *mut ::std::os::raw::c_char,
+    pub std_out: *mut ::std::os::raw::c_char,
+    pub submit: time_t,
+    pub submit_line: *mut ::std::os::raw::c_char,
+    pub suspended: u32,
+    pub system_comment: *mut ::std::os::raw::c_char,
+    pub sys_cpu_sec: u64,
+    pub sys_cpu_usec: u64,
+    pub timelimit: u32,
+    pub tot_cpu_sec: u64,
+    pub tot_cpu_usec: u64,
+    pub tres_alloc_str: *mut ::std::os::raw::c_char,
+    pub tres_req_str: *mut ::std::os::raw::c_char,
+    pub uid: u32,
+    pub used_gres: *mut ::std::os::raw::c_char,
+    pub user: *mut ::std::os::raw::c_char,
+    pub user_cpu_sec: u64,
+    pub user_cpu_usec: u64,
+    pub wckey: *mut ::std::os::raw::c_char,
+    pub wckeyid: u32,
+    pub work_dir: *mut ::std::os::raw::c_char,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_job_rec_t"][::std::mem::size_of::<slurmdb_job_rec_t>() - 520usize];
+    ["Alignment of slurmdb_job_rec_t"][::std::mem::align_of::<slurmdb_job_rec_t>() - 8usize];
+    ["Offset of field: slurmdb_job_rec_t::account"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, account) - 0usize];
+    ["Offset of field: slurmdb_job_rec_t::admin_comment"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, admin_comment) - 8usize];
+    ["Offset of field: slurmdb_job_rec_t::alloc_nodes"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, alloc_nodes) - 16usize];
+    ["Offset of field: slurmdb_job_rec_t::array_job_id"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, array_job_id) - 20usize];
+    ["Offset of field: slurmdb_job_rec_t::array_max_tasks"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, array_max_tasks) - 24usize];
+    ["Offset of field: slurmdb_job_rec_t::array_task_id"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, array_task_id) - 28usize];
+    ["Offset of field: slurmdb_job_rec_t::array_task_str"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, array_task_str) - 32usize];
+    ["Offset of field: slurmdb_job_rec_t::associd"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, associd) - 40usize];
+    ["Offset of field: slurmdb_job_rec_t::blockid"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, blockid) - 48usize];
+    ["Offset of field: slurmdb_job_rec_t::cluster"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, cluster) - 56usize];
+    ["Offset of field: slurmdb_job_rec_t::constraints"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, constraints) - 64usize];
+    ["Offset of field: slurmdb_job_rec_t::container"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, container) - 72usize];
+    ["Offset of field: slurmdb_job_rec_t::db_index"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, db_index) - 80usize];
+    ["Offset of field: slurmdb_job_rec_t::derived_ec"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, derived_ec) - 88usize];
+    ["Offset of field: slurmdb_job_rec_t::derived_es"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, derived_es) - 96usize];
+    ["Offset of field: slurmdb_job_rec_t::elapsed"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, elapsed) - 104usize];
+    ["Offset of field: slurmdb_job_rec_t::eligible"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, eligible) - 112usize];
+    ["Offset of field: slurmdb_job_rec_t::end"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, end) - 120usize];
+    ["Offset of field: slurmdb_job_rec_t::env"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, env) - 128usize];
+    ["Offset of field: slurmdb_job_rec_t::exitcode"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, exitcode) - 136usize];
+    ["Offset of field: slurmdb_job_rec_t::extra"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, extra) - 144usize];
+    ["Offset of field: slurmdb_job_rec_t::failed_node"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, failed_node) - 152usize];
+    ["Offset of field: slurmdb_job_rec_t::flags"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, flags) - 160usize];
+    ["Offset of field: slurmdb_job_rec_t::first_step_ptr"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, first_step_ptr) - 168usize];
+    ["Offset of field: slurmdb_job_rec_t::gid"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, gid) - 176usize];
+    ["Offset of field: slurmdb_job_rec_t::het_job_id"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, het_job_id) - 180usize];
+    ["Offset of field: slurmdb_job_rec_t::het_job_offset"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, het_job_offset) - 184usize];
+    ["Offset of field: slurmdb_job_rec_t::jobid"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, jobid) - 188usize];
+    ["Offset of field: slurmdb_job_rec_t::jobname"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, jobname) - 192usize];
+    ["Offset of field: slurmdb_job_rec_t::lft"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, lft) - 200usize];
+    ["Offset of field: slurmdb_job_rec_t::lineage"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, lineage) - 208usize];
+    ["Offset of field: slurmdb_job_rec_t::licenses"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, licenses) - 216usize];
+    ["Offset of field: slurmdb_job_rec_t::mcs_label"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, mcs_label) - 224usize];
+    ["Offset of field: slurmdb_job_rec_t::nodes"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, nodes) - 232usize];
+    ["Offset of field: slurmdb_job_rec_t::partition"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, partition) - 240usize];
+    ["Offset of field: slurmdb_job_rec_t::priority"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, priority) - 248usize];
+    ["Offset of field: slurmdb_job_rec_t::qosid"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, qosid) - 252usize];
+    ["Offset of field: slurmdb_job_rec_t::qos_req"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, qos_req) - 256usize];
+    ["Offset of field: slurmdb_job_rec_t::req_cpus"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, req_cpus) - 264usize];
+    ["Offset of field: slurmdb_job_rec_t::req_mem"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, req_mem) - 272usize];
+    ["Offset of field: slurmdb_job_rec_t::requid"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, requid) - 280usize];
+    ["Offset of field: slurmdb_job_rec_t::restart_cnt"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, restart_cnt) - 284usize];
+    ["Offset of field: slurmdb_job_rec_t::resvid"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, resvid) - 288usize];
+    ["Offset of field: slurmdb_job_rec_t::resv_name"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, resv_name) - 296usize];
+    ["Offset of field: slurmdb_job_rec_t::script"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, script) - 304usize];
+    ["Offset of field: slurmdb_job_rec_t::show_full"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, show_full) - 312usize];
+    ["Offset of field: slurmdb_job_rec_t::start"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, start) - 320usize];
+    ["Offset of field: slurmdb_job_rec_t::state"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, state) - 328usize];
+    ["Offset of field: slurmdb_job_rec_t::state_reason_prev"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, state_reason_prev) - 332usize];
+    ["Offset of field: slurmdb_job_rec_t::steps"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, steps) - 336usize];
+    ["Offset of field: slurmdb_job_rec_t::std_err"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, std_err) - 344usize];
+    ["Offset of field: slurmdb_job_rec_t::std_in"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, std_in) - 352usize];
+    ["Offset of field: slurmdb_job_rec_t::std_out"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, std_out) - 360usize];
+    ["Offset of field: slurmdb_job_rec_t::submit"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, submit) - 368usize];
+    ["Offset of field: slurmdb_job_rec_t::submit_line"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, submit_line) - 376usize];
+    ["Offset of field: slurmdb_job_rec_t::suspended"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, suspended) - 384usize];
+    ["Offset of field: slurmdb_job_rec_t::system_comment"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, system_comment) - 392usize];
+    ["Offset of field: slurmdb_job_rec_t::sys_cpu_sec"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, sys_cpu_sec) - 400usize];
+    ["Offset of field: slurmdb_job_rec_t::sys_cpu_usec"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, sys_cpu_usec) - 408usize];
+    ["Offset of field: slurmdb_job_rec_t::timelimit"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, timelimit) - 416usize];
+    ["Offset of field: slurmdb_job_rec_t::tot_cpu_sec"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, tot_cpu_sec) - 424usize];
+    ["Offset of field: slurmdb_job_rec_t::tot_cpu_usec"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, tot_cpu_usec) - 432usize];
+    ["Offset of field: slurmdb_job_rec_t::tres_alloc_str"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, tres_alloc_str) - 440usize];
+    ["Offset of field: slurmdb_job_rec_t::tres_req_str"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, tres_req_str) - 448usize];
+    ["Offset of field: slurmdb_job_rec_t::uid"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, uid) - 456usize];
+    ["Offset of field: slurmdb_job_rec_t::used_gres"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, used_gres) - 464usize];
+    ["Offset of field: slurmdb_job_rec_t::user"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, user) - 472usize];
+    ["Offset of field: slurmdb_job_rec_t::user_cpu_sec"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, user_cpu_sec) - 480usize];
+    ["Offset of field: slurmdb_job_rec_t::user_cpu_usec"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, user_cpu_usec) - 488usize];
+    ["Offset of field: slurmdb_job_rec_t::wckey"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, wckey) - 496usize];
+    ["Offset of field: slurmdb_job_rec_t::wckeyid"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, wckeyid) - 504usize];
+    ["Offset of field: slurmdb_job_rec_t::work_dir"]
+        [::std::mem::offset_of!(slurmdb_job_rec_t, work_dir) - 512usize];
+};
+#[repr(C)]
+#[repr(align(16))]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_qos_usage_t {
+    pub accrue_cnt: u32,
+    pub acct_limit_list: *mut list_t,
+    pub job_list: *mut list_t,
+    pub grp_node_bitmap: *mut bitstr_t,
+    pub grp_node_job_cnt: *mut u16,
+    pub grp_used_jobs: u32,
+    pub grp_used_submit_jobs: u32,
+    pub grp_used_tres: *mut u64,
+    pub grp_used_tres_run_secs: *mut u64,
+    pub grp_used_wall: f64,
+    pub norm_priority: f64,
+    pub tres_cnt: u32,
+    pub __bindgen_padding_0: u64,
+    pub usage_raw: u128,
+    pub usage_tres_raw: *mut u128,
+    pub user_limit_list: *mut list_t,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_qos_usage_t"][::std::mem::size_of::<slurmdb_qos_usage_t>() - 128usize];
+    ["Alignment of slurmdb_qos_usage_t"][::std::mem::align_of::<slurmdb_qos_usage_t>() - 16usize];
+    ["Offset of field: slurmdb_qos_usage_t::accrue_cnt"]
+        [::std::mem::offset_of!(slurmdb_qos_usage_t, accrue_cnt) - 0usize];
+    ["Offset of field: slurmdb_qos_usage_t::acct_limit_list"]
+        [::std::mem::offset_of!(slurmdb_qos_usage_t, acct_limit_list) - 8usize];
+    ["Offset of field: slurmdb_qos_usage_t::job_list"]
+        [::std::mem::offset_of!(slurmdb_qos_usage_t, job_list) - 16usize];
+    ["Offset of field: slurmdb_qos_usage_t::grp_node_bitmap"]
+        [::std::mem::offset_of!(slurmdb_qos_usage_t, grp_node_bitmap) - 24usize];
+    ["Offset of field: slurmdb_qos_usage_t::grp_node_job_cnt"]
+        [::std::mem::offset_of!(slurmdb_qos_usage_t, grp_node_job_cnt) - 32usize];
+    ["Offset of field: slurmdb_qos_usage_t::grp_used_jobs"]
+        [::std::mem::offset_of!(slurmdb_qos_usage_t, grp_used_jobs) - 40usize];
+    ["Offset of field: slurmdb_qos_usage_t::grp_used_submit_jobs"]
+        [::std::mem::offset_of!(slurmdb_qos_usage_t, grp_used_submit_jobs) - 44usize];
+    ["Offset of field: slurmdb_qos_usage_t::grp_used_tres"]
+        [::std::mem::offset_of!(slurmdb_qos_usage_t, grp_used_tres) - 48usize];
+    ["Offset of field: slurmdb_qos_usage_t::grp_used_tres_run_secs"]
+        [::std::mem::offset_of!(slurmdb_qos_usage_t, grp_used_tres_run_secs) - 56usize];
+    ["Offset of field: slurmdb_qos_usage_t::grp_used_wall"]
+        [::std::mem::offset_of!(slurmdb_qos_usage_t, grp_used_wall) - 64usize];
+    ["Offset of field: slurmdb_qos_usage_t::norm_priority"]
+        [::std::mem::offset_of!(slurmdb_qos_usage_t, norm_priority) - 72usize];
+    ["Offset of field: slurmdb_qos_usage_t::tres_cnt"]
+        [::std::mem::offset_of!(slurmdb_qos_usage_t, tres_cnt) - 80usize];
+    ["Offset of field: slurmdb_qos_usage_t::usage_raw"]
+        [::std::mem::offset_of!(slurmdb_qos_usage_t, usage_raw) - 96usize];
+    ["Offset of field: slurmdb_qos_usage_t::usage_tres_raw"]
+        [::std::mem::offset_of!(slurmdb_qos_usage_t, usage_tres_raw) - 112usize];
+    ["Offset of field: slurmdb_qos_usage_t::user_limit_list"]
+        [::std::mem::offset_of!(slurmdb_qos_usage_t, user_limit_list) - 120usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_qos_rec_t {
+    pub blocked_until: time_t,
+    pub description: *mut ::std::os::raw::c_char,
+    pub id: u32,
+    pub flags: u32,
+    pub grace_time: u32,
+    pub grp_jobs_accrue: u32,
+    pub grp_jobs: u32,
+    pub grp_submit_jobs: u32,
+    pub grp_tres: *mut ::std::os::raw::c_char,
+    pub grp_tres_ctld: *mut u64,
+    pub grp_tres_mins: *mut ::std::os::raw::c_char,
+    pub grp_tres_mins_ctld: *mut u64,
+    pub grp_tres_run_mins: *mut ::std::os::raw::c_char,
+    pub grp_tres_run_mins_ctld: *mut u64,
+    pub grp_wall: u32,
+    pub limit_factor: f64,
+    pub max_jobs_pa: u32,
+    pub max_jobs_pu: u32,
+    pub max_jobs_accrue_pa: u32,
+    pub max_jobs_accrue_pu: u32,
+    pub max_submit_jobs_pa: u32,
+    pub max_submit_jobs_pu: u32,
+    pub max_tres_mins_pj: *mut ::std::os::raw::c_char,
+    pub max_tres_mins_pj_ctld: *mut u64,
+    pub max_tres_pa: *mut ::std::os::raw::c_char,
+    pub max_tres_pa_ctld: *mut u64,
+    pub max_tres_pj: *mut ::std::os::raw::c_char,
+    pub max_tres_pj_ctld: *mut u64,
+    pub max_tres_pn: *mut ::std::os::raw::c_char,
+    pub max_tres_pn_ctld: *mut u64,
+    pub max_tres_pu: *mut ::std::os::raw::c_char,
+    pub max_tres_pu_ctld: *mut u64,
+    pub max_tres_run_mins_pa: *mut ::std::os::raw::c_char,
+    pub max_tres_run_mins_pa_ctld: *mut u64,
+    pub max_tres_run_mins_pu: *mut ::std::os::raw::c_char,
+    pub max_tres_run_mins_pu_ctld: *mut u64,
+    pub max_wall_pj: u32,
+    pub min_prio_thresh: u32,
+    pub min_tres_pj: *mut ::std::os::raw::c_char,
+    pub min_tres_pj_ctld: *mut u64,
+    pub name: *mut ::std::os::raw::c_char,
+    pub preempt_bitstr: *mut bitstr_t,
+    pub preempt_list: *mut list_t,
+    pub preempt_mode: u16,
+    pub preempt_exempt_time: u32,
+    pub priority: u32,
+    pub relative_tres_cnt: *mut u64,
+    pub usage: *mut slurmdb_qos_usage_t,
+    pub usage_factor: f64,
+    pub usage_thres: f64,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_qos_rec_t"][::std::mem::size_of::<slurmdb_qos_rec_t>() - 336usize];
+    ["Alignment of slurmdb_qos_rec_t"][::std::mem::align_of::<slurmdb_qos_rec_t>() - 8usize];
+    ["Offset of field: slurmdb_qos_rec_t::blocked_until"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, blocked_until) - 0usize];
+    ["Offset of field: slurmdb_qos_rec_t::description"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, description) - 8usize];
+    ["Offset of field: slurmdb_qos_rec_t::id"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, id) - 16usize];
+    ["Offset of field: slurmdb_qos_rec_t::flags"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, flags) - 20usize];
+    ["Offset of field: slurmdb_qos_rec_t::grace_time"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, grace_time) - 24usize];
+    ["Offset of field: slurmdb_qos_rec_t::grp_jobs_accrue"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, grp_jobs_accrue) - 28usize];
+    ["Offset of field: slurmdb_qos_rec_t::grp_jobs"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, grp_jobs) - 32usize];
+    ["Offset of field: slurmdb_qos_rec_t::grp_submit_jobs"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, grp_submit_jobs) - 36usize];
+    ["Offset of field: slurmdb_qos_rec_t::grp_tres"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, grp_tres) - 40usize];
+    ["Offset of field: slurmdb_qos_rec_t::grp_tres_ctld"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, grp_tres_ctld) - 48usize];
+    ["Offset of field: slurmdb_qos_rec_t::grp_tres_mins"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, grp_tres_mins) - 56usize];
+    ["Offset of field: slurmdb_qos_rec_t::grp_tres_mins_ctld"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, grp_tres_mins_ctld) - 64usize];
+    ["Offset of field: slurmdb_qos_rec_t::grp_tres_run_mins"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, grp_tres_run_mins) - 72usize];
+    ["Offset of field: slurmdb_qos_rec_t::grp_tres_run_mins_ctld"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, grp_tres_run_mins_ctld) - 80usize];
+    ["Offset of field: slurmdb_qos_rec_t::grp_wall"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, grp_wall) - 88usize];
+    ["Offset of field: slurmdb_qos_rec_t::limit_factor"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, limit_factor) - 96usize];
+    ["Offset of field: slurmdb_qos_rec_t::max_jobs_pa"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, max_jobs_pa) - 104usize];
+    ["Offset of field: slurmdb_qos_rec_t::max_jobs_pu"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, max_jobs_pu) - 108usize];
+    ["Offset of field: slurmdb_qos_rec_t::max_jobs_accrue_pa"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, max_jobs_accrue_pa) - 112usize];
+    ["Offset of field: slurmdb_qos_rec_t::max_jobs_accrue_pu"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, max_jobs_accrue_pu) - 116usize];
+    ["Offset of field: slurmdb_qos_rec_t::max_submit_jobs_pa"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, max_submit_jobs_pa) - 120usize];
+    ["Offset of field: slurmdb_qos_rec_t::max_submit_jobs_pu"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, max_submit_jobs_pu) - 124usize];
+    ["Offset of field: slurmdb_qos_rec_t::max_tres_mins_pj"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, max_tres_mins_pj) - 128usize];
+    ["Offset of field: slurmdb_qos_rec_t::max_tres_mins_pj_ctld"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, max_tres_mins_pj_ctld) - 136usize];
+    ["Offset of field: slurmdb_qos_rec_t::max_tres_pa"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, max_tres_pa) - 144usize];
+    ["Offset of field: slurmdb_qos_rec_t::max_tres_pa_ctld"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, max_tres_pa_ctld) - 152usize];
+    ["Offset of field: slurmdb_qos_rec_t::max_tres_pj"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, max_tres_pj) - 160usize];
+    ["Offset of field: slurmdb_qos_rec_t::max_tres_pj_ctld"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, max_tres_pj_ctld) - 168usize];
+    ["Offset of field: slurmdb_qos_rec_t::max_tres_pn"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, max_tres_pn) - 176usize];
+    ["Offset of field: slurmdb_qos_rec_t::max_tres_pn_ctld"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, max_tres_pn_ctld) - 184usize];
+    ["Offset of field: slurmdb_qos_rec_t::max_tres_pu"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, max_tres_pu) - 192usize];
+    ["Offset of field: slurmdb_qos_rec_t::max_tres_pu_ctld"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, max_tres_pu_ctld) - 200usize];
+    ["Offset of field: slurmdb_qos_rec_t::max_tres_run_mins_pa"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, max_tres_run_mins_pa) - 208usize];
+    ["Offset of field: slurmdb_qos_rec_t::max_tres_run_mins_pa_ctld"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, max_tres_run_mins_pa_ctld) - 216usize];
+    ["Offset of field: slurmdb_qos_rec_t::max_tres_run_mins_pu"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, max_tres_run_mins_pu) - 224usize];
+    ["Offset of field: slurmdb_qos_rec_t::max_tres_run_mins_pu_ctld"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, max_tres_run_mins_pu_ctld) - 232usize];
+    ["Offset of field: slurmdb_qos_rec_t::max_wall_pj"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, max_wall_pj) - 240usize];
+    ["Offset of field: slurmdb_qos_rec_t::min_prio_thresh"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, min_prio_thresh) - 244usize];
+    ["Offset of field: slurmdb_qos_rec_t::min_tres_pj"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, min_tres_pj) - 248usize];
+    ["Offset of field: slurmdb_qos_rec_t::min_tres_pj_ctld"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, min_tres_pj_ctld) - 256usize];
+    ["Offset of field: slurmdb_qos_rec_t::name"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, name) - 264usize];
+    ["Offset of field: slurmdb_qos_rec_t::preempt_bitstr"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, preempt_bitstr) - 272usize];
+    ["Offset of field: slurmdb_qos_rec_t::preempt_list"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, preempt_list) - 280usize];
+    ["Offset of field: slurmdb_qos_rec_t::preempt_mode"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, preempt_mode) - 288usize];
+    ["Offset of field: slurmdb_qos_rec_t::preempt_exempt_time"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, preempt_exempt_time) - 292usize];
+    ["Offset of field: slurmdb_qos_rec_t::priority"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, priority) - 296usize];
+    ["Offset of field: slurmdb_qos_rec_t::relative_tres_cnt"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, relative_tres_cnt) - 304usize];
+    ["Offset of field: slurmdb_qos_rec_t::usage"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, usage) - 312usize];
+    ["Offset of field: slurmdb_qos_rec_t::usage_factor"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, usage_factor) - 320usize];
+    ["Offset of field: slurmdb_qos_rec_t::usage_thres"]
+        [::std::mem::offset_of!(slurmdb_qos_rec_t, usage_thres) - 328usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_qos_cond_t {
+    pub description_list: *mut list_t,
+    pub flags: u16,
+    pub id_list: *mut list_t,
+    pub format_list: *mut list_t,
+    pub name_list: *mut list_t,
+    pub preempt_mode: u16,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_qos_cond_t"][::std::mem::size_of::<slurmdb_qos_cond_t>() - 48usize];
+    ["Alignment of slurmdb_qos_cond_t"][::std::mem::align_of::<slurmdb_qos_cond_t>() - 8usize];
+    ["Offset of field: slurmdb_qos_cond_t::description_list"]
+        [::std::mem::offset_of!(slurmdb_qos_cond_t, description_list) - 0usize];
+    ["Offset of field: slurmdb_qos_cond_t::flags"]
+        [::std::mem::offset_of!(slurmdb_qos_cond_t, flags) - 8usize];
+    ["Offset of field: slurmdb_qos_cond_t::id_list"]
+        [::std::mem::offset_of!(slurmdb_qos_cond_t, id_list) - 16usize];
+    ["Offset of field: slurmdb_qos_cond_t::format_list"]
+        [::std::mem::offset_of!(slurmdb_qos_cond_t, format_list) - 24usize];
+    ["Offset of field: slurmdb_qos_cond_t::name_list"]
+        [::std::mem::offset_of!(slurmdb_qos_cond_t, name_list) - 32usize];
+    ["Offset of field: slurmdb_qos_cond_t::preempt_mode"]
+        [::std::mem::offset_of!(slurmdb_qos_cond_t, preempt_mode) - 40usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_reservation_cond_t {
+    pub cluster_list: *mut list_t,
+    pub flags: u64,
+    pub format_list: *mut list_t,
+    pub id_list: *mut list_t,
+    pub name_list: *mut list_t,
+    pub nodes: *mut ::std::os::raw::c_char,
+    pub time_end: time_t,
+    pub time_start: time_t,
+    pub with_usage: u16,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_reservation_cond_t"]
+        [::std::mem::size_of::<slurmdb_reservation_cond_t>() - 72usize];
+    ["Alignment of slurmdb_reservation_cond_t"]
+        [::std::mem::align_of::<slurmdb_reservation_cond_t>() - 8usize];
+    ["Offset of field: slurmdb_reservation_cond_t::cluster_list"]
+        [::std::mem::offset_of!(slurmdb_reservation_cond_t, cluster_list) - 0usize];
+    ["Offset of field: slurmdb_reservation_cond_t::flags"]
+        [::std::mem::offset_of!(slurmdb_reservation_cond_t, flags) - 8usize];
+    ["Offset of field: slurmdb_reservation_cond_t::format_list"]
+        [::std::mem::offset_of!(slurmdb_reservation_cond_t, format_list) - 16usize];
+    ["Offset of field: slurmdb_reservation_cond_t::id_list"]
+        [::std::mem::offset_of!(slurmdb_reservation_cond_t, id_list) - 24usize];
+    ["Offset of field: slurmdb_reservation_cond_t::name_list"]
+        [::std::mem::offset_of!(slurmdb_reservation_cond_t, name_list) - 32usize];
+    ["Offset of field: slurmdb_reservation_cond_t::nodes"]
+        [::std::mem::offset_of!(slurmdb_reservation_cond_t, nodes) - 40usize];
+    ["Offset of field: slurmdb_reservation_cond_t::time_end"]
+        [::std::mem::offset_of!(slurmdb_reservation_cond_t, time_end) - 48usize];
+    ["Offset of field: slurmdb_reservation_cond_t::time_start"]
+        [::std::mem::offset_of!(slurmdb_reservation_cond_t, time_start) - 56usize];
+    ["Offset of field: slurmdb_reservation_cond_t::with_usage"]
+        [::std::mem::offset_of!(slurmdb_reservation_cond_t, with_usage) - 64usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_reservation_rec_t {
+    pub assocs: *mut ::std::os::raw::c_char,
+    pub cluster: *mut ::std::os::raw::c_char,
+    pub comment: *mut ::std::os::raw::c_char,
+    pub flags: u64,
+    pub id: u32,
+    pub name: *mut ::std::os::raw::c_char,
+    pub nodes: *mut ::std::os::raw::c_char,
+    pub node_inx: *mut ::std::os::raw::c_char,
+    pub time_end: time_t,
+    pub time_start: time_t,
+    pub time_start_prev: time_t,
+    pub tres_str: *mut ::std::os::raw::c_char,
+    pub unused_wall: f64,
+    pub tres_list: *mut list_t,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_reservation_rec_t"]
+        [::std::mem::size_of::<slurmdb_reservation_rec_t>() - 112usize];
+    ["Alignment of slurmdb_reservation_rec_t"]
+        [::std::mem::align_of::<slurmdb_reservation_rec_t>() - 8usize];
+    ["Offset of field: slurmdb_reservation_rec_t::assocs"]
+        [::std::mem::offset_of!(slurmdb_reservation_rec_t, assocs) - 0usize];
+    ["Offset of field: slurmdb_reservation_rec_t::cluster"]
+        [::std::mem::offset_of!(slurmdb_reservation_rec_t, cluster) - 8usize];
+    ["Offset of field: slurmdb_reservation_rec_t::comment"]
+        [::std::mem::offset_of!(slurmdb_reservation_rec_t, comment) - 16usize];
+    ["Offset of field: slurmdb_reservation_rec_t::flags"]
+        [::std::mem::offset_of!(slurmdb_reservation_rec_t, flags) - 24usize];
+    ["Offset of field: slurmdb_reservation_rec_t::id"]
+        [::std::mem::offset_of!(slurmdb_reservation_rec_t, id) - 32usize];
+    ["Offset of field: slurmdb_reservation_rec_t::name"]
+        [::std::mem::offset_of!(slurmdb_reservation_rec_t, name) - 40usize];
+    ["Offset of field: slurmdb_reservation_rec_t::nodes"]
+        [::std::mem::offset_of!(slurmdb_reservation_rec_t, nodes) - 48usize];
+    ["Offset of field: slurmdb_reservation_rec_t::node_inx"]
+        [::std::mem::offset_of!(slurmdb_reservation_rec_t, node_inx) - 56usize];
+    ["Offset of field: slurmdb_reservation_rec_t::time_end"]
+        [::std::mem::offset_of!(slurmdb_reservation_rec_t, time_end) - 64usize];
+    ["Offset of field: slurmdb_reservation_rec_t::time_start"]
+        [::std::mem::offset_of!(slurmdb_reservation_rec_t, time_start) - 72usize];
+    ["Offset of field: slurmdb_reservation_rec_t::time_start_prev"]
+        [::std::mem::offset_of!(slurmdb_reservation_rec_t, time_start_prev) - 80usize];
+    ["Offset of field: slurmdb_reservation_rec_t::tres_str"]
+        [::std::mem::offset_of!(slurmdb_reservation_rec_t, tres_str) - 88usize];
+    ["Offset of field: slurmdb_reservation_rec_t::unused_wall"]
+        [::std::mem::offset_of!(slurmdb_reservation_rec_t, unused_wall) - 96usize];
+    ["Offset of field: slurmdb_reservation_rec_t::tres_list"]
+        [::std::mem::offset_of!(slurmdb_reservation_rec_t, tres_list) - 104usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_step_rec_t {
+    pub container: *mut ::std::os::raw::c_char,
+    pub elapsed: u32,
+    pub end: time_t,
+    pub exitcode: i32,
+    pub job_ptr: *mut slurmdb_job_rec_t,
+    pub nnodes: u32,
+    pub nodes: *mut ::std::os::raw::c_char,
+    pub ntasks: u32,
+    pub pid_str: *mut ::std::os::raw::c_char,
+    pub req_cpufreq_min: u32,
+    pub req_cpufreq_max: u32,
+    pub req_cpufreq_gov: u32,
+    pub requid: u32,
+    pub start: time_t,
+    pub state: u32,
+    pub stats: slurmdb_stats_t,
+    pub step_id: slurm_step_id_t,
+    pub stepname: *mut ::std::os::raw::c_char,
+    pub submit_line: *mut ::std::os::raw::c_char,
+    pub suspended: u32,
+    pub sys_cpu_sec: u64,
+    pub sys_cpu_usec: u32,
+    pub task_dist: u32,
+    pub tot_cpu_sec: u64,
+    pub tot_cpu_usec: u32,
+    pub tres_alloc_str: *mut ::std::os::raw::c_char,
+    pub user_cpu_sec: u64,
+    pub user_cpu_usec: u32,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_step_rec_t"][::std::mem::size_of::<slurmdb_step_rec_t>() - 352usize];
+    ["Alignment of slurmdb_step_rec_t"][::std::mem::align_of::<slurmdb_step_rec_t>() - 8usize];
+    ["Offset of field: slurmdb_step_rec_t::container"]
+        [::std::mem::offset_of!(slurmdb_step_rec_t, container) - 0usize];
+    ["Offset of field: slurmdb_step_rec_t::elapsed"]
+        [::std::mem::offset_of!(slurmdb_step_rec_t, elapsed) - 8usize];
+    ["Offset of field: slurmdb_step_rec_t::end"]
+        [::std::mem::offset_of!(slurmdb_step_rec_t, end) - 16usize];
+    ["Offset of field: slurmdb_step_rec_t::exitcode"]
+        [::std::mem::offset_of!(slurmdb_step_rec_t, exitcode) - 24usize];
+    ["Offset of field: slurmdb_step_rec_t::job_ptr"]
+        [::std::mem::offset_of!(slurmdb_step_rec_t, job_ptr) - 32usize];
+    ["Offset of field: slurmdb_step_rec_t::nnodes"]
+        [::std::mem::offset_of!(slurmdb_step_rec_t, nnodes) - 40usize];
+    ["Offset of field: slurmdb_step_rec_t::nodes"]
+        [::std::mem::offset_of!(slurmdb_step_rec_t, nodes) - 48usize];
+    ["Offset of field: slurmdb_step_rec_t::ntasks"]
+        [::std::mem::offset_of!(slurmdb_step_rec_t, ntasks) - 56usize];
+    ["Offset of field: slurmdb_step_rec_t::pid_str"]
+        [::std::mem::offset_of!(slurmdb_step_rec_t, pid_str) - 64usize];
+    ["Offset of field: slurmdb_step_rec_t::req_cpufreq_min"]
+        [::std::mem::offset_of!(slurmdb_step_rec_t, req_cpufreq_min) - 72usize];
+    ["Offset of field: slurmdb_step_rec_t::req_cpufreq_max"]
+        [::std::mem::offset_of!(slurmdb_step_rec_t, req_cpufreq_max) - 76usize];
+    ["Offset of field: slurmdb_step_rec_t::req_cpufreq_gov"]
+        [::std::mem::offset_of!(slurmdb_step_rec_t, req_cpufreq_gov) - 80usize];
+    ["Offset of field: slurmdb_step_rec_t::requid"]
+        [::std::mem::offset_of!(slurmdb_step_rec_t, requid) - 84usize];
+    ["Offset of field: slurmdb_step_rec_t::start"]
+        [::std::mem::offset_of!(slurmdb_step_rec_t, start) - 88usize];
+    ["Offset of field: slurmdb_step_rec_t::state"]
+        [::std::mem::offset_of!(slurmdb_step_rec_t, state) - 96usize];
+    ["Offset of field: slurmdb_step_rec_t::stats"]
+        [::std::mem::offset_of!(slurmdb_step_rec_t, stats) - 104usize];
+    ["Offset of field: slurmdb_step_rec_t::step_id"]
+        [::std::mem::offset_of!(slurmdb_step_rec_t, step_id) - 248usize];
+    ["Offset of field: slurmdb_step_rec_t::stepname"]
+        [::std::mem::offset_of!(slurmdb_step_rec_t, stepname) - 272usize];
+    ["Offset of field: slurmdb_step_rec_t::submit_line"]
+        [::std::mem::offset_of!(slurmdb_step_rec_t, submit_line) - 280usize];
+    ["Offset of field: slurmdb_step_rec_t::suspended"]
+        [::std::mem::offset_of!(slurmdb_step_rec_t, suspended) - 288usize];
+    ["Offset of field: slurmdb_step_rec_t::sys_cpu_sec"]
+        [::std::mem::offset_of!(slurmdb_step_rec_t, sys_cpu_sec) - 296usize];
+    ["Offset of field: slurmdb_step_rec_t::sys_cpu_usec"]
+        [::std::mem::offset_of!(slurmdb_step_rec_t, sys_cpu_usec) - 304usize];
+    ["Offset of field: slurmdb_step_rec_t::task_dist"]
+        [::std::mem::offset_of!(slurmdb_step_rec_t, task_dist) - 308usize];
+    ["Offset of field: slurmdb_step_rec_t::tot_cpu_sec"]
+        [::std::mem::offset_of!(slurmdb_step_rec_t, tot_cpu_sec) - 312usize];
+    ["Offset of field: slurmdb_step_rec_t::tot_cpu_usec"]
+        [::std::mem::offset_of!(slurmdb_step_rec_t, tot_cpu_usec) - 320usize];
+    ["Offset of field: slurmdb_step_rec_t::tres_alloc_str"]
+        [::std::mem::offset_of!(slurmdb_step_rec_t, tres_alloc_str) - 328usize];
+    ["Offset of field: slurmdb_step_rec_t::user_cpu_sec"]
+        [::std::mem::offset_of!(slurmdb_step_rec_t, user_cpu_sec) - 336usize];
+    ["Offset of field: slurmdb_step_rec_t::user_cpu_usec"]
+        [::std::mem::offset_of!(slurmdb_step_rec_t, user_cpu_usec) - 344usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_res_cond_t {
+    pub allowed_list: *mut list_t,
+    pub cluster_list: *mut list_t,
+    pub description_list: *mut list_t,
+    pub flags: u32,
+    pub format_list: *mut list_t,
+    pub id_list: *mut list_t,
+    pub manager_list: *mut list_t,
+    pub name_list: *mut list_t,
+    pub server_list: *mut list_t,
+    pub type_list: *mut list_t,
+    pub with_deleted: u16,
+    pub with_clusters: u16,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_res_cond_t"][::std::mem::size_of::<slurmdb_res_cond_t>() - 88usize];
+    ["Alignment of slurmdb_res_cond_t"][::std::mem::align_of::<slurmdb_res_cond_t>() - 8usize];
+    ["Offset of field: slurmdb_res_cond_t::allowed_list"]
+        [::std::mem::offset_of!(slurmdb_res_cond_t, allowed_list) - 0usize];
+    ["Offset of field: slurmdb_res_cond_t::cluster_list"]
+        [::std::mem::offset_of!(slurmdb_res_cond_t, cluster_list) - 8usize];
+    ["Offset of field: slurmdb_res_cond_t::description_list"]
+        [::std::mem::offset_of!(slurmdb_res_cond_t, description_list) - 16usize];
+    ["Offset of field: slurmdb_res_cond_t::flags"]
+        [::std::mem::offset_of!(slurmdb_res_cond_t, flags) - 24usize];
+    ["Offset of field: slurmdb_res_cond_t::format_list"]
+        [::std::mem::offset_of!(slurmdb_res_cond_t, format_list) - 32usize];
+    ["Offset of field: slurmdb_res_cond_t::id_list"]
+        [::std::mem::offset_of!(slurmdb_res_cond_t, id_list) - 40usize];
+    ["Offset of field: slurmdb_res_cond_t::manager_list"]
+        [::std::mem::offset_of!(slurmdb_res_cond_t, manager_list) - 48usize];
+    ["Offset of field: slurmdb_res_cond_t::name_list"]
+        [::std::mem::offset_of!(slurmdb_res_cond_t, name_list) - 56usize];
+    ["Offset of field: slurmdb_res_cond_t::server_list"]
+        [::std::mem::offset_of!(slurmdb_res_cond_t, server_list) - 64usize];
+    ["Offset of field: slurmdb_res_cond_t::type_list"]
+        [::std::mem::offset_of!(slurmdb_res_cond_t, type_list) - 72usize];
+    ["Offset of field: slurmdb_res_cond_t::with_deleted"]
+        [::std::mem::offset_of!(slurmdb_res_cond_t, with_deleted) - 80usize];
+    ["Offset of field: slurmdb_res_cond_t::with_clusters"]
+        [::std::mem::offset_of!(slurmdb_res_cond_t, with_clusters) - 82usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_res_rec_t {
+    pub allocated: u32,
+    pub last_consumed: u32,
+    pub clus_res_list: *mut list_t,
+    pub clus_res_rec: *mut slurmdb_clus_res_rec_t,
+    pub count: u32,
+    pub description: *mut ::std::os::raw::c_char,
+    pub flags: u32,
+    pub id: u32,
+    pub last_update: time_t,
+    pub manager: *mut ::std::os::raw::c_char,
+    pub name: *mut ::std::os::raw::c_char,
+    pub server: *mut ::std::os::raw::c_char,
+    pub type_: u32,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_res_rec_t"][::std::mem::size_of::<slurmdb_res_rec_t>() - 88usize];
+    ["Alignment of slurmdb_res_rec_t"][::std::mem::align_of::<slurmdb_res_rec_t>() - 8usize];
+    ["Offset of field: slurmdb_res_rec_t::allocated"]
+        [::std::mem::offset_of!(slurmdb_res_rec_t, allocated) - 0usize];
+    ["Offset of field: slurmdb_res_rec_t::last_consumed"]
+        [::std::mem::offset_of!(slurmdb_res_rec_t, last_consumed) - 4usize];
+    ["Offset of field: slurmdb_res_rec_t::clus_res_list"]
+        [::std::mem::offset_of!(slurmdb_res_rec_t, clus_res_list) - 8usize];
+    ["Offset of field: slurmdb_res_rec_t::clus_res_rec"]
+        [::std::mem::offset_of!(slurmdb_res_rec_t, clus_res_rec) - 16usize];
+    ["Offset of field: slurmdb_res_rec_t::count"]
+        [::std::mem::offset_of!(slurmdb_res_rec_t, count) - 24usize];
+    ["Offset of field: slurmdb_res_rec_t::description"]
+        [::std::mem::offset_of!(slurmdb_res_rec_t, description) - 32usize];
+    ["Offset of field: slurmdb_res_rec_t::flags"]
+        [::std::mem::offset_of!(slurmdb_res_rec_t, flags) - 40usize];
+    ["Offset of field: slurmdb_res_rec_t::id"]
+        [::std::mem::offset_of!(slurmdb_res_rec_t, id) - 44usize];
+    ["Offset of field: slurmdb_res_rec_t::last_update"]
+        [::std::mem::offset_of!(slurmdb_res_rec_t, last_update) - 48usize];
+    ["Offset of field: slurmdb_res_rec_t::manager"]
+        [::std::mem::offset_of!(slurmdb_res_rec_t, manager) - 56usize];
+    ["Offset of field: slurmdb_res_rec_t::name"]
+        [::std::mem::offset_of!(slurmdb_res_rec_t, name) - 64usize];
+    ["Offset of field: slurmdb_res_rec_t::server"]
+        [::std::mem::offset_of!(slurmdb_res_rec_t, server) - 72usize];
+    ["Offset of field: slurmdb_res_rec_t::type_"]
+        [::std::mem::offset_of!(slurmdb_res_rec_t, type_) - 80usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_txn_cond_t {
+    pub acct_list: *mut list_t,
+    pub action_list: *mut list_t,
+    pub actor_list: *mut list_t,
+    pub cluster_list: *mut list_t,
+    pub format_list: *mut list_t,
+    pub id_list: *mut list_t,
+    pub info_list: *mut list_t,
+    pub name_list: *mut list_t,
+    pub time_end: time_t,
+    pub time_start: time_t,
+    pub user_list: *mut list_t,
+    pub with_assoc_info: u16,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_txn_cond_t"][::std::mem::size_of::<slurmdb_txn_cond_t>() - 96usize];
+    ["Alignment of slurmdb_txn_cond_t"][::std::mem::align_of::<slurmdb_txn_cond_t>() - 8usize];
+    ["Offset of field: slurmdb_txn_cond_t::acct_list"]
+        [::std::mem::offset_of!(slurmdb_txn_cond_t, acct_list) - 0usize];
+    ["Offset of field: slurmdb_txn_cond_t::action_list"]
+        [::std::mem::offset_of!(slurmdb_txn_cond_t, action_list) - 8usize];
+    ["Offset of field: slurmdb_txn_cond_t::actor_list"]
+        [::std::mem::offset_of!(slurmdb_txn_cond_t, actor_list) - 16usize];
+    ["Offset of field: slurmdb_txn_cond_t::cluster_list"]
+        [::std::mem::offset_of!(slurmdb_txn_cond_t, cluster_list) - 24usize];
+    ["Offset of field: slurmdb_txn_cond_t::format_list"]
+        [::std::mem::offset_of!(slurmdb_txn_cond_t, format_list) - 32usize];
+    ["Offset of field: slurmdb_txn_cond_t::id_list"]
+        [::std::mem::offset_of!(slurmdb_txn_cond_t, id_list) - 40usize];
+    ["Offset of field: slurmdb_txn_cond_t::info_list"]
+        [::std::mem::offset_of!(slurmdb_txn_cond_t, info_list) - 48usize];
+    ["Offset of field: slurmdb_txn_cond_t::name_list"]
+        [::std::mem::offset_of!(slurmdb_txn_cond_t, name_list) - 56usize];
+    ["Offset of field: slurmdb_txn_cond_t::time_end"]
+        [::std::mem::offset_of!(slurmdb_txn_cond_t, time_end) - 64usize];
+    ["Offset of field: slurmdb_txn_cond_t::time_start"]
+        [::std::mem::offset_of!(slurmdb_txn_cond_t, time_start) - 72usize];
+    ["Offset of field: slurmdb_txn_cond_t::user_list"]
+        [::std::mem::offset_of!(slurmdb_txn_cond_t, user_list) - 80usize];
+    ["Offset of field: slurmdb_txn_cond_t::with_assoc_info"]
+        [::std::mem::offset_of!(slurmdb_txn_cond_t, with_assoc_info) - 88usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_txn_rec_t {
+    pub accts: *mut ::std::os::raw::c_char,
+    pub action: u16,
+    pub actor_name: *mut ::std::os::raw::c_char,
+    pub clusters: *mut ::std::os::raw::c_char,
+    pub id: u32,
+    pub set_info: *mut ::std::os::raw::c_char,
+    pub timestamp: time_t,
+    pub users: *mut ::std::os::raw::c_char,
+    pub where_query: *mut ::std::os::raw::c_char,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_txn_rec_t"][::std::mem::size_of::<slurmdb_txn_rec_t>() - 72usize];
+    ["Alignment of slurmdb_txn_rec_t"][::std::mem::align_of::<slurmdb_txn_rec_t>() - 8usize];
+    ["Offset of field: slurmdb_txn_rec_t::accts"]
+        [::std::mem::offset_of!(slurmdb_txn_rec_t, accts) - 0usize];
+    ["Offset of field: slurmdb_txn_rec_t::action"]
+        [::std::mem::offset_of!(slurmdb_txn_rec_t, action) - 8usize];
+    ["Offset of field: slurmdb_txn_rec_t::actor_name"]
+        [::std::mem::offset_of!(slurmdb_txn_rec_t, actor_name) - 16usize];
+    ["Offset of field: slurmdb_txn_rec_t::clusters"]
+        [::std::mem::offset_of!(slurmdb_txn_rec_t, clusters) - 24usize];
+    ["Offset of field: slurmdb_txn_rec_t::id"]
+        [::std::mem::offset_of!(slurmdb_txn_rec_t, id) - 32usize];
+    ["Offset of field: slurmdb_txn_rec_t::set_info"]
+        [::std::mem::offset_of!(slurmdb_txn_rec_t, set_info) - 40usize];
+    ["Offset of field: slurmdb_txn_rec_t::timestamp"]
+        [::std::mem::offset_of!(slurmdb_txn_rec_t, timestamp) - 48usize];
+    ["Offset of field: slurmdb_txn_rec_t::users"]
+        [::std::mem::offset_of!(slurmdb_txn_rec_t, users) - 56usize];
+    ["Offset of field: slurmdb_txn_rec_t::where_query"]
+        [::std::mem::offset_of!(slurmdb_txn_rec_t, where_query) - 64usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_used_limits_t {
+    pub accrue_cnt: u32,
+    pub acct: *mut ::std::os::raw::c_char,
+    pub jobs: u32,
+    pub submit_jobs: u32,
+    pub tres: *mut u64,
+    pub tres_run_secs: *mut u64,
+    pub node_bitmap: *mut bitstr_t,
+    pub node_job_cnt: *mut u16,
+    pub uid: u32,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_used_limits_t"][::std::mem::size_of::<slurmdb_used_limits_t>() - 64usize];
+    ["Alignment of slurmdb_used_limits_t"]
+        [::std::mem::align_of::<slurmdb_used_limits_t>() - 8usize];
+    ["Offset of field: slurmdb_used_limits_t::accrue_cnt"]
+        [::std::mem::offset_of!(slurmdb_used_limits_t, accrue_cnt) - 0usize];
+    ["Offset of field: slurmdb_used_limits_t::acct"]
+        [::std::mem::offset_of!(slurmdb_used_limits_t, acct) - 8usize];
+    ["Offset of field: slurmdb_used_limits_t::jobs"]
+        [::std::mem::offset_of!(slurmdb_used_limits_t, jobs) - 16usize];
+    ["Offset of field: slurmdb_used_limits_t::submit_jobs"]
+        [::std::mem::offset_of!(slurmdb_used_limits_t, submit_jobs) - 20usize];
+    ["Offset of field: slurmdb_used_limits_t::tres"]
+        [::std::mem::offset_of!(slurmdb_used_limits_t, tres) - 24usize];
+    ["Offset of field: slurmdb_used_limits_t::tres_run_secs"]
+        [::std::mem::offset_of!(slurmdb_used_limits_t, tres_run_secs) - 32usize];
+    ["Offset of field: slurmdb_used_limits_t::node_bitmap"]
+        [::std::mem::offset_of!(slurmdb_used_limits_t, node_bitmap) - 40usize];
+    ["Offset of field: slurmdb_used_limits_t::node_job_cnt"]
+        [::std::mem::offset_of!(slurmdb_used_limits_t, node_job_cnt) - 48usize];
+    ["Offset of field: slurmdb_used_limits_t::uid"]
+        [::std::mem::offset_of!(slurmdb_used_limits_t, uid) - 56usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_user_cond_t {
+    pub admin_level: u16,
+    pub assoc_cond: *mut slurmdb_assoc_cond_t,
+    pub def_acct_list: *mut list_t,
+    pub def_wckey_list: *mut list_t,
+    pub with_assocs: u16,
+    pub with_coords: u16,
+    pub with_deleted: u16,
+    pub with_wckeys: u16,
+    pub without_defaults: u16,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_user_cond_t"][::std::mem::size_of::<slurmdb_user_cond_t>() - 48usize];
+    ["Alignment of slurmdb_user_cond_t"][::std::mem::align_of::<slurmdb_user_cond_t>() - 8usize];
+    ["Offset of field: slurmdb_user_cond_t::admin_level"]
+        [::std::mem::offset_of!(slurmdb_user_cond_t, admin_level) - 0usize];
+    ["Offset of field: slurmdb_user_cond_t::assoc_cond"]
+        [::std::mem::offset_of!(slurmdb_user_cond_t, assoc_cond) - 8usize];
+    ["Offset of field: slurmdb_user_cond_t::def_acct_list"]
+        [::std::mem::offset_of!(slurmdb_user_cond_t, def_acct_list) - 16usize];
+    ["Offset of field: slurmdb_user_cond_t::def_wckey_list"]
+        [::std::mem::offset_of!(slurmdb_user_cond_t, def_wckey_list) - 24usize];
+    ["Offset of field: slurmdb_user_cond_t::with_assocs"]
+        [::std::mem::offset_of!(slurmdb_user_cond_t, with_assocs) - 32usize];
+    ["Offset of field: slurmdb_user_cond_t::with_coords"]
+        [::std::mem::offset_of!(slurmdb_user_cond_t, with_coords) - 34usize];
+    ["Offset of field: slurmdb_user_cond_t::with_deleted"]
+        [::std::mem::offset_of!(slurmdb_user_cond_t, with_deleted) - 36usize];
+    ["Offset of field: slurmdb_user_cond_t::with_wckeys"]
+        [::std::mem::offset_of!(slurmdb_user_cond_t, with_wckeys) - 38usize];
+    ["Offset of field: slurmdb_user_cond_t::without_defaults"]
+        [::std::mem::offset_of!(slurmdb_user_cond_t, without_defaults) - 40usize];
+};
+pub const SLURMDB_USER_FLAG_NONE: _bindgen_ty_10 = 0;
+pub const SLURMDB_USER_FLAG_DELETED: _bindgen_ty_10 = 1;
+pub type _bindgen_ty_10 = ::std::os::raw::c_uint;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_user_rec {
+    pub admin_level: u16,
+    pub assoc_list: *mut list_t,
+    pub bf_usage: *mut slurmdb_bf_usage_t,
+    pub coord_accts: *mut list_t,
+    pub default_acct: *mut ::std::os::raw::c_char,
+    pub default_wckey: *mut ::std::os::raw::c_char,
+    pub flags: u32,
+    pub name: *mut ::std::os::raw::c_char,
+    pub old_name: *mut ::std::os::raw::c_char,
+    pub uid: u32,
+    pub wckey_list: *mut list_t,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_user_rec"][::std::mem::size_of::<slurmdb_user_rec>() - 88usize];
+    ["Alignment of slurmdb_user_rec"][::std::mem::align_of::<slurmdb_user_rec>() - 8usize];
+    ["Offset of field: slurmdb_user_rec::admin_level"]
+        [::std::mem::offset_of!(slurmdb_user_rec, admin_level) - 0usize];
+    ["Offset of field: slurmdb_user_rec::assoc_list"]
+        [::std::mem::offset_of!(slurmdb_user_rec, assoc_list) - 8usize];
+    ["Offset of field: slurmdb_user_rec::bf_usage"]
+        [::std::mem::offset_of!(slurmdb_user_rec, bf_usage) - 16usize];
+    ["Offset of field: slurmdb_user_rec::coord_accts"]
+        [::std::mem::offset_of!(slurmdb_user_rec, coord_accts) - 24usize];
+    ["Offset of field: slurmdb_user_rec::default_acct"]
+        [::std::mem::offset_of!(slurmdb_user_rec, default_acct) - 32usize];
+    ["Offset of field: slurmdb_user_rec::default_wckey"]
+        [::std::mem::offset_of!(slurmdb_user_rec, default_wckey) - 40usize];
+    ["Offset of field: slurmdb_user_rec::flags"]
+        [::std::mem::offset_of!(slurmdb_user_rec, flags) - 48usize];
+    ["Offset of field: slurmdb_user_rec::name"]
+        [::std::mem::offset_of!(slurmdb_user_rec, name) - 56usize];
+    ["Offset of field: slurmdb_user_rec::old_name"]
+        [::std::mem::offset_of!(slurmdb_user_rec, old_name) - 64usize];
+    ["Offset of field: slurmdb_user_rec::uid"]
+        [::std::mem::offset_of!(slurmdb_user_rec, uid) - 72usize];
+    ["Offset of field: slurmdb_user_rec::wckey_list"]
+        [::std::mem::offset_of!(slurmdb_user_rec, wckey_list) - 80usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_update_object_t {
+    pub objects: *mut list_t,
+    pub type_: u16,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_update_object_t"][::std::mem::size_of::<slurmdb_update_object_t>() - 16usize];
+    ["Alignment of slurmdb_update_object_t"]
+        [::std::mem::align_of::<slurmdb_update_object_t>() - 8usize];
+    ["Offset of field: slurmdb_update_object_t::objects"]
+        [::std::mem::offset_of!(slurmdb_update_object_t, objects) - 0usize];
+    ["Offset of field: slurmdb_update_object_t::type_"]
+        [::std::mem::offset_of!(slurmdb_update_object_t, type_) - 8usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_wckey_cond_t {
+    pub cluster_list: *mut list_t,
+    pub format_list: *mut list_t,
+    pub id_list: *mut list_t,
+    pub name_list: *mut list_t,
+    pub only_defs: u16,
+    pub usage_end: time_t,
+    pub usage_start: time_t,
+    pub user_list: *mut list_t,
+    pub with_usage: u16,
+    pub with_deleted: u16,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_wckey_cond_t"][::std::mem::size_of::<slurmdb_wckey_cond_t>() - 72usize];
+    ["Alignment of slurmdb_wckey_cond_t"][::std::mem::align_of::<slurmdb_wckey_cond_t>() - 8usize];
+    ["Offset of field: slurmdb_wckey_cond_t::cluster_list"]
+        [::std::mem::offset_of!(slurmdb_wckey_cond_t, cluster_list) - 0usize];
+    ["Offset of field: slurmdb_wckey_cond_t::format_list"]
+        [::std::mem::offset_of!(slurmdb_wckey_cond_t, format_list) - 8usize];
+    ["Offset of field: slurmdb_wckey_cond_t::id_list"]
+        [::std::mem::offset_of!(slurmdb_wckey_cond_t, id_list) - 16usize];
+    ["Offset of field: slurmdb_wckey_cond_t::name_list"]
+        [::std::mem::offset_of!(slurmdb_wckey_cond_t, name_list) - 24usize];
+    ["Offset of field: slurmdb_wckey_cond_t::only_defs"]
+        [::std::mem::offset_of!(slurmdb_wckey_cond_t, only_defs) - 32usize];
+    ["Offset of field: slurmdb_wckey_cond_t::usage_end"]
+        [::std::mem::offset_of!(slurmdb_wckey_cond_t, usage_end) - 40usize];
+    ["Offset of field: slurmdb_wckey_cond_t::usage_start"]
+        [::std::mem::offset_of!(slurmdb_wckey_cond_t, usage_start) - 48usize];
+    ["Offset of field: slurmdb_wckey_cond_t::user_list"]
+        [::std::mem::offset_of!(slurmdb_wckey_cond_t, user_list) - 56usize];
+    ["Offset of field: slurmdb_wckey_cond_t::with_usage"]
+        [::std::mem::offset_of!(slurmdb_wckey_cond_t, with_usage) - 64usize];
+    ["Offset of field: slurmdb_wckey_cond_t::with_deleted"]
+        [::std::mem::offset_of!(slurmdb_wckey_cond_t, with_deleted) - 66usize];
+};
+pub const SLURMDB_WCKEY_FLAG_NONE: _bindgen_ty_11 = 0;
+pub const SLURMDB_WCKEY_FLAG_DELETED: _bindgen_ty_11 = 1;
+pub type _bindgen_ty_11 = ::std::os::raw::c_uint;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_wckey_rec_t {
+    pub accounting_list: *mut list_t,
+    pub cluster: *mut ::std::os::raw::c_char,
+    pub flags: u32,
+    pub id: u32,
+    pub is_def: u16,
+    pub name: *mut ::std::os::raw::c_char,
+    pub uid: u32,
+    pub user: *mut ::std::os::raw::c_char,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_wckey_rec_t"][::std::mem::size_of::<slurmdb_wckey_rec_t>() - 56usize];
+    ["Alignment of slurmdb_wckey_rec_t"][::std::mem::align_of::<slurmdb_wckey_rec_t>() - 8usize];
+    ["Offset of field: slurmdb_wckey_rec_t::accounting_list"]
+        [::std::mem::offset_of!(slurmdb_wckey_rec_t, accounting_list) - 0usize];
+    ["Offset of field: slurmdb_wckey_rec_t::cluster"]
+        [::std::mem::offset_of!(slurmdb_wckey_rec_t, cluster) - 8usize];
+    ["Offset of field: slurmdb_wckey_rec_t::flags"]
+        [::std::mem::offset_of!(slurmdb_wckey_rec_t, flags) - 16usize];
+    ["Offset of field: slurmdb_wckey_rec_t::id"]
+        [::std::mem::offset_of!(slurmdb_wckey_rec_t, id) - 20usize];
+    ["Offset of field: slurmdb_wckey_rec_t::is_def"]
+        [::std::mem::offset_of!(slurmdb_wckey_rec_t, is_def) - 24usize];
+    ["Offset of field: slurmdb_wckey_rec_t::name"]
+        [::std::mem::offset_of!(slurmdb_wckey_rec_t, name) - 32usize];
+    ["Offset of field: slurmdb_wckey_rec_t::uid"]
+        [::std::mem::offset_of!(slurmdb_wckey_rec_t, uid) - 40usize];
+    ["Offset of field: slurmdb_wckey_rec_t::user"]
+        [::std::mem::offset_of!(slurmdb_wckey_rec_t, user) - 48usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_print_tree_t {
+    pub name: *mut ::std::os::raw::c_char,
+    pub print_name: *mut ::std::os::raw::c_char,
+    pub spaces: *mut ::std::os::raw::c_char,
+    pub user: u16,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_print_tree_t"][::std::mem::size_of::<slurmdb_print_tree_t>() - 32usize];
+    ["Alignment of slurmdb_print_tree_t"][::std::mem::align_of::<slurmdb_print_tree_t>() - 8usize];
+    ["Offset of field: slurmdb_print_tree_t::name"]
+        [::std::mem::offset_of!(slurmdb_print_tree_t, name) - 0usize];
+    ["Offset of field: slurmdb_print_tree_t::print_name"]
+        [::std::mem::offset_of!(slurmdb_print_tree_t, print_name) - 8usize];
+    ["Offset of field: slurmdb_print_tree_t::spaces"]
+        [::std::mem::offset_of!(slurmdb_print_tree_t, spaces) - 16usize];
+    ["Offset of field: slurmdb_print_tree_t::user"]
+        [::std::mem::offset_of!(slurmdb_print_tree_t, user) - 24usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_hierarchical_rec_t {
+    pub assoc: *mut slurmdb_assoc_rec_t,
+    pub key: *mut ::std::os::raw::c_char,
+    pub sort_name: *mut ::std::os::raw::c_char,
+    pub children: *mut list_t,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_hierarchical_rec_t"]
+        [::std::mem::size_of::<slurmdb_hierarchical_rec_t>() - 32usize];
+    ["Alignment of slurmdb_hierarchical_rec_t"]
+        [::std::mem::align_of::<slurmdb_hierarchical_rec_t>() - 8usize];
+    ["Offset of field: slurmdb_hierarchical_rec_t::assoc"]
+        [::std::mem::offset_of!(slurmdb_hierarchical_rec_t, assoc) - 0usize];
+    ["Offset of field: slurmdb_hierarchical_rec_t::key"]
+        [::std::mem::offset_of!(slurmdb_hierarchical_rec_t, key) - 8usize];
+    ["Offset of field: slurmdb_hierarchical_rec_t::sort_name"]
+        [::std::mem::offset_of!(slurmdb_hierarchical_rec_t, sort_name) - 16usize];
+    ["Offset of field: slurmdb_hierarchical_rec_t::children"]
+        [::std::mem::offset_of!(slurmdb_hierarchical_rec_t, children) - 24usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_report_assoc_rec_t {
+    pub acct: *mut ::std::os::raw::c_char,
+    pub cluster: *mut ::std::os::raw::c_char,
+    pub id: u32,
+    pub id_alt: u32,
+    pub parent_acct: *mut ::std::os::raw::c_char,
+    pub tres_list: *mut list_t,
+    pub user: *mut ::std::os::raw::c_char,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_report_assoc_rec_t"]
+        [::std::mem::size_of::<slurmdb_report_assoc_rec_t>() - 48usize];
+    ["Alignment of slurmdb_report_assoc_rec_t"]
+        [::std::mem::align_of::<slurmdb_report_assoc_rec_t>() - 8usize];
+    ["Offset of field: slurmdb_report_assoc_rec_t::acct"]
+        [::std::mem::offset_of!(slurmdb_report_assoc_rec_t, acct) - 0usize];
+    ["Offset of field: slurmdb_report_assoc_rec_t::cluster"]
+        [::std::mem::offset_of!(slurmdb_report_assoc_rec_t, cluster) - 8usize];
+    ["Offset of field: slurmdb_report_assoc_rec_t::id"]
+        [::std::mem::offset_of!(slurmdb_report_assoc_rec_t, id) - 16usize];
+    ["Offset of field: slurmdb_report_assoc_rec_t::id_alt"]
+        [::std::mem::offset_of!(slurmdb_report_assoc_rec_t, id_alt) - 20usize];
+    ["Offset of field: slurmdb_report_assoc_rec_t::parent_acct"]
+        [::std::mem::offset_of!(slurmdb_report_assoc_rec_t, parent_acct) - 24usize];
+    ["Offset of field: slurmdb_report_assoc_rec_t::tres_list"]
+        [::std::mem::offset_of!(slurmdb_report_assoc_rec_t, tres_list) - 32usize];
+    ["Offset of field: slurmdb_report_assoc_rec_t::user"]
+        [::std::mem::offset_of!(slurmdb_report_assoc_rec_t, user) - 40usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_report_user_rec_t {
+    pub acct: *mut ::std::os::raw::c_char,
+    pub acct_list: *mut list_t,
+    pub assoc_list: *mut list_t,
+    pub name: *mut ::std::os::raw::c_char,
+    pub tres_list: *mut list_t,
+    pub uid: uid_t,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_report_user_rec_t"]
+        [::std::mem::size_of::<slurmdb_report_user_rec_t>() - 48usize];
+    ["Alignment of slurmdb_report_user_rec_t"]
+        [::std::mem::align_of::<slurmdb_report_user_rec_t>() - 8usize];
+    ["Offset of field: slurmdb_report_user_rec_t::acct"]
+        [::std::mem::offset_of!(slurmdb_report_user_rec_t, acct) - 0usize];
+    ["Offset of field: slurmdb_report_user_rec_t::acct_list"]
+        [::std::mem::offset_of!(slurmdb_report_user_rec_t, acct_list) - 8usize];
+    ["Offset of field: slurmdb_report_user_rec_t::assoc_list"]
+        [::std::mem::offset_of!(slurmdb_report_user_rec_t, assoc_list) - 16usize];
+    ["Offset of field: slurmdb_report_user_rec_t::name"]
+        [::std::mem::offset_of!(slurmdb_report_user_rec_t, name) - 24usize];
+    ["Offset of field: slurmdb_report_user_rec_t::tres_list"]
+        [::std::mem::offset_of!(slurmdb_report_user_rec_t, tres_list) - 32usize];
+    ["Offset of field: slurmdb_report_user_rec_t::uid"]
+        [::std::mem::offset_of!(slurmdb_report_user_rec_t, uid) - 40usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_report_cluster_rec_t {
+    pub accounting_list: *mut list_t,
+    pub assoc_list: *mut list_t,
+    pub name: *mut ::std::os::raw::c_char,
+    pub tres_list: *mut list_t,
+    pub user_list: *mut list_t,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_report_cluster_rec_t"]
+        [::std::mem::size_of::<slurmdb_report_cluster_rec_t>() - 40usize];
+    ["Alignment of slurmdb_report_cluster_rec_t"]
+        [::std::mem::align_of::<slurmdb_report_cluster_rec_t>() - 8usize];
+    ["Offset of field: slurmdb_report_cluster_rec_t::accounting_list"]
+        [::std::mem::offset_of!(slurmdb_report_cluster_rec_t, accounting_list) - 0usize];
+    ["Offset of field: slurmdb_report_cluster_rec_t::assoc_list"]
+        [::std::mem::offset_of!(slurmdb_report_cluster_rec_t, assoc_list) - 8usize];
+    ["Offset of field: slurmdb_report_cluster_rec_t::name"]
+        [::std::mem::offset_of!(slurmdb_report_cluster_rec_t, name) - 16usize];
+    ["Offset of field: slurmdb_report_cluster_rec_t::tres_list"]
+        [::std::mem::offset_of!(slurmdb_report_cluster_rec_t, tres_list) - 24usize];
+    ["Offset of field: slurmdb_report_cluster_rec_t::user_list"]
+        [::std::mem::offset_of!(slurmdb_report_cluster_rec_t, user_list) - 32usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_report_job_grouping_t {
+    pub count: u32,
+    pub jobs: *mut list_t,
+    pub min_size: u32,
+    pub max_size: u32,
+    pub tres_list: *mut list_t,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_report_job_grouping_t"]
+        [::std::mem::size_of::<slurmdb_report_job_grouping_t>() - 32usize];
+    ["Alignment of slurmdb_report_job_grouping_t"]
+        [::std::mem::align_of::<slurmdb_report_job_grouping_t>() - 8usize];
+    ["Offset of field: slurmdb_report_job_grouping_t::count"]
+        [::std::mem::offset_of!(slurmdb_report_job_grouping_t, count) - 0usize];
+    ["Offset of field: slurmdb_report_job_grouping_t::jobs"]
+        [::std::mem::offset_of!(slurmdb_report_job_grouping_t, jobs) - 8usize];
+    ["Offset of field: slurmdb_report_job_grouping_t::min_size"]
+        [::std::mem::offset_of!(slurmdb_report_job_grouping_t, min_size) - 16usize];
+    ["Offset of field: slurmdb_report_job_grouping_t::max_size"]
+        [::std::mem::offset_of!(slurmdb_report_job_grouping_t, max_size) - 20usize];
+    ["Offset of field: slurmdb_report_job_grouping_t::tres_list"]
+        [::std::mem::offset_of!(slurmdb_report_job_grouping_t, tres_list) - 24usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_report_acct_grouping_t {
+    pub acct: *mut ::std::os::raw::c_char,
+    pub count: u32,
+    pub groups: *mut list_t,
+    pub lineage: *mut ::std::os::raw::c_char,
+    pub tres_list: *mut list_t,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_report_acct_grouping_t"]
+        [::std::mem::size_of::<slurmdb_report_acct_grouping_t>() - 40usize];
+    ["Alignment of slurmdb_report_acct_grouping_t"]
+        [::std::mem::align_of::<slurmdb_report_acct_grouping_t>() - 8usize];
+    ["Offset of field: slurmdb_report_acct_grouping_t::acct"]
+        [::std::mem::offset_of!(slurmdb_report_acct_grouping_t, acct) - 0usize];
+    ["Offset of field: slurmdb_report_acct_grouping_t::count"]
+        [::std::mem::offset_of!(slurmdb_report_acct_grouping_t, count) - 8usize];
+    ["Offset of field: slurmdb_report_acct_grouping_t::groups"]
+        [::std::mem::offset_of!(slurmdb_report_acct_grouping_t, groups) - 16usize];
+    ["Offset of field: slurmdb_report_acct_grouping_t::lineage"]
+        [::std::mem::offset_of!(slurmdb_report_acct_grouping_t, lineage) - 24usize];
+    ["Offset of field: slurmdb_report_acct_grouping_t::tres_list"]
+        [::std::mem::offset_of!(slurmdb_report_acct_grouping_t, tres_list) - 32usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_report_cluster_grouping_t {
+    pub acct_list: *mut list_t,
+    pub cluster: *mut ::std::os::raw::c_char,
+    pub count: u32,
+    pub tres_list: *mut list_t,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_report_cluster_grouping_t"]
+        [::std::mem::size_of::<slurmdb_report_cluster_grouping_t>() - 32usize];
+    ["Alignment of slurmdb_report_cluster_grouping_t"]
+        [::std::mem::align_of::<slurmdb_report_cluster_grouping_t>() - 8usize];
+    ["Offset of field: slurmdb_report_cluster_grouping_t::acct_list"]
+        [::std::mem::offset_of!(slurmdb_report_cluster_grouping_t, acct_list) - 0usize];
+    ["Offset of field: slurmdb_report_cluster_grouping_t::cluster"]
+        [::std::mem::offset_of!(slurmdb_report_cluster_grouping_t, cluster) - 8usize];
+    ["Offset of field: slurmdb_report_cluster_grouping_t::count"]
+        [::std::mem::offset_of!(slurmdb_report_cluster_grouping_t, count) - 16usize];
+    ["Offset of field: slurmdb_report_cluster_grouping_t::tres_list"]
+        [::std::mem::offset_of!(slurmdb_report_cluster_grouping_t, tres_list) - 24usize];
+};
+pub const DBD_ROLLUP_HOUR: _bindgen_ty_12 = 0;
+pub const DBD_ROLLUP_DAY: _bindgen_ty_12 = 1;
+pub const DBD_ROLLUP_MONTH: _bindgen_ty_12 = 2;
+pub const DBD_ROLLUP_COUNT: _bindgen_ty_12 = 3;
+pub type _bindgen_ty_12 = ::std::os::raw::c_uint;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_rollup_stats_t {
+    pub cluster_name: *mut ::std::os::raw::c_char,
+    pub count: [u16; 3usize],
+    pub timestamp: [time_t; 3usize],
+    pub time_last: [u64; 3usize],
+    pub time_max: [u64; 3usize],
+    pub time_total: [u64; 3usize],
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_rollup_stats_t"][::std::mem::size_of::<slurmdb_rollup_stats_t>() - 112usize];
+    ["Alignment of slurmdb_rollup_stats_t"]
+        [::std::mem::align_of::<slurmdb_rollup_stats_t>() - 8usize];
+    ["Offset of field: slurmdb_rollup_stats_t::cluster_name"]
+        [::std::mem::offset_of!(slurmdb_rollup_stats_t, cluster_name) - 0usize];
+    ["Offset of field: slurmdb_rollup_stats_t::count"]
+        [::std::mem::offset_of!(slurmdb_rollup_stats_t, count) - 8usize];
+    ["Offset of field: slurmdb_rollup_stats_t::timestamp"]
+        [::std::mem::offset_of!(slurmdb_rollup_stats_t, timestamp) - 16usize];
+    ["Offset of field: slurmdb_rollup_stats_t::time_last"]
+        [::std::mem::offset_of!(slurmdb_rollup_stats_t, time_last) - 40usize];
+    ["Offset of field: slurmdb_rollup_stats_t::time_max"]
+        [::std::mem::offset_of!(slurmdb_rollup_stats_t, time_max) - 64usize];
+    ["Offset of field: slurmdb_rollup_stats_t::time_total"]
+        [::std::mem::offset_of!(slurmdb_rollup_stats_t, time_total) - 88usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_rpc_obj_t {
+    pub cnt: u32,
+    pub id: u32,
+    pub time: u64,
+    pub time_ave: u64,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_rpc_obj_t"][::std::mem::size_of::<slurmdb_rpc_obj_t>() - 24usize];
+    ["Alignment of slurmdb_rpc_obj_t"][::std::mem::align_of::<slurmdb_rpc_obj_t>() - 8usize];
+    ["Offset of field: slurmdb_rpc_obj_t::cnt"]
+        [::std::mem::offset_of!(slurmdb_rpc_obj_t, cnt) - 0usize];
+    ["Offset of field: slurmdb_rpc_obj_t::id"]
+        [::std::mem::offset_of!(slurmdb_rpc_obj_t, id) - 4usize];
+    ["Offset of field: slurmdb_rpc_obj_t::time"]
+        [::std::mem::offset_of!(slurmdb_rpc_obj_t, time) - 8usize];
+    ["Offset of field: slurmdb_rpc_obj_t::time_ave"]
+        [::std::mem::offset_of!(slurmdb_rpc_obj_t, time_ave) - 16usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct slurmdb_stats_rec_t {
+    pub dbd_rollup_stats: *mut slurmdb_rollup_stats_t,
+    pub rollup_stats: *mut list_t,
+    pub rpc_list: *mut list_t,
+    pub time_start: time_t,
+    pub user_list: *mut list_t,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of slurmdb_stats_rec_t"][::std::mem::size_of::<slurmdb_stats_rec_t>() - 40usize];
+    ["Alignment of slurmdb_stats_rec_t"][::std::mem::align_of::<slurmdb_stats_rec_t>() - 8usize];
+    ["Offset of field: slurmdb_stats_rec_t::dbd_rollup_stats"]
+        [::std::mem::offset_of!(slurmdb_stats_rec_t, dbd_rollup_stats) - 0usize];
+    ["Offset of field: slurmdb_stats_rec_t::rollup_stats"]
+        [::std::mem::offset_of!(slurmdb_stats_rec_t, rollup_stats) - 8usize];
+    ["Offset of field: slurmdb_stats_rec_t::rpc_list"]
+        [::std::mem::offset_of!(slurmdb_stats_rec_t, rpc_list) - 16usize];
+    ["Offset of field: slurmdb_stats_rec_t::time_start"]
+        [::std::mem::offset_of!(slurmdb_stats_rec_t, time_start) - 24usize];
+    ["Offset of field: slurmdb_stats_rec_t::user_list"]
+        [::std::mem::offset_of!(slurmdb_stats_rec_t, user_list) - 32usize];
+};
+unsafe extern "C" {
+    pub static mut working_cluster_rec: *mut slurmdb_cluster_rec_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_accounts_add(
+        db_conn: *mut ::std::os::raw::c_void,
+        acct_list: *mut list_t,
+    ) -> ::std::os::raw::c_int;
+}
+unsafe extern "C" {
+    pub fn slurmdb_accounts_add_cond(
+        db_conn: *mut ::std::os::raw::c_void,
+        add_assoc: *mut slurmdb_add_assoc_cond_t,
+        acct: *mut slurmdb_account_rec_t,
+    ) -> *mut ::std::os::raw::c_char;
+}
+unsafe extern "C" {
+    pub fn slurmdb_accounts_get(
+        db_conn: *mut ::std::os::raw::c_void,
+        acct_cond: *mut slurmdb_account_cond_t,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_accounts_modify(
+        db_conn: *mut ::std::os::raw::c_void,
+        acct_cond: *mut slurmdb_account_cond_t,
+        acct: *mut slurmdb_account_rec_t,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_accounts_remove(
+        db_conn: *mut ::std::os::raw::c_void,
+        acct_cond: *mut slurmdb_account_cond_t,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_archive(
+        db_conn: *mut ::std::os::raw::c_void,
+        arch_cond: *mut slurmdb_archive_cond_t,
+    ) -> ::std::os::raw::c_int;
+}
+unsafe extern "C" {
+    pub fn slurmdb_archive_load(
+        db_conn: *mut ::std::os::raw::c_void,
+        arch_rec: *mut slurmdb_archive_rec_t,
+    ) -> ::std::os::raw::c_int;
+}
+unsafe extern "C" {
+    pub fn slurmdb_associations_add(
+        db_conn: *mut ::std::os::raw::c_void,
+        assoc_list: *mut list_t,
+    ) -> ::std::os::raw::c_int;
+}
+unsafe extern "C" {
+    pub fn slurmdb_associations_get(
+        db_conn: *mut ::std::os::raw::c_void,
+        assoc_cond: *mut slurmdb_assoc_cond_t,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_associations_modify(
+        db_conn: *mut ::std::os::raw::c_void,
+        assoc_cond: *mut slurmdb_assoc_cond_t,
+        assoc: *mut slurmdb_assoc_rec_t,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_associations_remove(
+        db_conn: *mut ::std::os::raw::c_void,
+        assoc_cond: *mut slurmdb_assoc_cond_t,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_clusters_add(
+        db_conn: *mut ::std::os::raw::c_void,
+        cluster_list: *mut list_t,
+    ) -> ::std::os::raw::c_int;
+}
+unsafe extern "C" {
+    pub fn slurmdb_clusters_get(
+        db_conn: *mut ::std::os::raw::c_void,
+        cluster_cond: *mut slurmdb_cluster_cond_t,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_clusters_modify(
+        db_conn: *mut ::std::os::raw::c_void,
+        cluster_cond: *mut slurmdb_cluster_cond_t,
+        cluster: *mut slurmdb_cluster_rec_t,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_clusters_remove(
+        db_conn: *mut ::std::os::raw::c_void,
+        cluster_cond: *mut slurmdb_cluster_cond_t,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_report_cluster_account_by_user(
+        db_conn: *mut ::std::os::raw::c_void,
+        assoc_cond: *mut slurmdb_assoc_cond_t,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_report_cluster_user_by_account(
+        db_conn: *mut ::std::os::raw::c_void,
+        assoc_cond: *mut slurmdb_assoc_cond_t,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_report_cluster_wckey_by_user(
+        db_conn: *mut ::std::os::raw::c_void,
+        wckey_cond: *mut slurmdb_wckey_cond_t,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_report_cluster_user_by_wckey(
+        db_conn: *mut ::std::os::raw::c_void,
+        wckey_cond: *mut slurmdb_wckey_cond_t,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_report_job_sizes_grouped_by_account(
+        db_conn: *mut ::std::os::raw::c_void,
+        job_cond: *mut slurmdb_job_cond_t,
+        grouping_list: *mut list_t,
+        flat_view: bool,
+        acct_as_parent: bool,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_report_job_sizes_grouped_by_wckey(
+        db_conn: *mut ::std::os::raw::c_void,
+        job_cond: *mut slurmdb_job_cond_t,
+        grouping_list: *mut list_t,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_report_job_sizes_grouped_by_account_then_wckey(
+        db_conn: *mut ::std::os::raw::c_void,
+        job_cond: *mut slurmdb_job_cond_t,
+        grouping_list: *mut list_t,
+        flat_view: bool,
+        acct_as_parent: bool,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_report_user_top_usage(
+        db_conn: *mut ::std::os::raw::c_void,
+        user_cond: *mut slurmdb_user_cond_t,
+        group_accounts: bool,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_connection_get(persist_conn_flags: *mut u16) -> *mut ::std::os::raw::c_void;
+}
+unsafe extern "C" {
+    pub fn slurmdb_connection_close(
+        db_conn: *mut *mut ::std::os::raw::c_void,
+    ) -> ::std::os::raw::c_int;
+}
+unsafe extern "C" {
+    pub fn slurmdb_connection_commit(
+        db_conn: *mut ::std::os::raw::c_void,
+        commit: bool,
+    ) -> ::std::os::raw::c_int;
+}
+unsafe extern "C" {
+    pub fn slurmdb_coord_add(
+        db_conn: *mut ::std::os::raw::c_void,
+        acct_list: *mut list_t,
+        user_cond: *mut slurmdb_user_cond_t,
+    ) -> ::std::os::raw::c_int;
+}
+unsafe extern "C" {
+    pub fn slurmdb_coord_remove(
+        db_conn: *mut ::std::os::raw::c_void,
+        acct_list: *mut list_t,
+        user_cond: *mut slurmdb_user_cond_t,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_federations_add(
+        db_conn: *mut ::std::os::raw::c_void,
+        federation_list: *mut list_t,
+    ) -> ::std::os::raw::c_int;
+}
+unsafe extern "C" {
+    pub fn slurmdb_federations_modify(
+        db_conn: *mut ::std::os::raw::c_void,
+        fed_cond: *mut slurmdb_federation_cond_t,
+        fed: *mut slurmdb_federation_rec_t,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_federations_remove(
+        db_conn: *mut ::std::os::raw::c_void,
+        fed_cond: *mut slurmdb_federation_cond_t,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_federations_get(
+        db_conn: *mut ::std::os::raw::c_void,
+        fed_cond: *mut slurmdb_federation_cond_t,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_job_modify(
+        db_conn: *mut ::std::os::raw::c_void,
+        job_cond: *mut slurmdb_job_cond_t,
+        job: *mut slurmdb_job_rec_t,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_jobs_get(
+        db_conn: *mut ::std::os::raw::c_void,
+        job_cond: *mut slurmdb_job_cond_t,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_jobs_fix_runaway(
+        db_conn: *mut ::std::os::raw::c_void,
+        jobs: *mut list_t,
+    ) -> ::std::os::raw::c_int;
+}
+unsafe extern "C" {
+    pub fn slurmdb_jobcomp_init() -> ::std::os::raw::c_int;
+}
+unsafe extern "C" {
+    pub fn slurmdb_jobcomp_fini() -> ::std::os::raw::c_int;
+}
+unsafe extern "C" {
+    pub fn slurmdb_jobcomp_jobs_get(job_cond: *mut slurmdb_job_cond_t) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_reconfig(db_conn: *mut ::std::os::raw::c_void) -> ::std::os::raw::c_int;
+}
+unsafe extern "C" {
+    pub fn slurmdb_shutdown(db_conn: *mut ::std::os::raw::c_void) -> ::std::os::raw::c_int;
+}
+unsafe extern "C" {
+    pub fn slurmdb_clear_stats(db_conn: *mut ::std::os::raw::c_void) -> ::std::os::raw::c_int;
+}
+unsafe extern "C" {
+    pub fn slurmdb_get_stats(
+        db_conn: *mut ::std::os::raw::c_void,
+        stats_pptr: *mut *mut slurmdb_stats_rec_t,
+    ) -> ::std::os::raw::c_int;
+}
+unsafe extern "C" {
+    pub fn slurmdb_config_get(db_conn: *mut ::std::os::raw::c_void) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_events_get(
+        db_conn: *mut ::std::os::raw::c_void,
+        event_cond: *mut slurmdb_event_cond_t,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_instances_get(
+        db_conn: *mut ::std::os::raw::c_void,
+        instance_cond: *mut slurmdb_instance_cond_t,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_problems_get(
+        db_conn: *mut ::std::os::raw::c_void,
+        assoc_cond: *mut slurmdb_assoc_cond_t,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_reservations_get(
+        db_conn: *mut ::std::os::raw::c_void,
+        resv_cond: *mut slurmdb_reservation_cond_t,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_txn_get(
+        db_conn: *mut ::std::os::raw::c_void,
+        txn_cond: *mut slurmdb_txn_cond_t,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_get_info_cluster(cluster_names: *mut ::std::os::raw::c_char) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_get_first_avail_cluster(
+        req: *mut job_desc_msg_t,
+        cluster_names: *mut ::std::os::raw::c_char,
+        cluster_rec: *mut *mut slurmdb_cluster_rec_t,
+    ) -> ::std::os::raw::c_int;
+}
+unsafe extern "C" {
+    pub fn slurmdb_get_first_het_job_cluster(
+        job_req_list: *mut list_t,
+        cluster_names: *mut ::std::os::raw::c_char,
+        cluster_rec: *mut *mut slurmdb_cluster_rec_t,
+    ) -> ::std::os::raw::c_int;
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_assoc_usage(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_bf_usage(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_bf_usage_members(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_qos_usage(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_free_user_rec_members(slurmdb_user: *mut slurmdb_user_rec_t);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_user_rec(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_account_rec(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_coord_rec(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_clus_res_rec(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_cluster_accounting_rec(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_cluster_rec(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_federation_rec(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_accounting_rec(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_free_assoc_mgr_state_msg(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_free_assoc_rec_members(assoc: *mut slurmdb_assoc_rec_t);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_assoc_rec(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_event_rec(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_instance_rec(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_job_rec(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_free_qos_rec_members(qos: *mut slurmdb_qos_rec_t);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_qos_rec(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_reservation_rec(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_step_rec(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_res_rec(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_txn_rec(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_wckey_rec(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_archive_rec(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_tres_rec_noalloc(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_tres_rec(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_report_assoc_rec(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_report_user_rec(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_report_cluster_rec(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_user_cond(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_account_cond(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_cluster_cond(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_federation_cond(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_tres_cond(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_assoc_cond(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_event_cond(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_instance_cond(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_job_cond(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_job_cond_members(job_cond: *mut slurmdb_job_cond_t);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_qos_cond(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_reservation_cond(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_res_cond(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_txn_cond(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_wckey_cond(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_archive_cond(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_free_add_assoc_cond_members(add_assoc: *mut slurmdb_add_assoc_cond_t);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_add_assoc_cond(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_update_object(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_used_limits(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_print_tree(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_hierarchical_rec(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_report_job_grouping(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_report_acct_grouping(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_report_cluster_grouping(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_rpc_obj(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_rollup_stats(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_free_stats_rec_members(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_stats_rec(object: *mut ::std::os::raw::c_void);
+}
+unsafe extern "C" {
+    pub fn slurmdb_free_slurmdb_stats_members(stats: *mut slurmdb_stats_t);
+}
+unsafe extern "C" {
+    pub fn slurmdb_destroy_slurmdb_stats(stats: *mut slurmdb_stats_t);
+}
+unsafe extern "C" {
+    pub fn slurmdb_init_assoc_rec(assoc: *mut slurmdb_assoc_rec_t, free_it: bool);
+}
+unsafe extern "C" {
+    pub fn slurmdb_init_clus_res_rec(clus_res: *mut slurmdb_clus_res_rec_t, free_it: bool);
+}
+unsafe extern "C" {
+    pub fn slurmdb_init_cluster_rec(cluster: *mut slurmdb_cluster_rec_t, free_it: bool);
+}
+unsafe extern "C" {
+    pub fn slurmdb_init_federation_rec(federation: *mut slurmdb_federation_rec_t, free_it: bool);
+}
+unsafe extern "C" {
+    pub fn slurmdb_init_instance_rec(instance: *mut slurmdb_instance_rec_t);
+}
+unsafe extern "C" {
+    pub fn slurmdb_init_qos_rec(qos: *mut slurmdb_qos_rec_t, free_it: bool, init_val: u32);
+}
+unsafe extern "C" {
+    pub fn slurmdb_init_res_rec(res: *mut slurmdb_res_rec_t, free_it: bool);
+}
+unsafe extern "C" {
+    pub fn slurmdb_init_wckey_rec(wckey: *mut slurmdb_wckey_rec_t, free_it: bool);
+}
+unsafe extern "C" {
+    pub fn slurmdb_init_add_assoc_cond(add_assoc: *mut slurmdb_add_assoc_cond_t, free_it: bool);
+}
+unsafe extern "C" {
+    pub fn slurmdb_init_tres_cond(tres: *mut slurmdb_tres_cond_t, free_it: bool);
+}
+unsafe extern "C" {
+    pub fn slurmdb_init_cluster_cond(cluster: *mut slurmdb_cluster_cond_t, free_it: bool);
+}
+unsafe extern "C" {
+    pub fn slurmdb_init_federation_cond(federation: *mut slurmdb_federation_cond_t, free_it: bool);
+}
+unsafe extern "C" {
+    pub fn slurmdb_init_res_cond(cluster: *mut slurmdb_res_cond_t, free_it: bool);
+}
+unsafe extern "C" {
+    pub fn slurmdb_ping(rem_host: *mut ::std::os::raw::c_char) -> ::std::os::raw::c_int;
+}
+unsafe extern "C" {
+    pub fn slurmdb_ping_all() -> *mut slurmdbd_ping_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_get_hierarchical_sorted_assoc_list(assoc_list: *mut list_t) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_get_acct_hierarchical_rec_list(assoc_list: *mut list_t) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_tree_name_get(
+        name: *mut ::std::os::raw::c_char,
+        parent: *mut ::std::os::raw::c_char,
+        tree_list: *mut list_t,
+    ) -> *mut ::std::os::raw::c_char;
+}
+unsafe extern "C" {
+    pub fn slurmdb_res_add(
+        db_conn: *mut ::std::os::raw::c_void,
+        res_list: *mut list_t,
+    ) -> ::std::os::raw::c_int;
+}
+unsafe extern "C" {
+    pub fn slurmdb_res_get(
+        db_conn: *mut ::std::os::raw::c_void,
+        res_cond: *mut slurmdb_res_cond_t,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_res_modify(
+        db_conn: *mut ::std::os::raw::c_void,
+        res_cond: *mut slurmdb_res_cond_t,
+        res: *mut slurmdb_res_rec_t,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_res_remove(
+        db_conn: *mut ::std::os::raw::c_void,
+        res_cond: *mut slurmdb_res_cond_t,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_qos_add(
+        db_conn: *mut ::std::os::raw::c_void,
+        qos_list: *mut list_t,
+    ) -> ::std::os::raw::c_int;
+}
+unsafe extern "C" {
+    pub fn slurmdb_qos_get(
+        db_conn: *mut ::std::os::raw::c_void,
+        qos_cond: *mut slurmdb_qos_cond_t,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_qos_modify(
+        db_conn: *mut ::std::os::raw::c_void,
+        qos_cond: *mut slurmdb_qos_cond_t,
+        qos: *mut slurmdb_qos_rec_t,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_qos_remove(
+        db_conn: *mut ::std::os::raw::c_void,
+        qos_cond: *mut slurmdb_qos_cond_t,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_tres_add(
+        db_conn: *mut ::std::os::raw::c_void,
+        tres_list: *mut list_t,
+    ) -> ::std::os::raw::c_int;
+}
+unsafe extern "C" {
+    pub fn slurmdb_tres_get(
+        db_conn: *mut ::std::os::raw::c_void,
+        tres_cond: *mut slurmdb_tres_cond_t,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_usage_get(
+        db_conn: *mut ::std::os::raw::c_void,
+        in_: *mut ::std::os::raw::c_void,
+        type_: ::std::os::raw::c_int,
+        start: time_t,
+        end: time_t,
+    ) -> ::std::os::raw::c_int;
+}
+unsafe extern "C" {
+    pub fn slurmdb_usage_roll(
+        db_conn: *mut ::std::os::raw::c_void,
+        sent_start: time_t,
+        sent_end: time_t,
+        archive_data: u16,
+        rollup_stats_list_in: *mut *mut list_t,
+    ) -> ::std::os::raw::c_int;
+}
+unsafe extern "C" {
+    pub fn slurmdb_users_add(
+        db_conn: *mut ::std::os::raw::c_void,
+        user_list: *mut list_t,
+    ) -> ::std::os::raw::c_int;
+}
+unsafe extern "C" {
+    pub fn slurmdb_users_add_cond(
+        db_conn: *mut ::std::os::raw::c_void,
+        add_assoc: *mut slurmdb_add_assoc_cond_t,
+        user: *mut slurmdb_user_rec_t,
+    ) -> *mut ::std::os::raw::c_char;
+}
+unsafe extern "C" {
+    pub fn slurmdb_users_add_conn(
+        db_conn: *mut ::std::os::raw::c_void,
+        user: *mut slurmdb_user_rec_t,
+        assoc_cond: *mut slurmdb_assoc_cond_t,
+        assoc: *mut slurmdb_assoc_rec_t,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_users_get(
+        db_conn: *mut ::std::os::raw::c_void,
+        user_cond: *mut slurmdb_user_cond_t,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_users_modify(
+        db_conn: *mut ::std::os::raw::c_void,
+        user_cond: *mut slurmdb_user_cond_t,
+        user: *mut slurmdb_user_rec_t,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_users_remove(
+        db_conn: *mut ::std::os::raw::c_void,
+        user_cond: *mut slurmdb_user_cond_t,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_wckeys_add(
+        db_conn: *mut ::std::os::raw::c_void,
+        wckey_list: *mut list_t,
+    ) -> ::std::os::raw::c_int;
+}
+unsafe extern "C" {
+    pub fn slurmdb_wckeys_get(
+        db_conn: *mut ::std::os::raw::c_void,
+        wckey_cond: *mut slurmdb_wckey_cond_t,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_wckeys_modify(
+        db_conn: *mut ::std::os::raw::c_void,
+        wckey_cond: *mut slurmdb_wckey_cond_t,
+        wckey: *mut slurmdb_wckey_rec_t,
+    ) -> *mut list_t;
+}
+unsafe extern "C" {
+    pub fn slurmdb_wckeys_remove(
+        db_conn: *mut ::std::os::raw::c_void,
+        wckey_cond: *mut slurmdb_wckey_cond_t,
+    ) -> *mut list_t;
 }
 pub const bind_node_state_flags_EXTERNAL: bind_node_state_flags = 16;
 pub const bind_node_state_flags_RES: bind_node_state_flags = 32;
