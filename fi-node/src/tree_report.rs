@@ -24,6 +24,7 @@ pub struct ReportLine {
     pub preempt_nodes: Option<u32>,
     pub total_cpus: u32,
     pub idle_cpus: u32,
+    pub preempt_cpus: Option<u32>,
     pub alloc_cpus: u32,
     pub node_names: Vec<String>,
 }
@@ -126,11 +127,18 @@ pub fn build_tree_report(
 
             if preempted_node_ids.contains(&node.id) {
                 *root.stats.preempt_nodes.get_or_insert(0) += 1;
+                *root.stats.preempt_cpus.get_or_insert(0) += node.cpus as u32; // because unlike
+                // the nodes, cpus don't get any kind of base state change
             }
         } else if is_available && !preempt {
             root.stats.idle_nodes += 1;
             root.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
-        } else if is_mixed {
+        } else if is_mixed && preempt {
+            root.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
+            if preempted_node_ids.contains(&node.id) {
+                *root.stats.preempt_cpus.get_or_insert(0) += node.cpus as u32;
+            }
+        } else if is_mixed && !preempt {
             root.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
         }
 
@@ -158,11 +166,17 @@ pub fn build_tree_report(
 
                     if preempted_node_ids.contains(&node.id) {
                         *current_level.stats.preempt_nodes.get_or_insert(0) += 1;
+                        *current_level.stats.preempt_cpus.get_or_insert(0) += node.cpus as u32;
                     }
                 } else if is_available && !preempt {
                     current_level.stats.idle_nodes += 1;
                     current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
-                } else if is_mixed {
+                } else if is_mixed && preempt {
+                    current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
+                    if preempted_node_ids.contains(&node.id) {
+                        *current_level.stats.preempt_cpus.get_or_insert(0) += node.cpus as u32;
+                    }
+                } else if is_mixed && !preempt {
                     current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                 }
 
@@ -189,11 +203,17 @@ pub fn build_tree_report(
 
                         if preempted_node_ids.contains(&node.id) {
                             *current_level.stats.preempt_nodes.get_or_insert(0) += 1;
+                            *current_level.stats.preempt_cpus.get_or_insert(0) += node.cpus as u32;
                         }
                     } else if is_available && !preempt {
                         current_level.stats.idle_nodes += 1;
                         current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
-                    } else if is_mixed {
+                    } else if is_mixed && preempt {
+                        current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
+                        if preempted_node_ids.contains(&node.id) {
+                            *current_level.stats.preempt_cpus.get_or_insert(0) += node.cpus as u32;
+                        }
+                    } else if is_mixed && !preempt {
                         current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                     }
 
@@ -213,11 +233,17 @@ pub fn build_tree_report(
 
                             if preempted_node_ids.contains(&node.id) {
                                 *current_level.stats.preempt_nodes.get_or_insert(0) += 1;
+                                *current_level.stats.preempt_cpus.get_or_insert(0) += node.cpus as u32;
                             }
                         } else if is_available && !preempt {
                             current_level.stats.idle_nodes += 1;
                             current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
-                        } else if is_mixed {
+                        } else if is_mixed && preempt {
+                            current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
+                            if preempted_node_ids.contains(&node.id) {
+                                *current_level.stats.preempt_cpus.get_or_insert(0) += node.cpus as u32;
+                            }
+                        } else if is_mixed && !preempt {
                             current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                         }
 
@@ -242,6 +268,7 @@ struct ColumnWidths {
     max_preempt_nodes_width: usize,
     max_idle_cpus: usize,
     max_total_cpus: usize,
+    max_preempt_cpus_width: usize,
 }
 
 fn calculate_column_widths(tree_node: &TreeNode) -> ColumnWidths {
@@ -251,10 +278,14 @@ fn calculate_column_widths(tree_node: &TreeNode) -> ColumnWidths {
         max_preempt_nodes_width: 0, // Start at 0
         max_idle_cpus: tree_node.stats.idle_cpus.to_string().len(),
         max_total_cpus: tree_node.stats.total_cpus.to_string().len(),
+        max_preempt_cpus_width: 0,
     };
 
-    if let Some(count) = tree_node.stats.preempt_nodes {
-        widths.max_preempt_nodes_width = count.to_string().len();
+    if let Some(node_count) = tree_node.stats.preempt_nodes {
+        widths.max_preempt_nodes_width = node_count.to_string().len();
+    }
+    if let Some(cpu_count) = tree_node.stats.preempt_cpus {
+        widths.max_preempt_cpus_width = cpu_count.to_string().len();
     }
 
     for child in tree_node.children.values() {
@@ -264,6 +295,7 @@ fn calculate_column_widths(tree_node: &TreeNode) -> ColumnWidths {
         widths.max_preempt_nodes_width = widths.max_preempt_nodes_width.max(child_widths.max_preempt_nodes_width);
         widths.max_idle_cpus = widths.max_idle_cpus.max(child_widths.max_idle_cpus);
         widths.max_total_cpus = widths.max_total_cpus.max(child_widths.max_total_cpus);
+        widths.max_preempt_cpus_width = widths.max_preempt_cpus_width.max(child_widths.max_preempt_cpus_width);
     }
 
     widths
@@ -315,7 +347,7 @@ fn calculate_max_width(tree_node: &TreeNode, prefix_len: usize) -> usize {
 pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names: bool, sort: bool, preempt: bool) {
     // --- Define Headers ---
     const HEADER_FEATURE: &str = "FEATURE (Avail/Total)";
-    const HEADER_NODES_PREEMPT: &str = "NODES (PREEMPT)";
+    const HEADER_NODES_PREEMPT: &str = "NODES (PREEMPTABLE)";
     const HEADER_NODES: &str = "NODES";
     const HEADER_CPUS: &str = "CORES";
     const HEADER_NODE_AVAIL: &str = "NODES AVAIL.";
@@ -348,7 +380,7 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
         nodes_data_width.max(HEADER_NODES.len())
     };
 
-    let cpus_final_width = cpus_data_width.max(HEADER_CPUS.len());
+    let cpus_final_width = (cpus_data_width).max(HEADER_CPUS.len());
     let bar_final_width = (bar_width + 2).max(HEADER_NODE_AVAIL.len()); // +2 for "||"
 
     // Determine what to print as the top level
@@ -370,7 +402,7 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
 
         if let Some(preempt_count) = stats.preempt_nodes {
             let preempt_str_colored = format!("(-{:>width$})", preempt_count, width = col_widths.max_preempt_nodes_width).yellow().to_string();
-            let preempt_str_uncolored = format!("-({:>width$})", preempt_count, width = col_widths.max_preempt_nodes_width);
+            let preempt_str_uncolored = format!("(-{:>width$})", preempt_count, width = col_widths.max_preempt_nodes_width);
             (
                 format!("{}{}/{}", idle_str, preempt_str_colored, total_str),
                 format!("{}{}/{}", idle_str, preempt_str_uncolored, total_str)
@@ -387,14 +419,28 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
     };
     let nodes_width_adjusted = nodes_final_width + node_text.len() - uncolored_node_text.len();
 
-    let cpu_text = format!(
-        "{:>idle_w$}/{:>total_w$}",
-        stats.idle_cpus,
-        stats.total_cpus,
-        idle_w = col_widths.max_idle_cpus,
-        total_w = col_widths.max_total_cpus
-    );
-    let cpus_width_adjusted = cpus_final_width;
+    let (cpu_text, uncolored_cpu_text) = {
+        let idle_str = format!("{:>width$}", stats.idle_cpus, width = col_widths.max_idle_cpus);
+        let total_str = format!("{:>width$}", stats.total_cpus, width = col_widths.max_total_cpus);
+
+        if let Some(preempt_count) = stats.preempt_cpus {
+            let preempt_str_colored = format!("(-{:>width$})", preempt_count, width = col_widths.max_preempt_cpus_width).yellow().to_string();
+            let preempt_str_uncolored = format!("(-{:>width$})", preempt_count, width = col_widths.max_preempt_cpus_width);
+            (
+                format!("{}{}/{}", idle_str, preempt_str_colored, total_str),
+                format!("{}{}/{}", idle_str, preempt_str_uncolored, total_str)
+            )
+        } else {
+            let text = if col_widths.max_preempt_cpus_width > 0 {
+                let padding = " ".repeat(col_widths.max_preempt_cpus_width + 3);
+                format!("{}{}/{}", idle_str, padding, total_str)
+            } else {
+                format!("{}/{}", idle_str, total_str)
+            };
+            (text.clone(), text)
+        }
+    };
+    let cpus_width_adjusted = cpus_final_width + cpu_text.len() - uncolored_cpu_text.len();
 
     let node_bar = create_avail_bar(stats.idle_nodes, stats.total_nodes, bar_width, Color::Green, no_color);
     let cpu_bar = create_avail_bar(stats.idle_cpus, stats.total_cpus, bar_width, Color::Cyan, no_color);
@@ -507,14 +553,28 @@ fn print_node_recursive(
     };
     let nodes_width_adjusted = nodes_final_width + node_text.len() - uncolored_node_text.len();
 
-    let cpu_text = format!(
-        "{:>idle_w$}/{:>total_w$}",
-        stats.idle_cpus,
-        stats.total_cpus,
-        idle_w = col_widths.max_idle_cpus,
-        total_w = col_widths.max_total_cpus
-    );
-    let cpus_width_adjusted = cpus_final_width;
+    let (cpu_text, uncolored_cpu_text) = {
+        let idle_str = format!("{:>width$}", stats.idle_cpus, width = col_widths.max_idle_cpus);
+        let total_str = format!("{:>width$}", stats.total_cpus, width = col_widths.max_total_cpus);
+
+        if let Some(preempt_count) = stats.preempt_cpus {
+            let preempt_str_colored = format!("(-{:>width$})", preempt_count, width = col_widths.max_preempt_cpus_width).yellow().to_string();
+            let preempt_str_uncolored = format!("(-{:>width$})", preempt_count, width = col_widths.max_preempt_cpus_width);
+            (
+                format!("{}{}/{}", idle_str, preempt_str_colored, total_str),
+                format!("{}{}/{}", idle_str, preempt_str_uncolored, total_str)
+            )
+        } else {
+            let text = if col_widths.max_preempt_cpus_width > 0 {
+                let padding = " ".repeat(col_widths.max_preempt_cpus_width + 3);
+                format!("{}{}/{}", idle_str, padding, total_str)
+            } else {
+                format!("{}/{}", idle_str, total_str)
+            };
+            (text.clone(), text)
+        }
+    };
+    let cpus_width_adjusted = cpus_final_width + cpu_text.len() - uncolored_cpu_text.len();
 
     let node_bar = create_avail_bar(stats.idle_nodes, stats.total_nodes, bar_width, Color::Green, no_color);
     let cpu_bar = create_avail_bar(stats.idle_cpus, stats.total_cpus, bar_width, Color::Cyan, no_color);
