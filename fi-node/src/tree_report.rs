@@ -123,7 +123,7 @@ pub fn build_tree_report(
             // we don't increment idle nodes or cpus in this case in this case
             // in order to keep idle nodes referring only to idle and not idle + preempt
             root.stats.idle_nodes += 1;
-            root.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
+            root.stats.idle_cpus += node.cpus as u32;
 
             if preempted_node_ids.contains(&node.id) {
                 *root.stats.preempt_nodes.get_or_insert(0) += 1;
@@ -134,7 +134,7 @@ pub fn build_tree_report(
             root.stats.idle_nodes += 1;
             root.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
         } else if is_mixed && preempt {
-            root.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
+            root.stats.idle_cpus += node.cpus as u32;
             if preempted_node_ids.contains(&node.id) {
                 *root.stats.preempt_cpus.get_or_insert(0) += node.cpus as u32;
             }
@@ -162,7 +162,7 @@ pub fn build_tree_report(
 
                 if is_available && preempt {
                     current_level.stats.idle_nodes += 1;
-                    current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
+                    current_level.stats.idle_cpus += node.cpus as u32;
 
                     if preempted_node_ids.contains(&node.id) {
                         *current_level.stats.preempt_nodes.get_or_insert(0) += 1;
@@ -172,7 +172,7 @@ pub fn build_tree_report(
                     current_level.stats.idle_nodes += 1;
                     current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                 } else if is_mixed && preempt {
-                    current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
+                    current_level.stats.idle_cpus += node.cpus as u32;
                     if preempted_node_ids.contains(&node.id) {
                         *current_level.stats.preempt_cpus.get_or_insert(0) += node.cpus as u32;
                     }
@@ -199,7 +199,7 @@ pub fn build_tree_report(
 
                     if is_available && preempt {
                         current_level.stats.idle_nodes += 1;
-                        current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
+                        current_level.stats.idle_cpus += node.cpus as u32;
 
                         if preempted_node_ids.contains(&node.id) {
                             *current_level.stats.preempt_nodes.get_or_insert(0) += 1;
@@ -209,7 +209,7 @@ pub fn build_tree_report(
                         current_level.stats.idle_nodes += 1;
                         current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                     } else if is_mixed && preempt {
-                        current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
+                        current_level.stats.idle_cpus += node.cpus as u32;
                         if preempted_node_ids.contains(&node.id) {
                             *current_level.stats.preempt_cpus.get_or_insert(0) += node.cpus as u32;
                         }
@@ -229,7 +229,7 @@ pub fn build_tree_report(
 
                         if is_available && preempt {
                             current_level.stats.idle_nodes += 1;
-                            current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
+                            current_level.stats.idle_cpus += node.cpus as u32;
 
                             if preempted_node_ids.contains(&node.id) {
                                 *current_level.stats.preempt_nodes.get_or_insert(0) += 1;
@@ -239,7 +239,7 @@ pub fn build_tree_report(
                             current_level.stats.idle_nodes += 1;
                             current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                         } else if is_mixed && preempt {
-                            current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
+                            current_level.stats.idle_cpus += node.cpus as u32;
                             if preempted_node_ids.contains(&node.id) {
                                 *current_level.stats.preempt_cpus.get_or_insert(0) += node.cpus as u32;
                             }
