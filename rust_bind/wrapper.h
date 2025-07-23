@@ -1,5 +1,6 @@
 #include <stddef.h>
 #include <slurm/slurm.h>
+#include <slurm/slurmdb.h>
 
 enum bind_node_state_flags {
     EXTERNAL = (1 << 4),
