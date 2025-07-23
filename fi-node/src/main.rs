@@ -139,7 +139,8 @@ fn main() -> Result<(), String> {
             &args.feature,
             args.verbose,
             args.names,
-            preempted_nodes
+            preempted_nodes,
+            args.preempt,
         );
         tree_report::print_tree_report(
             &tree_report,
