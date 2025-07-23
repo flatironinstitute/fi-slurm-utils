@@ -72,6 +72,7 @@ pub fn build_tree_report(
     show_hidden_features: bool,
     show_node_names: bool,
     preempted_nodes: Option<PreemptNodes>,
+    preempt: bool,
 ) -> TreeReportData {
     let mut root = TreeNode {
         name: "TOTAL".to_string(),
@@ -105,21 +106,31 @@ pub fn build_tree_report(
         let is_available = is_node_available(&derived_state);
         let is_mixed = is_node_mixed(&derived_state);
 
+        let preempted_node_ids = if preempt { 
+            &preempted_nodes.unwrap()
+        } else {
+            Vec::new()
+        };
+
         // Update Grand Total Stats
         root.stats.total_nodes += 1;
         root.stats.total_cpus += node.cpus as u32;
         root.stats.alloc_cpus += alloc_cpus_for_node;
-        if is_available {
+
+        if is_available && preempt {
+            // we don't increment idle nodes or cpus in this case in this case
+            // in order to keep idle nodes referring only to idle and not idle + preempt
+            root.stats.idle_nodes += 1;
+            root.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
+
+            if preempted_node_ids.0.contains(&node.id) {
+                *root.stats.preempt_nodes.get_or_insert(0) += 1;
+            }
+        } else if is_available && !preempt {
             root.stats.idle_nodes += 1;
             root.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
         } else if is_mixed {
             root.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
-        }
-
-        if let Some(preempted_nodes_ids) = &preempted_nodes {
-            if preempted_nodes_ids.0.contains(&node.id) {
-                *root.stats.preempt_nodes.get_or_insert(0) += 1;
-            }
         }
 
         let features_for_tree: Vec<_> = if show_hidden_features {
@@ -139,16 +150,19 @@ pub fn build_tree_report(
                 current_level.stats.total_nodes += 1;
                 current_level.stats.total_cpus += node.cpus as u32;
                 current_level.stats.alloc_cpus += alloc_cpus_for_node;
-                if is_available {
+
+                if is_available && preempt {
+                    current_level.stats.idle_nodes += 1;
+                    current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
+
+                    if preempted_node_ids.0.contains(&node.id) {
+                        *current_level.stats.preempt_nodes.get_or_insert(0) += 1;
+                    }
+                } else if is_available && !preempt {
                     current_level.stats.idle_nodes += 1;
                     current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                 } else if is_mixed {
                     current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
-                }
-                if let Some(preempted_nodes_ids) = &preempted_nodes {
-                    if preempted_nodes_ids.0.contains(&node.id) {
-                        *current_level.stats.preempt_nodes.get_or_insert(0) += 1;
-                    }
                 }
 
                 if show_node_names {
@@ -167,17 +181,19 @@ pub fn build_tree_report(
                     current_level.stats.total_nodes += 1;
                     current_level.stats.total_cpus += node.cpus as u32;
                     current_level.stats.alloc_cpus += alloc_cpus_for_node;
-                    if is_available {
+
+                    if is_available && preempt {
+                        current_level.stats.idle_nodes += 1;
+                        current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
+
+                        if preempted_node_ids.0.contains(&node.id) {
+                            *current_level.stats.preempt_nodes.get_or_insert(0) += 1;
+                        }
+                    } else if is_available && !preempt {
                         current_level.stats.idle_nodes += 1;
                         current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                     } else if is_mixed {
                         current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
-                    }
-
-                    if let Some(preempted_nodes_ids) = &preempted_nodes {
-                        if preempted_nodes_ids.0.contains(&node.id) {
-                            *current_level.stats.preempt_nodes.get_or_insert(0) += 1;
-                        }
                     }
 
                     // Build the sub-branch from the *remaining* features,
@@ -189,17 +205,19 @@ pub fn build_tree_report(
                         current_level.stats.total_nodes += 1;
                         current_level.stats.total_cpus += node.cpus as u32;
                         current_level.stats.alloc_cpus += alloc_cpus_for_node;
-                        if is_available {
+
+                        if is_available && preempt {
+                            current_level.stats.idle_nodes += 1;
+                            current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
+
+                            if preempted_node_ids.0.contains(&node.id) {
+                                *current_level.stats.preempt_nodes.get_or_insert(0) += 1;
+                            }
+                        } else if is_available && !preempt {
                             current_level.stats.idle_nodes += 1;
                             current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                         } else if is_mixed {
                             current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
-                        }
-
-                        if let Some(preempted_nodes_ids) = &preempted_nodes {
-                            if preempted_nodes_ids.0.contains(&node.id) {
-                                *current_level.stats.preempt_nodes.get_or_insert(0) += 1;
-                            }
                         }
 
                         if show_node_names {
