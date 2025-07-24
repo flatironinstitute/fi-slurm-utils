@@ -11,6 +11,8 @@ use fi_slurm::{jobs, nodes, utils::{SlurmConfig, initialize_slurm}};
 use fi_slurm::filter::{self, gather_all_features};
 use crate::tui::app::tui_execute;
 
+use fi_slurm_db::acct::{print_user_info};
+
 use std::time::Instant;
 use chrono::{DateTime, Utc};
 
@@ -31,6 +33,10 @@ fn main() -> Result<(), String> {
     if args.term {
         let _ = tui_execute();
         return Ok(())
+    }
+
+    if args.qos {
+        print_user_info("nposner".to_string())
     }
 
     if args.exact && args.feature.is_empty() {
@@ -321,6 +327,9 @@ struct Args {
     #[arg(short, long)]
     #[arg(help = "Prints the top-level summary report for each feature type")]
     summary: bool,
+    #[arg(long)]
+    #[arg(help = "Query Slurm for per-user QoS information")]
+    qos: bool,
 }
 
 

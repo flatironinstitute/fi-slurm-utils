@@ -23,7 +23,7 @@ use std::{
     ops::{Deref, DerefMut}, 
     os::raw::c_void
 };
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Utc, Duration};
 
 use rust_bind::bindings::{list_itr_t, slurm_list_append, slurm_list_create, slurm_list_destroy, slurm_list_iterator_create, slurm_list_iterator_destroy, slurm_list_next, slurmdb_assoc_cond_t, slurmdb_assoc_rec_t, slurmdb_connection_close, slurmdb_connection_get, slurmdb_destroy_qos_cond, slurmdb_destroy_user_cond, slurmdb_qos_cond_t, slurmdb_qos_get, slurmdb_qos_rec_t, slurmdb_user_cond_t, slurmdb_user_rec_t, slurmdb_users_get, xlist};
 
@@ -148,8 +148,8 @@ impl UserQueryInfo {
             // WE ARE NO LONGER RESPONSIBLE FOR DROPPING IT
             user.assoc_cond = Box::into_raw(Box::new(assoc_c_struct));
 
-            user.admin_level = 1; //slurmdb_admin_level_t_SLURMDB_ADMIN_NONE // we are hardcoding this,
-            // DO NOT let users pass their own admin level
+            user.admin_level = 0; //slurmdb_admin_level_t_SLURMDB_ADMIN_NOTSET 
+            // this is just filtering by admin level, not actually giving admin permissions
             user.def_acct_list = vec_to_slurm_list(def_acct_list);
             user.def_wckey_list = vec_to_slurm_list(def_wckey_list);
             user.with_assocs = bool_to_int(with_assocs);
@@ -485,7 +485,7 @@ fn process_qos_list(qos_list: SlurmQosList) -> Vec<SlurmQos> {
 }
 
 
-fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) {
+fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) -> Vec<SlurmQos> {
 
     let mut db_conn = unsafe {
         slurmdb_connect(persist_flags) // connecting and getting the null pointer as a value that
@@ -502,20 +502,19 @@ fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) {
     let Some(user) = users.first() else {
         eprintln!("User not found.");
         // TODO: more expressive Err print
-        return;
+        return vec![];
     };
     
     // find the association that matches the user's default account
     let Some(target_assoc) = user.associations.iter().find(|assoc| assoc.acct == user.default_acct) else {
         eprintln!("Default account association not found for user.");
-        return;
+        return vec![];
     };
     
     println!("Found QoS for account '{}': {:?}", target_assoc.acct, target_assoc.qos);
     
     // query for qos details
-    if !target_assoc.qos.is_empty() {
-
+    let qos_details: Vec<SlurmQos> = if !target_assoc.qos.is_empty() {
 
         // build the query, currently very sparse
         let qos_config = QosConfig {
@@ -531,10 +530,12 @@ fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) {
         let qos_list = SlurmQosList::new(&mut db_conn, &mut qos_query);
         
         // process the resulting list and get details
-        let qos_details = process_qos_list(qos_list);
-        
-        println!("QoS Details: {:?}", qos_details);
-    }
+        process_qos_list(qos_list)
+    } else {
+        vec![]
+    };
+
+    qos_details
 
         // at all points, wrap these raw return into Rust types with Drop impls that use the
         // equivalent slurmdb_destroy_db function
@@ -542,4 +543,27 @@ fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) {
         // itself
 }
 
+pub fn print_user_info(name: String) {
 
+    let now = Utc::now();
+    let assoc_config = AssocConfig {
+        acct_list: None,
+        cluster_list: None,
+        def_qos_id_list: None,
+        flags: 0, // bitflags
+        format_list: None,
+        id_list: None,
+        parent_acct_list: None,
+        partition_list: None,
+        qos_list: None,
+        usage_end: now - Duration::weeks(5),
+        usage_start: now,
+        user_list: Some(vec![name]),
+    };
+
+    let mut user_query = UserQueryInfo::new(assoc_config, None, None, true, false, false, false, 0);
+
+    let qos_details = get_user_info(&mut user_query, &mut 0);
+
+    println!("QoS Details: {:?}", qos_details);
+}

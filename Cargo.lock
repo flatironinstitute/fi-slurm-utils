@@ -530,6 +530,7 @@ dependencies = [
  "crossterm 0.29.0",
  "fi_prometheus",
  "fi_slurm",
+ "fi_slurm_db",
  "ratatui",
  "thiserror",
  "tokio",

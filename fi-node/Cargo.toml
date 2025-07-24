@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 clap = { version = "4.5.40", features = ["derive"] }
 fi_slurm = {path = "../fi_slurm"}
+fi_slurm_db = {path = "../fi_slurm_db"}
 fi_prometheus = {path = "../fi_prometheus"}
 colored = "3.0.0"
 color-eyre = "0.6.5"
