@@ -80,8 +80,15 @@ unsafe fn vec_to_slurm_list(data: Option<Vec<String>>) -> *mut xlist {
 
     // If the vector is not empty, create a Slurm list
     let slurm_list = unsafe { slurm_list_create(None) };
+    // If Slurm fails to allocate, return null for safety
+    if slurm_list.is_null() {
+        return std::ptr::null_mut(); // returning the null is fine in this case, it's part of the
+        // expected API, the equivalent of an Option resolving to None
+    }
     for item in vec {
-        let c_string = CString::new(item).unwrap();
+        // sanitize interior NULs so CString::new never fails
+        let safe = item.replace('\0', "");
+        let c_string = CString::new(safe).unwrap();
         // Give ownership of the string memory to the C list
         // The list's destructor will free it
         unsafe { slurm_list_append(slurm_list, c_string.into_raw() as *mut c_void) };
@@ -127,9 +134,9 @@ impl AssocConfig {
     }
 }
 
+/// Wrapper owning heap-allocated Slurm user condition struct
 struct UserQueryInfo {
-    // Rust version of slurmdb_user_cond_t
-    user: slurmdb_user_cond_t
+    user: *mut slurmdb_user_cond_t,
 }
 
 impl UserQueryInfo {
@@ -144,50 +151,45 @@ impl UserQueryInfo {
         with_wckey: bool,
         without_defaults: u16,
     ) -> Self {
-        unsafe {    
-            let mut user: slurmdb_user_cond_t = std::mem::zeroed();
-
-            let assoc_c_struct: slurmdb_assoc_cond_t = assoc_config.into_c_struct();
-
-            // we are passing control of this memory from Rust to C
-            // WE ARE NO LONGER RESPONSIBLE FOR DROPPING IT
-            user.assoc_cond = Box::into_raw(Box::new(assoc_c_struct));
-
-            user.admin_level = 0; //slurmdb_admin_level_t_SLURMDB_ADMIN_NOTSET 
-            // this is just filtering by admin level, not actually giving admin permissions
-            user.def_acct_list = vec_to_slurm_list(def_acct_list);
-            user.def_wckey_list = vec_to_slurm_list(def_wckey_list);
-            user.with_assocs = bool_to_int(with_assocs);
-            user.with_coords = bool_to_int(with_coords);
-            user.with_deleted = bool_to_int(with_deleted);
-            user.with_wckeys = bool_to_int(with_wckey);
-            user.without_defaults = without_defaults;
-
-            Self {user}
-        }
+        // build zeroed C struct and heap-allocate so Slurm destroy frees heap
+        let mut c_user: slurmdb_user_cond_t = unsafe { std::mem::zeroed() };
+        // assoc conditions
+        let assoc_c = assoc_config.into_c_struct();
+        c_user.assoc_cond = Box::into_raw(Box::new(assoc_c));
+        c_user.admin_level = 0;
+        c_user.def_acct_list = unsafe { vec_to_slurm_list(def_acct_list) };
+        c_user.def_wckey_list = unsafe { vec_to_slurm_list(def_wckey_list) };
+        c_user.with_assocs = bool_to_int(with_assocs);
+        c_user.with_coords = bool_to_int(with_coords);
+        c_user.with_deleted = bool_to_int(with_deleted);
+        c_user.with_wckeys = bool_to_int(with_wckey);
+        c_user.without_defaults = without_defaults;
+        // heap allocate the user cond struct
+        let boxed = Box::new(c_user);
+        let ptr = Box::into_raw(boxed);
+        Self { user: ptr }
     }
 }
 
 impl Drop for UserQueryInfo {
     fn drop(&mut self) {
-        unsafe {
-            let ptr = &mut self.user as *mut slurmdb_user_cond_t;
-            slurmdb_destroy_user_cond(ptr as *mut c_void);
+        if !self.user.is_null() {
+            unsafe { slurmdb_destroy_user_cond(self.user as *mut c_void) }
+            self.user = std::ptr::null_mut();
         }
     }
 }
 
 impl Deref for UserQueryInfo {
     type Target = slurmdb_user_cond_t;
-
     fn deref(&self) -> &Self::Target {
-        &self.user
+        unsafe { &*self.user }
     }
 }
 
 impl DerefMut for UserQueryInfo {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.user
+        unsafe { &mut *self.user }
     }
 }
 
@@ -226,6 +228,9 @@ struct SlurmIterator {
 
 impl SlurmIterator {
     fn new(list_ptr: *mut xlist) -> Self {
+        if list_ptr.is_null() {
+            return Self { ptr: std::ptr::null_mut() };
+        }
         let iter_ptr = unsafe { slurm_list_iterator_create(list_ptr) };
 
         Self {
@@ -275,12 +280,9 @@ struct SlurmUserList {
 impl SlurmUserList {
     fn new(db_conn: &mut DbConn, user_query: &mut UserQueryInfo) -> Self {
         unsafe {
-            let user_ptr = &mut user_query.user as *mut slurmdb_user_cond_t;
-
-            let ptr = slurmdb_users_get(db_conn.as_mut_ptr(), user_ptr);
-            Self {
-                ptr
-            }
+            // user_query.user is a *mut slurmdb_user_cond_t
+            let ptr = slurmdb_users_get(db_conn.as_mut_ptr(), user_query.user);
+            Self { ptr }
         }
     }
 }
@@ -323,7 +325,11 @@ impl SlurmAssoc {
                 let iterator = SlurmIterator::new((*rec).qos_list);
                 let qos: Vec<String> = iterator.map(|node_ptr| {
                     let qos_ptr = node_ptr as *const i8;
-                    CStr::from_ptr(qos_ptr).to_string_lossy().into_owned()
+                    if qos_ptr.is_null() {
+                        String::new()
+                    } else {
+                        unsafe { CStr::from_ptr(qos_ptr).to_string_lossy().into_owned() }
+                    }
                 }).collect();
                 qos
             } else {
@@ -419,23 +425,26 @@ impl QosConfig {
     }
 }
 
+/// Wrapper owning a heap-allocated Slurm QoS filter struct
 struct QosQueryInfo {
-    qos: slurmdb_qos_cond_t,
+    qos: *mut slurmdb_qos_cond_t,
 }
 
 impl QosQueryInfo {
     fn new(config: QosConfig) -> Self {
-        Self {
-            qos: config.into_c_struct(),
-        }
+        // build zeroed C struct and heap-allocate so Slurm destroy frees heap
+        let c_struct: slurmdb_qos_cond_t = config.into_c_struct();
+        let boxed = Box::new(c_struct);
+        let ptr = Box::into_raw(boxed);
+        Self { qos: ptr }
     }
 }
 
 impl Drop for QosQueryInfo {
     fn drop(&mut self) {
-        unsafe {
-            let ptr = &mut self.qos as *mut slurmdb_qos_cond_t;
-            slurmdb_destroy_qos_cond(ptr as *mut c_void);
+        if !self.qos.is_null() {
+            unsafe { slurmdb_destroy_qos_cond(self.qos as *mut c_void) }
+            self.qos = std::ptr::null_mut();
         }
     }
 }
@@ -451,7 +460,7 @@ impl Drop for QosQueryInfo {
 impl Deref for QosQueryInfo {
     type Target = slurmdb_qos_cond_t;
     fn deref(&self) -> &Self::Target {
-        &self.qos
+        unsafe { &*self.qos }
     }
 }
 
@@ -462,8 +471,8 @@ struct SlurmQosList {
 impl SlurmQosList {
     fn new(db_conn: &mut DbConn, qos_query: &mut QosQueryInfo) -> Self {
         unsafe {
-            let qos_ptr = &mut qos_query.qos as *mut slurmdb_qos_cond_t;
-            let ptr = slurmdb_qos_get(db_conn.as_mut_ptr(), qos_ptr);
+            // qos_query.qos is a *mut slurmdb_qos_cond_t
+            let ptr = slurmdb_qos_get(db_conn.as_mut_ptr(), qos_query.qos);
             Self { ptr }
         }
     }
@@ -491,7 +500,12 @@ struct SlurmQos {
 impl SlurmQos {
     fn from_c_rec(rec: *const slurmdb_qos_rec_t) -> Self {
         unsafe {
-            let name = CStr::from_ptr((*rec).name).to_string_lossy().into_owned();
+            // guard against null name pointer
+            let name = if (*rec).name.is_null() {
+                String::new()
+            } else {
+                CStr::from_ptr((*rec).name).to_string_lossy().into_owned()
+            };
             Self {
                 name,
                 priority: (*rec).priority,
