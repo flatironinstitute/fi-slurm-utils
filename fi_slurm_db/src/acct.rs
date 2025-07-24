@@ -312,13 +312,13 @@ impl SlurmAssoc {
             let acct = if (*rec).acct.is_null() {
                 String::new() 
             } else { 
-                unsafe { CStr::from_ptr((*rec).acct).to_string_lossy().into_owned() } 
+                CStr::from_ptr((*rec).acct).to_string_lossy().into_owned() 
             };
 
             let user = if (*rec).user.is_null() {
                 String::new() 
             } else { 
-                unsafe { CStr::from_ptr((*rec).user).to_string_lossy().into_owned() } 
+                CStr::from_ptr((*rec).user).to_string_lossy().into_owned()  
             };
 
             let qos = if !(*rec).qos_list.is_null() {
@@ -328,7 +328,7 @@ impl SlurmAssoc {
                     if qos_ptr.is_null() {
                         String::new()
                     } else {
-                        unsafe { CStr::from_ptr(qos_ptr).to_string_lossy().into_owned() }
+                        CStr::from_ptr(qos_ptr).to_string_lossy().into_owned() 
                     }
                 }).collect();
                 qos
@@ -356,13 +356,13 @@ impl SlurmUser {
             let name = if (*rec).name.is_null() {
                 String::new() 
             } else { 
-                unsafe { CStr::from_ptr((*rec).name).to_string_lossy().into_owned() } 
+                CStr::from_ptr((*rec).name).to_string_lossy().into_owned() 
             };
 
             let default_acct = if (*rec).default_acct.is_null() {
                 String::new() 
             } else { 
-                unsafe { CStr::from_ptr((*rec).default_acct).to_string_lossy().into_owned() } 
+                CStr::from_ptr((*rec).default_acct).to_string_lossy().into_owned() 
             };
 
             let associations = if !(*rec).assoc_list.is_null() {
@@ -448,14 +448,6 @@ impl Drop for QosQueryInfo {
         }
     }
 }
-// impl Drop for UserQueryInfo {
-//     fn drop(&mut self) {
-//         unsafe {
-//             let ptr = &mut self.user as *mut slurmdb_user_cond_t;
-//             slurmdb_destroy_user_cond(ptr as *mut c_void);
-//         }
-//     }
-// }
 
 impl Deref for QosQueryInfo {
     type Target = slurmdb_qos_cond_t;
