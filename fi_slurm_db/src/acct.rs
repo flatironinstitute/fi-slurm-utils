@@ -32,7 +32,7 @@ struct DbConn {
 }
 
 impl DbConn {
-    fn new(persist_flags: &mut u16) -> Result<Self, _> {
+    fn new(persist_flags: &mut u16) -> Result<Self, String> {
         unsafe {
             let ptr = slurmdb_connection_get(persist_flags);
 
@@ -41,7 +41,7 @@ impl DbConn {
                     ptr
                 })
             } else {
-                Err("Could not establish connection to SlurmDB")
+                Err("Could not establish connection to SlurmDB".to_string())
             }
         }
     }
@@ -60,8 +60,8 @@ impl Drop for DbConn {
     }
 }
 
-unsafe fn slurmdb_connect(persist_flags: &mut u16) -> Result<DbConn, _> {
-    DbConn::new(persist_flags)?
+unsafe fn slurmdb_connect(persist_flags: &mut u16) -> Result<DbConn, String> {
+    DbConn::new(persist_flags)
 }
 
 fn bool_to_int(b: bool) -> u16 {
@@ -492,11 +492,11 @@ fn process_qos_list(qos_list: SlurmQosList) -> Vec<SlurmQos> {
 
 fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) -> Vec<SlurmQos> {
 
-    let mut db_conn_result = unsafe {
+    let db_conn_result = unsafe {
         slurmdb_connect(persist_flags) // connecting and getting the null pointer as a value that
     };
 
-    let db_conn = db_conn_result.unwrap(); // will panic, which is hopefully better than
+    let mut db_conn = db_conn_result.unwrap(); // will panic, which is hopefully better than
     // segfaulting
 
     // will automatically drop when it drops out of scope
