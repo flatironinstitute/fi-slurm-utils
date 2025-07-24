@@ -36,7 +36,7 @@ fn main() -> Result<(), String> {
     }
 
     if args.qos {
-        print_user_info("nposner".to_string())
+        //print_user_info("nposner".to_string())
     }
 
     if args.exact && args.feature.is_empty() {
