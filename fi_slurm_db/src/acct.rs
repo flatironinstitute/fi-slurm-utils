@@ -240,6 +240,8 @@ impl Drop for SlurmIterator {
             unsafe {
                 slurm_list_iterator_destroy(self.ptr);
             }
+            self.ptr = std::ptr::null_mut();
+
         }
     }
 }
@@ -249,6 +251,9 @@ impl Iterator for SlurmIterator {
 
     fn next(&mut self) -> Option<Self::Item> {
         // encapsulating an unsafe C-style loop
+        if self.ptr.is_null() { 
+            return None 
+        };
         unsafe {
             let node_ptr = slurm_list_next(self.ptr);
 
@@ -282,8 +287,11 @@ impl SlurmUserList {
 
 impl Drop for SlurmUserList {
     fn drop(&mut self) {
-        unsafe {
-            slurm_list_destroy(self.ptr);
+        if !self.ptr.is_null() {
+            unsafe {
+                slurm_list_destroy(self.ptr)
+            }
+            self.ptr = std::ptr::null_mut();
         }
     }
 }
@@ -299,13 +307,20 @@ struct SlurmAssoc {
 impl SlurmAssoc {
     fn from_c_rec(rec: *const slurmdb_assoc_rec_t) -> Self {
         unsafe {
-            let acct = CStr::from_ptr((*rec).acct).to_string_lossy().into_owned();
-            let user = CStr::from_ptr((*rec).user).to_string_lossy().into_owned();
-            
-            let ptr = (*rec).qos_list;
+            let acct = if (*rec).acct.is_null() {
+                String::new() 
+            } else { 
+                unsafe { CStr::from_ptr((*rec).acct).to_string_lossy().into_owned() } 
+            };
 
-            let qos = if !ptr.is_null() {
-                let iterator = SlurmIterator::new(ptr);
+            let acct = if (*rec).user.is_null() {
+                String::new() 
+            } else { 
+                unsafe { CStr::from_ptr((*rec).user).to_string_lossy().into_owned() } 
+            };
+
+            let qos = if (*rec).qos_list.is_null() {
+                let iterator = SlurmIterator::new((*rec).qos_list);
                 let qos: Vec<String> = iterator.map(|node_ptr| {
                     let qos_ptr = node_ptr as *const i8;
                     CStr::from_ptr(qos_ptr).to_string_lossy().into_owned()
@@ -331,13 +346,21 @@ struct SlurmUser {
 impl SlurmUser {
     fn from_c_rec(rec: *const slurmdb_user_rec_t) -> Self {
         unsafe {
-            let name = CStr::from_ptr((*rec).name).to_string_lossy().into_owned();
-            let default_acct = CStr::from_ptr((*rec).default_acct).to_string_lossy().into_owned();
 
-            let ptr = (*rec).assoc_list;
+            let name = if (*rec).name.is_null() {
+                String::new() 
+            } else { 
+                unsafe { CStr::from_ptr((*rec).name).to_string_lossy().into_owned() } 
+            };
 
-            let associations = if !ptr.is_null() {
-                let iterator = SlurmIterator::new(ptr);
+            let default_acct = if (*rec).default_acct.is_null() {
+                String::new() 
+            } else { 
+                unsafe { CStr::from_ptr((*rec).default_acct).to_string_lossy().into_owned() } 
+            };
+
+            let associations = if !(*rec).assoc_list.is_null() {
+                let iterator = SlurmIterator::new((*rec).assoc_list);
                 let associations: Vec<SlurmAssoc> = iterator.map(|node_ptr| {
                     let assoc_ptr = node_ptr as *const slurmdb_assoc_rec_t;
                     SlurmAssoc::from_c_rec(assoc_ptr)
@@ -416,6 +439,14 @@ impl Drop for QosQueryInfo {
         }
     }
 }
+// impl Drop for UserQueryInfo {
+//     fn drop(&mut self) {
+//         unsafe {
+//             let ptr = &mut self.user as *mut slurmdb_user_cond_t;
+//             slurmdb_destroy_user_cond(ptr as *mut c_void);
+//         }
+//     }
+// }
 
 impl Deref for QosQueryInfo {
     type Target = slurmdb_qos_cond_t;
