@@ -263,7 +263,7 @@ struct SlurmUserList {
 }
 
 impl SlurmUserList {
-    fn new(db_conn: &mut DbConn, user_query: &mut UserQueryInfo) -> Self {
+    fn new(db_conn: &mut DbConn, user_query: &UserQueryInfo) -> Self {
         unsafe {
             let user_ptr = &mut user_query.user as *mut slurmdb_user_cond_t;
 
@@ -485,7 +485,7 @@ fn process_qos_list(qos_list: SlurmQosList) -> Vec<SlurmQos> {
 }
 
 
-fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) -> Vec<SlurmQos> {
+fn get_user_info(user_query: &UserQueryInfo, persist_flags: &mut u16) -> Vec<SlurmQos> {
 
     let mut db_conn = unsafe {
         slurmdb_connect(persist_flags) // connecting and getting the null pointer as a value that
@@ -563,7 +563,9 @@ pub fn print_user_info(name: String) {
 
     let mut user_query = UserQueryInfo::new(assoc_config, None, None, true, false, false, false, 0);
 
-    let qos_details = get_user_info(&mut user_query, &mut 0);
+    let mut persist_flags: u16 = 0;
+
+    let qos_details = get_user_info(&mut user_query, &mut persist_flags);
 
     println!("QoS Details: {:?}", qos_details);
 }
