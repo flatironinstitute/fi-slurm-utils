@@ -313,13 +313,13 @@ impl SlurmAssoc {
                 unsafe { CStr::from_ptr((*rec).acct).to_string_lossy().into_owned() } 
             };
 
-            let acct = if (*rec).user.is_null() {
+            let user = if (*rec).user.is_null() {
                 String::new() 
             } else { 
                 unsafe { CStr::from_ptr((*rec).user).to_string_lossy().into_owned() } 
             };
 
-            let qos = if (*rec).qos_list.is_null() {
+            let qos = if !(*rec).qos_list.is_null() {
                 let iterator = SlurmIterator::new((*rec).qos_list);
                 let qos: Vec<String> = iterator.map(|node_ptr| {
                     let qos_ptr = node_ptr as *const i8;
