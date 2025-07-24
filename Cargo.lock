@@ -556,6 +556,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "fi_slurm_db"
+version = "0.1.0"
+dependencies = [
+ "bitflags",
+ "chrono",
+ "rust_bind",
+]
+
+[[package]]
 name = "fnv"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
