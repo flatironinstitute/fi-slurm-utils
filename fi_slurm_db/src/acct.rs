@@ -25,14 +25,14 @@ use std::{
 };
 use chrono::{DateTime, Utc};
 
-use rust_bind::bindings::{list_itr_t, slurm_list_append, slurm_list_create, slurm_list_destroy, slurm_list_iterator_create, slurm_list_iterator_destroy, slurm_list_next, slurmdb_admin_level_t_SLURMDB_ADMIN_NONE, slurmdb_assoc_cond_t, slurmdb_assoc_rec_t, slurmdb_connection_close, slurmdb_connection_get, slurmdb_destroy_assoc_cond, slurmdb_destroy_qos_cond, slurmdb_destroy_user_cond, slurmdb_qos_cond_t, slurmdb_qos_get, slurmdb_qos_rec_t, slurmdb_user_cond_t, slurmdb_user_rec_t, slurmdb_users_get, xlist};
+use rust_bind::bindings::{list_itr_t, slurm_list_append, slurm_list_create, slurm_list_destroy, slurm_list_iterator_create, slurm_list_iterator_destroy, slurm_list_next, slurmdb_assoc_cond_t, slurmdb_assoc_rec_t, slurmdb_connection_close, slurmdb_connection_get, slurmdb_destroy_qos_cond, slurmdb_destroy_user_cond, slurmdb_qos_cond_t, slurmdb_qos_get, slurmdb_qos_rec_t, slurmdb_user_cond_t, slurmdb_user_rec_t, slurmdb_users_get, xlist};
 
 struct DbConn {
     ptr: *mut c_void,
 }
 
 impl DbConn {
-    fn new(persist_flags: u16) -> Self {
+    fn new(persist_flags: &mut u16) -> Self {
         unsafe {
             let ptr = slurmdb_connection_get(persist_flags);
             Self {
@@ -48,14 +48,14 @@ impl Drop for DbConn {
     fn drop(&mut self) {
         if !self.ptr.is_null() {
             unsafe {
-                slurmdb_connection_close(self.ptr);
+                slurmdb_connection_close(&mut self.ptr);
             }
             self.ptr = std::ptr::null_mut();
         }
     }
 }
 
-unsafe fn slurmdb_connect(persist_flags: u16) -> DbConn {
+unsafe fn slurmdb_connect(persist_flags: &mut u16) -> DbConn {
     DbConn::new(persist_flags)
 }
 
@@ -67,7 +67,7 @@ fn bool_to_int(b: bool) -> u16 {
     }
 }
 
-unsafe fn vec_to_slurm_list(data: Option<Vec<String>>) -> *mut list {
+unsafe fn vec_to_slurm_list(data: Option<Vec<String>>) -> *mut xlist {
     // If the Option is None, we return a null pointer, which Slurm ignores
     let Some(vec) = data else {
         return std::ptr::null_mut();
@@ -141,13 +141,13 @@ impl UserQueryInfo {
         unsafe {    
             let mut user: slurmdb_user_cond_t = std::mem::zeroed();
 
-            let mut assoc_c_struct: slurmdb_assoc_cond_t = assoc_config.into_c_struct();
+            let assoc_c_struct: slurmdb_assoc_cond_t = assoc_config.into_c_struct();
 
             // we are passing control of this memory from Rust to C
             // WE ARE NO LONGER RESPONSIBLE FOR DROPPING IT
             user.assoc_cond = Box::into_raw(Box::new(assoc_c_struct));
 
-            user.admin_level = slurmdb_admin_level_t_SLURMDB_ADMIN_NONE; // we are hardcoding this,
+            user.admin_level = 1; //slurmdb_admin_level_t_SLURMDB_ADMIN_NONE // we are hardcoding this,
             // DO NOT let users pass their own admin level
             user.def_acct_list = vec_to_slurm_list(def_acct_list);
             user.def_wckey_list = vec_to_slurm_list(def_wckey_list);
@@ -165,7 +165,8 @@ impl UserQueryInfo {
 impl Drop for UserQueryInfo {
     fn drop(&mut self) {
         unsafe {
-            slurmdb_destroy_user_cond(&mut self.user);
+            let ptr = &mut self.user as *mut slurmdb_user_cond_t;
+            slurmdb_destroy_user_cond(ptr as *mut c_void);
         }
     }
 }
@@ -245,9 +246,11 @@ struct SlurmUserList {
 }
 
 impl SlurmUserList {
-    fn new(db_conn: &mut DbConn, user_query: UserQueryInfo) -> Self {
+    fn new(db_conn: &mut DbConn, user_query: &mut UserQueryInfo) -> Self {
         unsafe {
-            let ptr = slurmdb_users_get(db_conn.as_mut_ptr(), user_query.user);
+            let user_ptr = &mut user_query.user as *mut slurmdb_user_cond_t;
+
+            let ptr = slurmdb_users_get(db_conn.as_mut_ptr(), user_ptr);
             Self {
                 ptr
             }
@@ -387,7 +390,8 @@ impl QosQueryInfo {
 impl Drop for QosQueryInfo {
     fn drop(&mut self) {
         unsafe {
-            slurmdb_destroy_qos_cond(&mut self.qos);
+            let ptr = &mut self.qos as *mut slurmdb_qos_cond_t;
+            slurmdb_destroy_qos_cond(ptr as *mut c_void);
         }
     }
 }
@@ -404,9 +408,10 @@ struct SlurmQosList {
 }
 
 impl SlurmQosList {
-    fn new(db_conn: &mut DbConn, qos_query: &QosQueryInfo) -> Self {
+    fn new(db_conn: &mut DbConn, qos_query: &mut QosQueryInfo) -> Self {
         unsafe {
-            let ptr = slurmdb_qos_get(db_conn.as_mut_ptr(), qos_query);
+            let qos_ptr = &mut qos_query.qos as *mut slurmdb_qos_cond_t;
+            let ptr = slurmdb_qos_get(db_conn.as_mut_ptr(), qos_ptr);
             Self { ptr }
         }
     }
@@ -467,9 +472,9 @@ fn process_qos_list(qos_list: SlurmQosList) -> Vec<SlurmQos> {
 }
 
 
-fn get_user_info(user_query: UserQueryInfo, persist_flags: u16) {
+fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) {
 
-    let db_conn = unsafe {
+    let mut db_conn = unsafe {
         slurmdb_connect(persist_flags) // connecting and getting the null pointer as a value that
     };
     // will automatically drop when it drops out of scope
@@ -507,10 +512,10 @@ fn get_user_info(user_query: UserQueryInfo, persist_flags: u16) {
         };
 
         // create the wrapper for the query
-        let qos_query = QosQueryInfo::new(qos_config);
+        let mut qos_query = QosQueryInfo::new(qos_config);
         
         // create the wrapper for the list, calls slurmdb_qos_get internally 
-        let qos_list = SlurmQosList::new(&mut db_conn, &qos_query);
+        let qos_list = SlurmQosList::new(&mut db_conn, &mut qos_query);
         
         // process the resulting list and get details
         let qos_details = process_qos_list(qos_list);
