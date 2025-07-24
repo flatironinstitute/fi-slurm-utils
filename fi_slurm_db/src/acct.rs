@@ -128,6 +128,7 @@ struct UserQueryInfo {
 }
 
 impl UserQueryInfo {
+    #[allow(clippy::too_many_arguments)]
     fn new(
         assoc_config: AssocConfig,
         def_acct_list: Option<Vec<String>>,
@@ -202,7 +203,7 @@ fn create_user_cond(usernames: Vec<String>, usage_start: DateTime<Utc>, usage_en
         user_list: Some(usernames)
     };
 
-    let user = UserQueryInfo::new(
+    UserQueryInfo::new(
         assoc,
         None,
         None,
@@ -211,32 +212,48 @@ fn create_user_cond(usernames: Vec<String>, usage_start: DateTime<Utc>, usage_en
         false,
         false,
         0,
-    );
-    
-    user
+    )
 }
 
 struct SlurmIterator {
-    list: *mut list_itr_t
+    ptr: *mut list_itr_t
 }
 
 impl SlurmIterator {
-    fn new(list: *mut xlist) -> Self {
-        unsafe {
-            let list_iter = slurm_list_iterator_create(list);
+    fn new(list_ptr: *mut xlist) -> Self {
+        let iter_ptr = unsafe { slurm_list_iterator_create(list_ptr) };
 
-            Self {
-                list: list_iter
-            }
+        Self {
+            ptr: iter_ptr
         }
-
     }
 }
 
 impl Drop for SlurmIterator {
     fn drop(&mut self) {
+        if !self.ptr.is_null() {
+            unsafe {
+                slurm_list_iterator_destroy(self.ptr);
+            }
+        }
+    }
+}
+
+impl Iterator for SlurmIterator {
+    type Item = *mut c_void;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // encapsulating an unsafe C-style loop
         unsafe {
-            slurm_list_iterator_destroy(self.list);
+            let node_ptr = slurm_list_next(self.ptr);
+
+            // converting the outcome to an Option
+            if node_ptr.is_null() {
+                // C iterators end with a null, so we return None
+                None
+            } else {
+                Some(node_ptr)
+            }
         }
     }
 }
@@ -280,21 +297,23 @@ impl SlurmAssoc {
             let acct = CStr::from_ptr((*rec).acct).to_string_lossy().into_owned();
             let user = CStr::from_ptr((*rec).user).to_string_lossy().into_owned();
             
-            // The QoS list is another nested C list
-            let mut qos = Vec::new();
-            if !(*rec).qos_list.is_null() {
-                let iterator = slurm_list_iterator_create((*rec).qos_list);
-                while let Some(qos_ptr) = slurm_list_next(iterator) {
-                    let qos_name = CStr::from_ptr(qos_ptr as *const i8).to_string_lossy().into_owned();
-                    qos.push(qos_name);
-                }
-                slurm_list_iterator_destroy(iterator);
-            }
+            let ptr = (*rec).qos_list;
+
+            let qos = if !ptr.is_null() {
+                let iterator = SlurmIterator::new(ptr);
+                let qos: Vec<String> = iterator.map(|node_ptr| {
+                    let qos_ptr = node_ptr as *const i8;
+                    CStr::from_ptr(qos_ptr).to_string_lossy().into_owned()
+                }).collect();
+                qos
+            } else {
+                Vec::new()
+            };
+
             Self { acct, user, qos }
         }
     }
 }
-
 
 #[derive(Debug)]
 struct SlurmUser {
@@ -304,22 +323,25 @@ struct SlurmUser {
     associations: Vec<SlurmAssoc>
 }
 
-// TODO: get rid of naked destroy functions
 impl SlurmUser {
     fn from_c_rec(rec: *const slurmdb_user_rec_t) -> Self {
         unsafe {
             let name = CStr::from_ptr((*rec).name).to_string_lossy().into_owned();
             let default_acct = CStr::from_ptr((*rec).default_acct).to_string_lossy().into_owned();
 
-            let mut associations = Vec::new();
+            let ptr = (*rec).assoc_list;
 
-            if !(*rec).assoc_list.is_null() {
-                let iterator = slurm_list_iterator_create((*rec).assoc_list);
-                while let Some(node_ptr) = slurm_list_next(iterator) {
-                    associations.push(SlurmAssoc::from_c_rec(node_ptr as *const slurmdb_assoc_rec_t));
-                }
-                slurm_list_iterator_destroy(iterator);
-            }
+            let associations = if !ptr.is_null() {
+                let iterator = SlurmIterator::new(ptr);
+                let associations: Vec<SlurmAssoc> = iterator.map(|node_ptr| {
+                    let assoc_ptr = node_ptr as *const slurmdb_assoc_rec_t;
+                    SlurmAssoc::from_c_rec(assoc_ptr)
+                }).collect();
+
+                associations
+            } else {
+                Vec::new()
+            };
             
             Self {
                 name,
@@ -338,17 +360,11 @@ fn process_user_list(user_list: SlurmUserList) -> Vec<SlurmUser> {
         return Vec::new(); // make a more expressive error
     }
 
-    let mut results = Vec::new();
-
-    unsafe {
-        let iterator = SlurmIterator::new(user_list.ptr);
-
-        while let Some(node_ptr) = slurm_list_next(iterator.list) {
-
-            let user_rec_ptr = node_ptr as *const slurmdb_user_rec_t;
-            results.push(SlurmUser::from_c_rec(user_rec_ptr));
-        }
-    }
+    let iterator = SlurmIterator::new(user_list.ptr);
+    let results: Vec<SlurmUser> = iterator.map(|node_ptr| {
+        let user_rec_ptr = node_ptr as *const slurmdb_user_rec_t;
+        SlurmUser::from_c_rec(user_rec_ptr)
+    }).collect();
 
     results
 }
@@ -457,16 +473,13 @@ fn process_qos_list(qos_list: SlurmQosList) -> Vec<SlurmQos> {
         //  with an error print
     }
 
-    let mut results = Vec::new();
+    let iterator = SlurmIterator::new(qos_list.ptr);
 
-    unsafe {
-        let iterator = SlurmIterator::new(qos_list.ptr);
-
-        while let Some(node_ptr) = slurm_list_next(iterator.list) {
-            let qos_rec_ptr = node_ptr as *const slurmdb_qos_rec_t;
-            results.push(SlurmQos::from_c_rec(qos_rec_ptr));
-        }
-    }
+    let results: Vec<SlurmQos> = iterator.map(|node_ptr| {
+        // not even an unsafe cast!
+        let qos_rec_ptr = node_ptr as *const slurmdb_qos_rec_t;
+        SlurmQos::from_c_rec(qos_rec_ptr)
+    }).collect();
 
     results
 }
@@ -486,7 +499,7 @@ fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) {
     let users = process_user_list(user_list);
 
     // assuming we only get one user back
-    let Some(user) = users.get(0) else {
+    let Some(user) = users.first() else {
         eprintln!("User not found.");
         // TODO: more expressive Err print
         return;
@@ -519,12 +532,6 @@ fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) {
         
         // process the resulting list and get details
         let qos_details = process_qos_list(qos_list);
-
-        // let qos_query = QosQueryInfo::new(Some(target_assoc.qos.clone()));
-        //
-        // let qos_list_ptr = unsafe { slurmdb_qos_get(*db_conn, &qos_query) };
-        //
-        // let qos_details = process_qos_list(qos_list_ptr);
         
         println!("QoS Details: {:?}", qos_details);
     }
