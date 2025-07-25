@@ -25,7 +25,7 @@ use std::{
 };
 use chrono::{DateTime, Utc, Duration};
 
-use rust_bind::bindings::{list_itr_t, slurm_list_append, slurm_list_create, slurm_list_destroy, slurm_list_iterator_create, slurm_list_iterator_destroy, slurm_list_next, slurmdb_assoc_cond_t, slurmdb_assoc_rec_t, slurmdb_connection_close, slurmdb_connection_get, slurmdb_destroy_qos_cond, slurmdb_destroy_user_cond, slurmdb_qos_cond_t, slurmdb_qos_get, slurmdb_qos_rec_t, slurmdb_user_cond_t, slurmdb_user_rec_t, slurmdb_users_get, xlist};
+use rust_bind::bindings::{list_itr_t, slurm_list_append, slurm_list_create, slurm_list_destroy, slurm_list_iterator_create, slurm_list_iterator_destroy, slurm_list_next, slurmdb_assoc_cond_t, slurmdb_assoc_rec_t, slurmdb_connection_close, slurmdb_connection_get, slurmdb_qos_cond_t, slurmdb_qos_get, slurmdb_qos_rec_t, slurmdb_user_cond_t, slurmdb_user_rec_t, slurmdb_users_get, xlist};
 
 /// A custom destructor function that can be passed to C
 /// It takes a raw pointer to a CString and correctly frees it using Rust's allocator
@@ -186,7 +186,53 @@ impl UserQueryInfo {
 impl Drop for UserQueryInfo {
     fn drop(&mut self) {
         if !self.user.is_null() {
-            unsafe { slurmdb_destroy_user_cond(self.user as *mut c_void) }
+            unsafe {
+                // Deconstruct the heap-allocated user condition
+                let cond: &mut slurmdb_user_cond_t = &mut *self.user;
+                // Destroy any Slurm lists in the struct
+                if !cond.def_acct_list.is_null() {
+                    slurm_list_destroy(cond.def_acct_list);
+                }
+                if !cond.def_wckey_list.is_null() {
+                    slurm_list_destroy(cond.def_wckey_list);
+                }
+                // Destroy nested assoc_cond list struct
+                if !cond.assoc_cond.is_null() {
+                    // assoc_cond is a *mut slurmdb_assoc_cond_t; free its lists first
+                    let assoc: &mut slurmdb_assoc_cond_t = &mut *cond.assoc_cond;
+                    if !assoc.acct_list.is_null() {
+                        slurm_list_destroy(assoc.acct_list);
+                    }
+                    if !assoc.cluster_list.is_null() {
+                        slurm_list_destroy(assoc.cluster_list);
+                    }
+                    if !assoc.def_qos_id_list.is_null() {
+                        slurm_list_destroy(assoc.def_qos_id_list);
+                    }
+                    if !assoc.format_list.is_null() {
+                        slurm_list_destroy(assoc.format_list);
+                    }
+                    if !assoc.id_list.is_null() {
+                        slurm_list_destroy(assoc.id_list);
+                    }
+                    if !assoc.parent_acct_list.is_null() {
+                        slurm_list_destroy(assoc.parent_acct_list);
+                    }
+                    if !assoc.partition_list.is_null() {
+                        slurm_list_destroy(assoc.partition_list);
+                    }
+                    if !assoc.qos_list.is_null() {
+                        slurm_list_destroy(assoc.qos_list);
+                    }
+                    if !assoc.user_list.is_null() {
+                        slurm_list_destroy(assoc.user_list);
+                    }
+                    // Now free the assoc_cond struct itself
+                    let _ = Box::from_raw(cond.assoc_cond);
+                }
+                // Finally, free the outer user_cond struct
+                let _ = Box::from_raw(self.user);
+            }
             self.user = std::ptr::null_mut();
         }
     }
@@ -456,7 +502,25 @@ impl QosQueryInfo {
 impl Drop for QosQueryInfo {
     fn drop(&mut self) {
         if !self.qos.is_null() {
-            unsafe { slurmdb_destroy_qos_cond(self.qos as *mut c_void) }
+            unsafe {
+                // First, destroy the Slurm-allocated lists inside the struct
+                let cond: &mut slurmdb_qos_cond_t = &mut *self.qos;
+
+                if !cond.name_list.is_null() {
+                    slurm_list_destroy(cond.name_list);
+                }
+                if !cond.format_list.is_null() {
+                    slurm_list_destroy(cond.format_list);
+                }
+                if !cond.id_list.is_null() {
+                    slurm_list_destroy(cond.id_list);
+                }
+                // add more lists here as we add them to the struct
+
+                // Then, reconstruct the Box from the raw pointer. This gives
+                // ownership back to Rust, which will correctly free the memory
+                let _ = Box::from_raw(self.qos);
+            }
             self.qos = std::ptr::null_mut();
         }
     }
