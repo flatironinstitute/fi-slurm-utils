@@ -35,10 +35,6 @@ fn main() -> Result<(), String> {
         return Ok(())
     }
 
-    if args.qos {
-        //print_user_info("nposner".to_string())
-    }
-
     if args.exact && args.feature.is_empty() {
         eprintln!("-e/--exact has no effect without the -f/--feature argument. Did you intend to filter by a feature?")
     }
@@ -48,6 +44,10 @@ fn main() -> Result<(), String> {
     // has no output, only passes a null pointer to Slurm directly in order to initialize
     // non-trivial functions of the Slurm API
     initialize_slurm();
+
+    if args.qos {
+        print_user_info("nposner".to_string())
+    }
 
     if args.debug { println!("Finished initializing Slurm: {:?}", start.elapsed()); }
 
