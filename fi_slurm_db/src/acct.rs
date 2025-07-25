@@ -701,7 +701,7 @@ fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) -> Res
 pub fn print_user_info(name: Option<String>) {
 
     let name = name.unwrap_or_else(|| {
-        get_current_username().unwrap_or({
+        get_current_username().unwrap_or_else(|| {
             eprintln!("Could not find user information: ensure that the running user is not deleted while the program is running");
             "".into()
         }).to_string_lossy().into_owned() // handle the rare None case
