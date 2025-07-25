@@ -27,6 +27,8 @@ use chrono::{DateTime, Utc, Duration};
 
 use rust_bind::bindings::{list_itr_t, slurm_list_append, slurm_list_create, slurm_list_destroy, slurm_list_iterator_create, slurm_list_iterator_destroy, slurm_list_next, slurmdb_assoc_cond_t, slurmdb_assoc_rec_t, slurmdb_connection_close, slurmdb_connection_get, slurmdb_qos_cond_t, slurmdb_qos_get, slurmdb_qos_rec_t, slurmdb_user_cond_t, slurmdb_user_rec_t, slurmdb_users_get, xlist};
 
+use thiserror::Error;
+
 /// A custom destructor function that can be passed to C
 /// It takes a raw pointer to a CString and correctly frees it using Rust's allocator
 #[unsafe(no_mangle)]
@@ -356,6 +358,23 @@ impl Drop for SlurmUserList {
     }
 }
 
+#[derive(Error, Debug)]
+enum QosError {
+    #[error("Assoc vector was empty")]
+    EmptyAssocError,
+    #[error("No users found")]
+    SlurmUserError,
+    #[error("Could not find a default association")]
+    DefaultAssocError,
+    #[error("Pointer to assoc_list is null")]
+    AssocListNull,
+    #[error("Pointer to qos_list is null")]
+    QosListNull,
+    #[error("Pointer to user_list is null")]
+    UserListNull,
+
+}
+
 #[derive(Debug)]
 struct SlurmAssoc {
     acct: String,
@@ -363,9 +382,8 @@ struct SlurmAssoc {
     qos: Vec<String>,
 }
 
-// TODO: get rid of naked destroy functions, move that stuff into the type system
 impl SlurmAssoc {
-    fn from_c_rec(rec: *const slurmdb_assoc_rec_t) -> Self {
+    fn from_c_rec(rec: *const slurmdb_assoc_rec_t) -> Result<Self, QosError> {
         unsafe {
             let acct = if (*rec).acct.is_null() {
                 String::new() 
@@ -391,10 +409,10 @@ impl SlurmAssoc {
                 }).collect();
                 qos
             } else {
-                Vec::new()
+                Err(QosError::QosListNull)
             };
 
-            Self { acct, user, qos }
+            Ok(Self { acct, user, qos })
         }
     }
 }
@@ -408,7 +426,7 @@ struct SlurmUser {
 }
 
 impl SlurmUser {
-    fn from_c_rec(rec: *const slurmdb_user_rec_t) -> Self {
+    fn from_c_rec(rec: *const slurmdb_user_rec_t) -> Result<Self, QosError> {
         unsafe {
 
             let name = if (*rec).name.is_null() {
@@ -432,24 +450,24 @@ impl SlurmUser {
 
                 associations
             } else {
-                Vec::new()
+                Err(QosError::AssocListNull)
             };
             
-            Self {
+            Ok(Self {
                 name,
                 default_acct,
                 admin_level: (*rec).admin_level, // we read actual admin value from database
                 // record, but don't let this be used for any purposes other than reading it. Is
                 // there any way to enforce that at the type level?
                 associations
-            }
+            })
         }
     }
 }
 
-fn process_user_list(user_list: SlurmUserList) -> Vec<SlurmUser> {
+fn process_user_list(user_list: SlurmUserList) -> Result<Vec<SlurmUser>, QosError> {
     if user_list.ptr.is_null() {
-        return Vec::new(); // make a more expressive error
+        return Err(QosError::UserListNull)
     }
 
     let iterator = SlurmIterator::new(user_list.ptr);
@@ -458,7 +476,7 @@ fn process_user_list(user_list: SlurmUserList) -> Vec<SlurmUser> {
         SlurmUser::from_c_rec(user_rec_ptr)
     }).collect();
 
-    results
+    Ok(results)
 }
 
 struct QosConfig {
@@ -584,12 +602,10 @@ impl SlurmQos {
     }
 }
 
-fn process_qos_list(qos_list: SlurmQosList) -> Vec<SlurmQos> {
+fn process_qos_list(qos_list: SlurmQosList) -> Result<Vec<SlurmQos>, QosError> {
 
     if qos_list.ptr.is_null() {
-        return Vec::new(); // should we be returning an error and Result instead
-        // of a blank vector? if we return this, it instead fails in the get function
-        //  with an error print
+        return QosError::QosListNull
     }
 
     let iterator = SlurmIterator::new(qos_list.ptr);
@@ -600,11 +616,11 @@ fn process_qos_list(qos_list: SlurmQosList) -> Vec<SlurmQos> {
         SlurmQos::from_c_rec(qos_rec_ptr)
     }).collect();
 
-    results
+    Ok(results)
 }
 
 
-fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) -> Vec<SlurmQos> {
+fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) -> Result<Vec<SlurmQos>, QosError> {
 
     let db_conn_result = unsafe {
         slurmdb_connect(persist_flags) // connecting and getting the null pointer as a value that
@@ -619,25 +635,23 @@ fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) -> Vec
     
     let user_list = SlurmUserList::new(&mut db_conn, user_query);
 
-    let users = process_user_list(user_list);
+    let users = process_user_list(user_list)?;
 
     // assuming we only get one user back
     let Some(user) = users.first() else {
-        eprintln!("User not found.");
-        // TODO: more expressive Err print
-        return vec![];
+        return Err(QosError::SlurmUserError);
     };
     
     // find the association that matches the user's default account
     let Some(target_assoc) = user.associations.iter().find(|assoc| assoc.acct == user.default_acct) else {
         eprintln!("Default account association not found for user.");
-        return vec![];
+        return Err(QosError::DefaultAssocError);
     };
     
     println!("Found QoS for account '{}': {:?}", target_assoc.acct, target_assoc.qos);
     
     // query for qos details
-    let qos_details: Vec<SlurmQos> = if !target_assoc.qos.is_empty() {
+    let qos_details: Result<Vec<SlurmQos>> = if !target_assoc.qos.is_empty() {
 
         // build the query, currently very sparse
         let qos_config = QosConfig {
@@ -653,9 +667,10 @@ fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) -> Vec
         let qos_list = SlurmQosList::new(&mut db_conn, &mut qos_query);
         
         // process the resulting list and get details
-        process_qos_list(qos_list)
+        Ok(process_qos_list(qos_list))
     } else {
-        vec![]
+        // qos detail error
+        Err(QosError::EmptyAssocError)
     };
 
     qos_details
