@@ -29,7 +29,7 @@ use rust_bind::bindings::{list_itr_t, slurm_list_append, slurm_list_create, slur
 
 /// A custom destructor function that can be passed to C
 /// It takes a raw pointer to a CString and correctly frees it using Rust's allocator
-#[no_mangle]
+#[unsafe(no_mangle)]
 extern "C" fn free_rust_string(ptr: *mut c_void) {
     if !ptr.is_null() {
         unsafe {
