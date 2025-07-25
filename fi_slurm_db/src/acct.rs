@@ -371,8 +371,6 @@ enum QosError {
     EmptyAssocError,
     #[error("No users found")]
     SlurmUserError,
-    #[error("Could not find a default association")]
-    DefaultAssocError,
     #[error("Pointer to assoc_list is null")]
     AssocListNull,
     #[error("Pointer to qos_list is null")]
@@ -636,7 +634,7 @@ fn process_qos_list(qos_list: SlurmQosList) -> Result<Vec<SlurmQos>, QosError> {
 }
 
 
-fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) -> Result<Vec<SlurmQos>, QosError> {
+fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) -> Result<Vec<Vec<SlurmQos>>, QosError> {
 
     let db_conn_result = unsafe {
         slurmdb_connect(persist_flags) // connecting and getting the null pointer as a value that
@@ -659,45 +657,44 @@ fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) -> Res
     let Some(user) = users.first() else {
         return Err(QosError::SlurmUserError);
     };
-    
-    // find the association that matches the user's default account
-    let Some(target_assoc) = user.associations.iter().find(|assoc| assoc.acct == user.default_acct) else {
-        eprintln!("Default account association not found for user.");
-        return Err(QosError::DefaultAssocError);
-    };
-    
-    println!("Found QoS for account '{}': {:?}", target_assoc.acct, target_assoc.qos);
-    
-    // query for qos details
-    let qos_details: Result<Vec<SlurmQos>, QosError> = if !target_assoc.qos.is_empty() {
 
-        // build the query, currently very sparse
-        let qos_config = QosConfig {
-            name_list: None, // despite being returned as strings, the target_assoc_qos are
-            // numbers, we need to pass them into id instead
-            format_list: None,
-            id_list: Some(target_assoc.qos.clone()),
+    let qos_vec = user.associations.iter().filter_map(|target_assoc| {
+
+        println!("Found QoS for account '{}': {:?}", target_assoc.acct, target_assoc.qos);
+        
+        // query for qos details
+        let qos_details: Result<Vec<SlurmQos>, QosError> = if !target_assoc.qos.is_empty() {
+
+            // build the query, currently very sparse
+            let qos_config = QosConfig {
+                name_list: None, // despite being returned as strings, the target_assoc_qos are
+                // numbers, we need to pass them into id instead
+                format_list: None,
+                id_list: Some(target_assoc.qos.clone()),
+            };
+
+            // create the wrapper for the query
+            let mut qos_query = QosQueryInfo::new(qos_config);
+            
+            // create the wrapper for the list, calls slurmdb_qos_get internally 
+            let qos_list = SlurmQosList::new(&mut db_conn, &mut qos_query);
+            
+            // process the resulting list and get details
+            process_qos_list(qos_list)
+        } else {
+            // qos detail error
+            Err(QosError::EmptyAssocError)
         };
 
-        // create the wrapper for the query
-        let mut qos_query = QosQueryInfo::new(qos_config);
-        
-        // create the wrapper for the list, calls slurmdb_qos_get internally 
-        let qos_list = SlurmQosList::new(&mut db_conn, &mut qos_query);
-        
-        // process the resulting list and get details
-        process_qos_list(qos_list)
-    } else {
-        // qos detail error
-        Err(QosError::EmptyAssocError)
-    };
+        qos_details.ok()
+    }).collect();
 
-    qos_details
+    Ok(qos_vec)
 
-        // at all points, wrap these raw return into Rust types with Drop impls that use the
-        // equivalent slurmdb_destroy_db function
-        // and at the very end of the function, the connection will drop out of scope and close
-        // itself
+    // at all points, wrap these raw return into Rust types with Drop impls that use the
+    // equivalent slurmdb_destroy_db function
+    // and at the very end of the function, the connection will drop out of scope and close
+    // itself
 }
 
 pub fn print_user_info(name: String) {
@@ -724,5 +721,9 @@ pub fn print_user_info(name: String) {
 
     let qos_details = get_user_info(&mut user_query, &mut persist_flags);
 
-    println!("QoS Details: {:?}", qos_details);
+    if let Ok(qos) = qos_details {
+        for q in qos {
+            println!("QoS Details: {:?}", q);
+        }
+    }
 }

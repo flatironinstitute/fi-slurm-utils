@@ -46,7 +46,9 @@ fn main() -> Result<(), String> {
     initialize_slurm();
 
     if args.qos {
-        print_user_info("nposner".to_string());
+        let name = "nposner";
+        println!("{}", name);
+        print_user_info(name.to_string());
         return Ok(())
     }
 
