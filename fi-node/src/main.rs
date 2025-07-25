@@ -11,7 +11,7 @@ use fi_slurm::{jobs, nodes, utils::{SlurmConfig, initialize_slurm}};
 use fi_slurm::filter::{self, gather_all_features};
 use crate::tui::app::tui_execute;
 
-use fi_slurm_db::acct::{print_user_info};
+use fi_slurm_db::acct::print_user_info;
 
 use std::time::Instant;
 use chrono::{DateTime, Utc};
