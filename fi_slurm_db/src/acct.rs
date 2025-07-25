@@ -41,12 +41,19 @@ extern "C" fn free_rust_string(ptr: *mut c_void) {
         }
     }
 }
+
+#[derive(Error, Debug)]
+enum DbConnError {
+    #[error("Could not establish connection to SlurmDB. Please ensure that SlurmDB is present and slurm_init has been run.")]
+    DbConnectionError,
+}
+
 struct DbConn {
     ptr: *mut c_void,
 }
 
 impl DbConn {
-    fn new(persist_flags: &mut u16) -> Result<Self, String> {
+    fn new(persist_flags: &mut u16) -> Result<Self, DbConnError> {
         unsafe {
             let ptr = slurmdb_connection_get(persist_flags);
 
@@ -55,7 +62,7 @@ impl DbConn {
                     ptr
                 })
             } else {
-                Err("Could not establish connection to SlurmDB".to_string())
+                Err(DbConnError::DbConnectionError)
             }
         }
     }
@@ -74,7 +81,7 @@ impl Drop for DbConn {
     }
 }
 
-unsafe fn slurmdb_connect(persist_flags: &mut u16) -> Result<DbConn, String> {
+unsafe fn slurmdb_connect(persist_flags: &mut u16) -> Result<DbConn, DbConnError> {
     DbConn::new(persist_flags)
 }
 
@@ -626,7 +633,7 @@ fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) -> Res
         slurmdb_connect(persist_flags) // connecting and getting the null pointer as a value that
     };
 
-    let mut db_conn = db_conn_result.unwrap(); // will panic, which is hopefully better than
+    let mut db_conn = db_conn_result?; // will panic, which is hopefully better than
     // segfaulting
 
     // will automatically drop when it drops out of scope
