@@ -46,9 +46,9 @@ fn main() -> Result<(), String> {
     initialize_slurm();
 
     if args.qos {
-        let name = "nposner";
-        println!("{}", name);
-        print_user_info(name.to_string());
+        //let name = "nposner";
+        //println!("{}", name);
+        print_user_info(None); //None case tries to get name from OS
         return Ok(())
     }
 
