@@ -27,6 +27,18 @@ use chrono::{DateTime, Utc, Duration};
 
 use rust_bind::bindings::{list_itr_t, slurm_list_append, slurm_list_create, slurm_list_destroy, slurm_list_iterator_create, slurm_list_iterator_destroy, slurm_list_next, slurmdb_assoc_cond_t, slurmdb_assoc_rec_t, slurmdb_connection_close, slurmdb_connection_get, slurmdb_destroy_qos_cond, slurmdb_destroy_user_cond, slurmdb_qos_cond_t, slurmdb_qos_get, slurmdb_qos_rec_t, slurmdb_user_cond_t, slurmdb_user_rec_t, slurmdb_users_get, xlist};
 
+/// A custom destructor function that can be passed to C
+/// It takes a raw pointer to a CString and correctly frees it using Rust's allocator
+#[no_mangle]
+extern "C" fn free_rust_string(ptr: *mut c_void) {
+    if !ptr.is_null() {
+        unsafe {
+            // Reconstruct the CString from the raw pointer and let it drop,
+            // which correctly deallocates the memory
+            let _ = CString::from_raw(ptr as *mut i8);
+        }
+    }
+}
 struct DbConn {
     ptr: *mut c_void,
 }
@@ -79,7 +91,7 @@ unsafe fn vec_to_slurm_list(data: Option<Vec<String>>) -> *mut xlist {
     };
 
     // If the vector is not empty, create a Slurm list
-    let slurm_list = unsafe { slurm_list_create(None) };
+    let slurm_list = unsafe { slurm_list_create(Some(free_rust_string)) };
     // If Slurm fails to allocate, return null for safety
     if slurm_list.is_null() {
         return std::ptr::null_mut(); // returning the null is fine in this case, it's part of the
@@ -419,6 +431,7 @@ impl QosConfig {
             c_struct.format_list = vec_to_slurm_list(self.format_list);
             c_struct.id_list = vec_to_slurm_list(self.id_list);
             //...
+            // this is where the segfault is coming in
 
             c_struct
         }
