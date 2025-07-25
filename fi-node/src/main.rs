@@ -46,7 +46,8 @@ fn main() -> Result<(), String> {
     initialize_slurm();
 
     if args.qos {
-        print_user_info("nposner".to_string())
+        print_user_info("nposner".to_string());
+        return Ok(())
     }
 
     if args.debug { println!("Finished initializing Slurm: {:?}", start.elapsed()); }
