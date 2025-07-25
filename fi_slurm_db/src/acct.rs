@@ -379,6 +379,8 @@ enum QosError {
     QosListNull,
     #[error("Pointer to user_list is null")]
     UserListNull,
+    #[error("Database connection failed. Please ensure that SlurmDB is present and slurm_init has been run")]
+    DbConnError,
 
 }
 
@@ -414,10 +416,10 @@ impl SlurmAssoc {
                         CStr::from_ptr(qos_ptr).to_string_lossy().into_owned() 
                     }
                 }).collect();
-                qos
+                Ok(qos)
             } else {
                 Err(QosError::QosListNull)
-            };
+            }?;
 
             Ok(Self { acct, user, qos })
         }
@@ -450,15 +452,17 @@ impl SlurmUser {
 
             let associations = if !(*rec).assoc_list.is_null() {
                 let iterator = SlurmIterator::new((*rec).assoc_list);
-                let associations: Vec<SlurmAssoc> = iterator.map(|node_ptr| {
+                let associations: Vec<SlurmAssoc> = iterator.filter_map(|node_ptr| {
                     let assoc_ptr = node_ptr as *const slurmdb_assoc_rec_t;
-                    SlurmAssoc::from_c_rec(assoc_ptr)
+                    SlurmAssoc::from_c_rec(assoc_ptr).ok()
                 }).collect();
+                // downside of not returning any of the error values, but this does allow usto 
+                // be more fault tolerant and proceed if there are at least some valid values
 
-                associations
+                Ok(associations)
             } else {
                 Err(QosError::AssocListNull)
-            };
+            }?;
             
             Ok(Self {
                 name,
@@ -478,9 +482,9 @@ fn process_user_list(user_list: SlurmUserList) -> Result<Vec<SlurmUser>, QosErro
     }
 
     let iterator = SlurmIterator::new(user_list.ptr);
-    let results: Vec<SlurmUser> = iterator.map(|node_ptr| {
+    let results: Vec<SlurmUser> = iterator.filter_map(|node_ptr| {
         let user_rec_ptr = node_ptr as *const slurmdb_user_rec_t;
-        SlurmUser::from_c_rec(user_rec_ptr)
+        SlurmUser::from_c_rec(user_rec_ptr).ok()
     }).collect();
 
     Ok(results)
@@ -502,7 +506,6 @@ impl QosConfig {
             c_struct.format_list = vec_to_slurm_list(self.format_list);
             c_struct.id_list = vec_to_slurm_list(self.id_list);
             //...
-            // this is where the segfault is coming in
 
             c_struct
         }
@@ -612,7 +615,7 @@ impl SlurmQos {
 fn process_qos_list(qos_list: SlurmQosList) -> Result<Vec<SlurmQos>, QosError> {
 
     if qos_list.ptr.is_null() {
-        return QosError::QosListNull
+        return Err(QosError::QosListNull)
     }
 
     let iterator = SlurmIterator::new(qos_list.ptr);
@@ -633,8 +636,10 @@ fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) -> Res
         slurmdb_connect(persist_flags) // connecting and getting the null pointer as a value that
     };
 
-    let mut db_conn = db_conn_result?; // will panic, which is hopefully better than
-    // segfaulting
+    let mut db_conn = match db_conn_result {
+        Ok(conn) => Ok(conn),
+        Err(_) => Err(QosError::DbConnError),
+    }?;
 
     // will automatically drop when it drops out of scope
 
@@ -658,7 +663,7 @@ fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) -> Res
     println!("Found QoS for account '{}': {:?}", target_assoc.acct, target_assoc.qos);
     
     // query for qos details
-    let qos_details: Result<Vec<SlurmQos>> = if !target_assoc.qos.is_empty() {
+    let qos_details: Result<Vec<SlurmQos>, QosError> = if !target_assoc.qos.is_empty() {
 
         // build the query, currently very sparse
         let qos_config = QosConfig {
@@ -674,7 +679,7 @@ fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) -> Res
         let qos_list = SlurmQosList::new(&mut db_conn, &mut qos_query);
         
         // process the resulting list and get details
-        Ok(process_qos_list(qos_list))
+        process_qos_list(qos_list)
     } else {
         // qos detail error
         Err(QosError::EmptyAssocError)
