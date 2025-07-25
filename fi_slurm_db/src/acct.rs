@@ -381,7 +381,8 @@ enum QosError {
     UserListNull,
     #[error("Database connection failed. Please ensure that SlurmDB is present and slurm_init has been run")]
     DbConnError,
-
+    #[error("List of QoS successfully retrieved but empty")]
+    EmptyQosListError,
 }
 
 #[derive(Debug)]
@@ -626,7 +627,12 @@ fn process_qos_list(qos_list: SlurmQosList) -> Result<Vec<SlurmQos>, QosError> {
         SlurmQos::from_c_rec(qos_rec_ptr)
     }).collect();
 
-    Ok(results)
+    if !results.is_empty() {
+        Ok(results)
+    } else {
+        Err(QosError::EmptyQosListError)
+    }
+
 }
 
 
