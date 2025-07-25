@@ -673,9 +673,10 @@ fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) -> Res
 
         // build the query, currently very sparse
         let qos_config = QosConfig {
-            name_list: Some(target_assoc.qos.clone()),
+            name_list: None, // despite being returned as strings, the target_assoc_qos are
+            // numbers, we need to pass them into id instead
             format_list: None,
-            id_list: None,
+            id_list: Some(target_assoc.qos.clone()),
         };
 
         // create the wrapper for the query
