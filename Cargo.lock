@@ -563,6 +563,7 @@ dependencies = [
  "bitflags",
  "chrono",
  "rust_bind",
+ "thiserror",
 ]
 
 [[package]]
