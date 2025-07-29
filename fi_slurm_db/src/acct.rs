@@ -590,9 +590,9 @@ struct SlurmQos {
     name: String,
     priority: u32,
     max_jobs_per_user: u32,
-    max_tres_per_user: u32,
-    max_tres_per_account: u32,
-    max_tres_per_job: u32,
+    max_tres_per_user: String,
+    max_tres_per_account: String,
+    max_tres_per_job: String,
 
 
     //...
@@ -614,13 +614,32 @@ impl SlurmQos {
             } else {
                 CStr::from_ptr((*rec).name).to_string_lossy().into_owned()
             };
+
+            let max_tres_per_user = if (*rec).max_tres_pu.is_null() {
+                String::new()
+            } else {
+                CStr::from_ptr((*rec).max_tres_pu).to_string_lossy().into_owned()
+            };
+
+            let max_tres_per_account = if (*rec).max_tres_pa.is_null() {
+                String::new()
+            } else {
+                CStr::from_ptr((*rec).max_tres_pa).to_string_lossy().into_owned()
+            };
+
+            let max_tres_per_job = if (*rec).max_tres_pj.is_null() {
+                String::new()
+            } else {
+                CStr::from_ptr((*rec).max_tres_pj).to_string_lossy().into_owned()
+            };
+
             Self {
                 name,
                 priority: (*rec).priority,
                 max_jobs_per_user: (*rec).max_jobs_pu,
-                max_tres_per_user: (*rec).max_tres_pu,
-                max_tres_per_account: (*rec).max_tres_pa,
-                max_tres_per_job: (*rec).max_tres_pj,
+                max_tres_per_user,
+                max_tres_per_account,
+                max_tres_per_job,
             }
         }
     }
