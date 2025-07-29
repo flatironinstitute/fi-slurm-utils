@@ -616,24 +616,21 @@ impl SlurmQos {
             };
 
             let max_tres_per_user = if (*rec).max_tres_pu.is_null() {
-                String::new()
-            } else {
                 String::from("foo")
-                // CStr::from_ptr((*rec).max_tres_pu).to_string_lossy().into_owned()
+            } else {
+                CStr::from_ptr((*rec).max_tres_pu).to_string_lossy().into_owned()
             };
 
             let max_tres_per_account = if (*rec).max_tres_pa.is_null() {
-                String::new()
-            } else {
-                // CStr::from_ptr((*rec).max_tres_pa).to_string_lossy().into_owned()
                 String::from("foo")
+            } else {
+                CStr::from_ptr((*rec).max_tres_pa).to_string_lossy().into_owned()
             };
 
             let max_tres_per_job = if (*rec).max_tres_pj.is_null() {
-                String::new()
-            } else {
-                // CStr::from_ptr((*rec).max_tres_pj).to_string_lossy().into_owned()
                 String::from("foo")
+            } else {
+                CStr::from_ptr((*rec).max_tres_pj).to_string_lossy().into_owned()
             };
 
             Self {
