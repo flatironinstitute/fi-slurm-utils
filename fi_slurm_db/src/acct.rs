@@ -754,7 +754,7 @@ pub fn print_user_info(name: Option<String>) {
         user_list: Some(vec![name]),
     };
 
-    let mut user_query = UserQueryInfo::new(assoc_config, None, None, true, false, false, false, 0);
+    let mut user_query = UserQueryInfo::new(assoc_config, None, None, true, true, true, true, 0);
 
     let mut persist_flags: u16 = 0;
 
