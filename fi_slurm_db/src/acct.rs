@@ -590,9 +590,20 @@ struct SlurmQos {
     name: String,
     priority: u32,
     max_jobs_per_user: u32,
+    max_tres_per_user: u32,
+    max_tres_per_account: u32,
+    max_tres_per_job: u32,
+
+
     //...
     // refer to slurmdb_qos_rec_t in bindings
 }
+
+// might not have the relevant information, set on partition?
+// bc not seeing 'scc' or 'other' qos in the output of sacctmgr ..., though cca does show up
+// maybe the associations are the wrong data structure?
+// maybe we need to look at partitions
+// start working on the TRES part, that should be the same, at least
 
 impl SlurmQos {
     fn from_c_rec(rec: *const slurmdb_qos_rec_t) -> Self {
@@ -607,6 +618,9 @@ impl SlurmQos {
                 name,
                 priority: (*rec).priority,
                 max_jobs_per_user: (*rec).max_jobs_pu,
+                max_tres_per_user: (*rec).max_tres_pu,
+                max_tres_per_account: (*rec).max_tres_pa,
+                max_tres_per_job: (*rec).max_tres_pj,
             }
         }
     }
