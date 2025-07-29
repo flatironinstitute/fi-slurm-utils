@@ -637,9 +637,7 @@ fn process_qos_list(qos_list: SlurmQosList) -> Result<Vec<SlurmQos>, QosError> {
 
 fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) -> Result<Vec<Vec<SlurmQos>>, QosError> {
 
-    let db_conn_result = unsafe {
-        slurmdb_connect(persist_flags) // connecting and getting the null pointer as a value that
-    };
+    let db_conn_result = slurmdb_connect(persist_flags);
 
     let mut db_conn = match db_conn_result {
         Ok(conn) => Ok(conn),
