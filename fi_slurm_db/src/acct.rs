@@ -82,7 +82,7 @@ impl Drop for DbConn {
     }
 }
 
-unsafe fn slurmdb_connect(persist_flags: &mut u16) -> Result<DbConn, DbConnError> {
+fn slurmdb_connect(persist_flags: &mut u16) -> Result<DbConn, DbConnError> {
     DbConn::new(persist_flags)
 }
 
