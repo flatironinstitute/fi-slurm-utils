@@ -45,10 +45,16 @@ fn main() -> Result<(), String> {
     // non-trivial functions of the Slurm API
     initialize_slurm();
 
+    let qos_name = if !args.qn.is_empty() {
+        args.qn.first()
+    } else {
+        None
+    };
+
     if args.qos {
         //let name = "nposner";
         //println!("{}", name);
-        print_user_info(None); //None case tries to get name from OS
+        print_user_info(qos_name.cloned()); //None case tries to get name from OS
         return Ok(())
     }
 
@@ -333,6 +339,8 @@ struct Args {
     #[arg(long)]
     #[arg(help = "Query Slurm for per-user QoS information")]
     qos: bool,
+    #[arg(long)]
+    qn: Vec<String>,
 }
 
 
