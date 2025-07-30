@@ -441,7 +441,7 @@ impl SlurmAssoc {
 #[derive(Debug)]
 struct SlurmUser {
     name: String,
-    default_acct: String,
+    _default_acct: String,
     _admin_level: u16,
     associations: Vec<SlurmAssoc>
 }
@@ -456,7 +456,7 @@ impl SlurmUser {
                 CStr::from_ptr((*rec).name).to_string_lossy().into_owned() 
             };
 
-            let default_acct = if (*rec).default_acct.is_null() {
+            let _default_acct = if (*rec).default_acct.is_null() {
                 String::new() 
             } else { 
                 CStr::from_ptr((*rec).default_acct).to_string_lossy().into_owned() 
@@ -478,7 +478,7 @@ impl SlurmUser {
             
             Ok(Self {
                 name,
-                default_acct,
+                _default_acct,
                 _admin_level: (*rec).admin_level, // we read actual admin value from database
                 // record, but don't let this be used for any purposes other than reading it. Is
                 // there any way to enforce that at the type level?
