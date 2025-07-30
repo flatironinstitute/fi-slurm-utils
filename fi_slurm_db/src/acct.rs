@@ -704,7 +704,7 @@ fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) -> Res
 
     let qos_vec = user.associations.iter().filter_map(|target_assoc| {
 
-        println!("Found QoS ID# {} under account '{}': {} \n {:?}", targer_assoc.id, target_assoc.acct, target_assoc.comment, target_assoc.qos);
+        println!("Found QoS ID# {} under account '{}': {} \n {:?}", target_assoc.id, target_assoc.acct, target_assoc.comment, target_assoc.qos);
         
         // query for qos details
         let qos_details: Result<Vec<SlurmQos>, QosError> = if !target_assoc.qos.is_empty() {
