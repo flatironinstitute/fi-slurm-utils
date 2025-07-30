@@ -1,15 +1,12 @@
 use std::{
-    ffi::{CStr, CString}, 
-    ops::{Deref, DerefMut}, 
-    os::raw::c_void
+    ffi::CStr, 
+    ops::Deref, 
 };
-use chrono::{DateTime, Utc, Duration};
 
-use rust_bind::bindings::{list_itr_t, slurm_list_append, slurm_list_create, slurm_list_destroy, slurm_list_iterator_create, slurm_list_iterator_destroy, slurm_list_next, slurmdb_assoc_cond_t, slurmdb_assoc_rec_t, slurmdb_connection_close, slurmdb_connection_get, slurmdb_qos_cond_t, slurmdb_qos_get, slurmdb_qos_rec_t, slurmdb_user_cond_t, slurmdb_user_rec_t, slurmdb_users_get, xlist};
+use rust_bind::bindings::{slurm_list_destroy, slurmdb_qos_cond_t, slurmdb_qos_get, slurmdb_qos_rec_t, xlist};
 
 
 use crate::db::DbConn;
-use crate::qos::QosError;
 use crate::utils::{vec_to_slurm_list, SlurmIterator};
 
 use thiserror::Error;
@@ -31,6 +28,8 @@ pub enum QosError {
     DbConnError,
     #[error("List of QoS successfully retrieved but empty")]
     EmptyQosListError,
+    #[error("The retrieved SlurmQosList contained a null pointer")]
+    SlurmQosListNull
 }
 
 pub struct QosConfig {
@@ -149,7 +148,15 @@ pub struct SlurmQos {
 // start working on the TRES part, that should be the same, at least
 
 impl SlurmQos {
-    pub fn from_c_rec(rec: *const slurmdb_qos_rec_t) -> Self {
+
+    /// Transform a C slurmdb_qos_rec_t struct into an owned Rust SlurmQos struct
+    ///
+    /// # Safety 
+    /// 
+    /// This function dereferences the `rec` raw pointer. The caller is responsible for ensuring
+    /// that the pointer is not null and handling the ensuring error case
+    ///
+    unsafe fn from_c_rec(rec: *const slurmdb_qos_rec_t) -> Self {
         unsafe {
             // guard against null name pointer
             let name = if (*rec).name.is_null() {
@@ -190,16 +197,28 @@ impl SlurmQos {
 
 pub fn process_qos_list(qos_list: SlurmQosList) -> Result<Vec<SlurmQos>, QosError> {
 
+    // we ensure that this pointer is not null
     if qos_list.ptr.is_null() {
         return Err(QosError::QosListNull)
     }
 
-    let iterator = SlurmIterator::new(qos_list.ptr);
+    // we create a slurm iterator over the pointers in ptr list
+    let mut iterator = unsafe { SlurmIterator::new(qos_list.ptr) };
 
+    // we check to ensure that none of the pointers within are null
+    let any_null = iterator.any(|node_ptr| {
+        node_ptr.is_null()
+    });
+
+    if any_null {
+        return Err(QosError::SlurmQosListNull)
+    }; 
+
+    // since none of the pointers within are null, we can safely build our list of SlurmQos
     let results: Vec<SlurmQos> = iterator.map(|node_ptr| {
         // not even an unsafe cast!
         let qos_rec_ptr = node_ptr as *const slurmdb_qos_rec_t;
-        SlurmQos::from_c_rec(qos_rec_ptr)
+        unsafe { SlurmQos::from_c_rec(qos_rec_ptr) }
     }).collect();
 
     if !results.is_empty() {

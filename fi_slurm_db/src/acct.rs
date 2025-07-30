@@ -19,15 +19,13 @@
 // tempt a double-free by adding one
 
 use std::{
-    ffi::{CStr, CString}, 
+    ffi::CStr, 
     ops::{Deref, DerefMut}, 
-    os::raw::c_void
 };
 use chrono::{DateTime, Utc, Duration};
 
-use rust_bind::bindings::{list_itr_t, slurm_list_append, slurm_list_create, slurm_list_destroy, slurm_list_iterator_create, slurm_list_iterator_destroy, slurm_list_next, slurmdb_assoc_cond_t, slurmdb_assoc_rec_t, slurmdb_connection_close, slurmdb_connection_get, slurmdb_qos_cond_t, slurmdb_qos_get, slurmdb_qos_rec_t, slurmdb_user_cond_t, slurmdb_user_rec_t, slurmdb_users_get, xlist};
+use rust_bind::bindings::{slurm_list_destroy, slurmdb_assoc_cond_t, slurmdb_assoc_rec_t, slurmdb_user_cond_t, slurmdb_user_rec_t, slurmdb_users_get, xlist};
 
-use thiserror::Error;
 use users::get_current_username;
 
 use crate::db::{DbConn, slurmdb_connect};
@@ -54,24 +52,22 @@ struct AssocConfig {
 
 impl AssocConfig {
     fn into_c_struct(self) -> slurmdb_assoc_cond_t {
-        unsafe {
-            let mut c_struct: slurmdb_assoc_cond_t = std::mem::zeroed();
+        let mut c_struct: slurmdb_assoc_cond_t = unsafe { std::mem::zeroed() };
 
-            c_struct.acct_list = vec_to_slurm_list(self.acct_list);
-            c_struct.cluster_list = vec_to_slurm_list(self.cluster_list);
-            c_struct.def_qos_id_list = vec_to_slurm_list(self.def_qos_id_list);
-            c_struct.flags = self.flags;
-            c_struct.format_list = vec_to_slurm_list(self.format_list);
-            c_struct.id_list = vec_to_slurm_list(self.id_list);
-            c_struct.parent_acct_list = vec_to_slurm_list(self.parent_acct_list);
-            c_struct.partition_list = vec_to_slurm_list(self.partition_list);
-            c_struct.qos_list = vec_to_slurm_list(self.qos_list);
-            c_struct.usage_end = self.usage_end.timestamp();
-            c_struct.usage_start = self.usage_start.timestamp();
-            c_struct.user_list = vec_to_slurm_list(self.user_list);
+        c_struct.acct_list = vec_to_slurm_list(self.acct_list);
+        c_struct.cluster_list = vec_to_slurm_list(self.cluster_list);
+        c_struct.def_qos_id_list = vec_to_slurm_list(self.def_qos_id_list);
+        c_struct.flags = self.flags;
+        c_struct.format_list = vec_to_slurm_list(self.format_list);
+        c_struct.id_list = vec_to_slurm_list(self.id_list);
+        c_struct.parent_acct_list = vec_to_slurm_list(self.parent_acct_list);
+        c_struct.partition_list = vec_to_slurm_list(self.partition_list);
+        c_struct.qos_list = vec_to_slurm_list(self.qos_list);
+        c_struct.usage_end = self.usage_end.timestamp();
+        c_struct.usage_start = self.usage_start.timestamp();
+        c_struct.user_list = vec_to_slurm_list(self.user_list);
 
-            c_struct
-        }
+        c_struct
     }
 }
 
@@ -98,8 +94,8 @@ impl UserQueryInfo {
         let assoc_c = assoc_config.into_c_struct();
         c_user.assoc_cond = Box::into_raw(Box::new(assoc_c));
         c_user.admin_level = 0;
-        c_user.def_acct_list = unsafe { vec_to_slurm_list(def_acct_list) };
-        c_user.def_wckey_list = unsafe { vec_to_slurm_list(def_wckey_list) };
+        c_user.def_acct_list =  vec_to_slurm_list(def_acct_list);
+        c_user.def_wckey_list = vec_to_slurm_list(def_wckey_list);
         c_user.with_assocs = bool_to_int(with_assocs);
         c_user.with_coords = bool_to_int(with_coords);
         c_user.with_deleted = bool_to_int(with_deleted);
@@ -215,20 +211,16 @@ struct SlurmUserList {
 
 impl SlurmUserList {
     fn new(db_conn: &mut DbConn, user_query: &mut UserQueryInfo) -> Self {
-        unsafe {
-            // user_query.user is a *mut slurmdb_user_cond_t
-            let ptr = slurmdb_users_get(db_conn.as_mut_ptr(), user_query.user);
-            Self { ptr }
-        }
+        // user_query.user is a *mut slurmdb_user_cond_t
+        let ptr = unsafe { slurmdb_users_get(db_conn.as_mut_ptr(), user_query.user) };
+        Self { ptr }
     }
 }
 
 impl Drop for SlurmUserList {
     fn drop(&mut self) {
         if !self.ptr.is_null() {
-            unsafe {
-                slurm_list_destroy(self.ptr)
-            }
+            unsafe { slurm_list_destroy(self.ptr) }
             self.ptr = std::ptr::null_mut();
         }
     }
@@ -344,7 +336,7 @@ fn process_user_list(user_list: SlurmUserList) -> Result<Vec<SlurmUser>, QosErro
         return Err(QosError::UserListNull)
     }
 
-    let iterator = SlurmIterator::new(user_list.ptr);
+    let iterator = unsafe { SlurmIterator::new(user_list.ptr) };
     let results: Vec<SlurmUser> = iterator.filter_map(|node_ptr| {
         let user_rec_ptr = node_ptr as *const slurmdb_user_rec_t;
         SlurmUser::from_c_rec(user_rec_ptr).ok()

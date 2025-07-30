@@ -1,11 +1,9 @@
 use std::{
-    ffi::{CStr, CString}, 
-    ops::{Deref, DerefMut}, 
+    ffi::CString, 
     os::raw::c_void
 };
-use chrono::{DateTime, Utc, Duration};
 
-use rust_bind::bindings::{list_itr_t, slurm_list_append, slurm_list_create, slurm_list_destroy, slurm_list_iterator_create, slurm_list_iterator_destroy, slurm_list_next, slurmdb_assoc_cond_t, slurmdb_assoc_rec_t, slurmdb_connection_close, slurmdb_connection_get, slurmdb_qos_cond_t, slurmdb_qos_get, slurmdb_qos_rec_t, slurmdb_user_cond_t, slurmdb_user_rec_t, slurmdb_users_get, xlist};
+use rust_bind::bindings::{list_itr_t, slurm_list_append, slurm_list_create, slurm_list_iterator_create, slurm_list_iterator_destroy, slurm_list_next, xlist};
 
 
 /// A custom destructor function that can be passed to C
@@ -21,7 +19,7 @@ extern "C" fn free_rust_string(ptr: *mut c_void) {
     }
 }
 
-pub unsafe fn vec_to_slurm_list(data: Option<Vec<String>>) -> *mut xlist {
+pub fn vec_to_slurm_list(data: Option<Vec<String>>) -> *mut xlist {
     // If the Option is None, we return a null pointer, which Slurm ignores
     let Some(vec) = data else {
         return std::ptr::null_mut();
@@ -59,7 +57,13 @@ pub struct SlurmIterator {
 }
 
 impl SlurmIterator {
-    pub fn new(list_ptr: *mut xlist) -> Self {
+    /// Create an owned SlurmIterator object in Rust from a pointer to an xlist
+    ///
+    /// # Safety
+    ///
+    /// This function can dereference a null pointer. It is the caller's responsibility to ensure that
+    /// the pointer passed in is not null: otherwise the function will return a null pointer
+    pub unsafe fn new(list_ptr: *mut xlist) -> Self {
         if list_ptr.is_null() {
             return Self { ptr: std::ptr::null_mut() };
         }
