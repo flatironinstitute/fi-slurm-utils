@@ -387,8 +387,10 @@ enum QosError {
 #[derive(Debug)]
 struct SlurmAssoc {
     acct: String,
+    id: u32,
     user: String,
     qos: Vec<String>,
+    comment: String,
 }
 
 impl SlurmAssoc {
@@ -399,6 +401,8 @@ impl SlurmAssoc {
             } else { 
                 CStr::from_ptr((*rec).acct).to_string_lossy().into_owned() 
             };
+
+            let id = (*rec).id;
 
             let user = if (*rec).user.is_null() {
                 String::new() 
@@ -421,10 +425,18 @@ impl SlurmAssoc {
                 Err(QosError::QosListNull)
             }?;
 
-            Ok(Self { acct, user, qos })
+            let comment = if (*rec).comment.is_null() {
+                String::new() 
+            } else { 
+                CStr::from_ptr((*rec).comment).to_string_lossy().into_owned()  
+            };
+
+            Ok(Self { acct, id, user, qos, comment })
         }
     }
 }
+
+// need to pull more information out of assoc_rec_t
 
 #[derive(Debug)]
 struct SlurmUser {
@@ -692,7 +704,7 @@ fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) -> Res
 
     let qos_vec = user.associations.iter().filter_map(|target_assoc| {
 
-        println!("Found QoS for account '{}': {:?}", target_assoc.acct, target_assoc.qos);
+        println!("Found QoS ID# {} under account '{}': {} \n {:?}", targer_assoc.id, target_assoc.acct, target_assoc.comment, target_assoc.qos);
         
         // query for qos details
         let qos_details: Result<Vec<SlurmQos>, QosError> = if !target_assoc.qos.is_empty() {
