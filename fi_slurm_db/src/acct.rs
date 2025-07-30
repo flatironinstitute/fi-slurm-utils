@@ -261,7 +261,7 @@ impl DerefMut for UserQueryInfo {
     }
 }
 
-fn create_user_cond(usernames: Vec<String>, usage_start: DateTime<Utc>, usage_end: DateTime<Utc>) -> UserQueryInfo {
+fn _create_user_cond(usernames: Vec<String>, usage_start: DateTime<Utc>, usage_end: DateTime<Utc>) -> UserQueryInfo {
     
     let assoc = AssocConfig {
         acct_list: None, 
@@ -388,7 +388,7 @@ enum QosError {
 struct SlurmAssoc {
     acct: String,
     id: u32,
-    user: String,
+    _user: String,
     qos: Vec<String>,
     comment: String,
 }
@@ -404,7 +404,7 @@ impl SlurmAssoc {
 
             let id = (*rec).id;
 
-            let user = if (*rec).user.is_null() {
+            let _user = if (*rec).user.is_null() {
                 String::new() 
             } else { 
                 CStr::from_ptr((*rec).user).to_string_lossy().into_owned()  
@@ -431,7 +431,7 @@ impl SlurmAssoc {
                 CStr::from_ptr((*rec).comment).to_string_lossy().into_owned()  
             };
 
-            Ok(Self { acct, id, user, qos, comment })
+            Ok(Self { acct, id, _user, qos, comment })
         }
     }
 }
@@ -442,7 +442,7 @@ impl SlurmAssoc {
 struct SlurmUser {
     name: String,
     default_acct: String,
-    admin_level: u16,
+    _admin_level: u16,
     associations: Vec<SlurmAssoc>
 }
 
@@ -479,7 +479,7 @@ impl SlurmUser {
             Ok(Self {
                 name,
                 default_acct,
-                admin_level: (*rec).admin_level, // we read actual admin value from database
+                _admin_level: (*rec).admin_level, // we read actual admin value from database
                 // record, but don't let this be used for any purposes other than reading it. Is
                 // there any way to enforce that at the type level?
                 associations
@@ -676,9 +676,7 @@ fn process_qos_list(qos_list: SlurmQosList) -> Result<Vec<SlurmQos>, QosError> {
     } else {
         Err(QosError::EmptyQosListError)
     }
-
 }
-
 
 fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) -> Result<Vec<Vec<SlurmQos>>, QosError> {
 
@@ -701,6 +699,8 @@ fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) -> Res
     let Some(user) = users.first() else {
         return Err(QosError::SlurmUserError);
     };
+
+    println!("\nUser: {}", user.name);
 
     let qos_vec = user.associations.iter().filter_map(|target_assoc| {
 
@@ -776,7 +776,10 @@ pub fn print_user_info(name: Option<String>) {
         for q in qos {
             println!("\n QoS Details:");
             for p in q {
-                println!("    {:?}", p);
+
+                println!("{}", p.name);
+                println!("  Priority: {}, Max Jobs/User: {}, Max TRES/User: {}, Max TRES/Account: {}, Max TRES/Job: {}", 
+                    p.priority, p.max_jobs_per_user, p.max_tres_per_user, p.max_tres_per_account, p.max_tres_per_job);
             }
         }
     }
