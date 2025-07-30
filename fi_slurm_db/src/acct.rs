@@ -774,7 +774,10 @@ pub fn print_user_info(name: Option<String>) {
 
     if let Ok(qos) = qos_details {
         for q in qos {
-            println!("QoS Details: {:?}", q);
+            println!("\n QoS Details:");
+            for p in q {
+                println!("    {:?}", p);
+            }
         }
     }
 }
