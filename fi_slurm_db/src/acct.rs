@@ -29,6 +29,7 @@ use rust_bind::bindings::{slurm_list_destroy, slurmdb_assoc_cond_t, slurmdb_asso
 use users::get_current_username;
 
 use crate::db::{DbConn, slurmdb_connect};
+use crate::jobs::{process_jobs_list, JobsConfig, JobsQueryInfo, SlurmJobs, SlurmJobsList, JobsError};
 use crate::qos::{process_qos_list, QosConfig, QosQueryInfo, SlurmQos, SlurmQosList, QosError};
 use crate::utils::{bool_to_int, vec_to_slurm_list, SlurmIterator};
 
@@ -350,40 +351,20 @@ fn process_user_list(user_list: SlurmUserList) -> Result<Vec<SlurmUser>, QosErro
 }
 
 
-fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) -> Result<Vec<Vec<SlurmQos>>, QosError> {
+struct QosJobInfo {
+    qos: Vec<Vec<SlurmQos>>,
+    jobs: Vec<Vec<SlurmJobs>>,
+}
 
-    let db_conn_result = slurmdb_connect(persist_flags);
+fn get_qos_info(db_conn: &mut DbConn, assocs: Vec<SlurmAssoc>) -> Vec<SlurmQos> {
+    let ret: Vec<SlurmQos> = assocs.iter().filter_map(|target_assoc| {
 
-    let mut db_conn = match db_conn_result {
-        Ok(conn) => Ok(conn),
-        Err(_) => Err(QosError::DbConnError),
-    }?;
-
-    // will automatically drop when it drops out of scope
-
-    // make sure that C can take in the user info struct 
-    
-    let user_list = SlurmUserList::new(&mut db_conn, user_query);
-
-    let users = process_user_list(user_list)?;
-
-    // assuming we only get one user back
-    let Some(user) = users.first() else {
-        return Err(QosError::SlurmUserError);
-    };
-
-    println!("\nUser: {}", user.name);
-
-    let qos_vec = user.associations.iter().filter_map(|target_assoc| {
-
-        println!("Found QoS ID# {} under account '{}': {} \n {:?}", target_assoc.id, target_assoc.acct, target_assoc.comment, target_assoc.qos);
-        
-        
-        // we keep the process up to here: we now have the acct, which is what we want
-        // from here, we change the process: when we create qos_config below, instead of passing in
-        // the qos ids, we pass in the acct name and a few others
-        // that may be the only necessary change here
-
+        println!("Found QoS ID# {} under account '{}': {} \n {:?}", 
+            target_assoc.id, 
+            target_assoc.acct, 
+            target_assoc.comment, 
+            target_assoc.qos
+        );
 
         // query for qos details
         let qos_details: Result<Vec<SlurmQos>, QosError> = if !target_assoc.acct.is_empty() {
@@ -404,10 +385,10 @@ fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) -> Res
 
             // create the wrapper for the query
             let mut qos_query = QosQueryInfo::new(qos_config);
-            
+
             // create the wrapper for the list, calls slurmdb_qos_get internally 
             let qos_list = SlurmQosList::new(&mut db_conn, &mut qos_query);
-            
+
             // process the resulting list and get details
             process_qos_list(qos_list)
         } else {
@@ -417,8 +398,75 @@ fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) -> Res
 
         qos_details.ok()
     }).collect();
+}
 
-    Ok(qos_vec)
+fn get_jobs_info(db_conn: &mut DbConn, assocs: Vec<SlurmAssoc>, qos_names: Vec<String>) -> Vec<SlurmJobs> {
+
+    let accts: Vec<String> = assocs.iter().map(|assoc| assoc.acct.clone()).collect();
+
+    let jobs_config = JobsConfig {
+        acct_list: Some(accts),
+        format_list: None,
+        qos_list: Some(qos_names),
+    };
+
+    // create the wrapper for the query
+    let mut jobs_query = JobsQueryInfo::new(jobs_config);
+
+    // create the wrapper for the list, calls slurmdb_jobs_get internally 
+    let jobs_list = SlurmJobsList::new(&mut db_conn, &mut jobs_query);
+
+    // process the resulting list and get details
+    process_jobs_list(jobs_list).unwrap_or(vec![]) // find a better way to handle this error case
+}
+
+fn handle_connection(persist_flags: &mut u16) -> Result<DbConn, QosError>{
+    let db_conn_result = slurmdb_connect(persist_flags);
+
+    let mut db_conn = match db_conn_result {
+        Ok(conn) => Ok(conn),
+        Err(_) => Err(QosError::DbConnError),
+    }?;
+
+}
+
+fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) -> QosJobInfo {
+
+    let db_conn_qos = handle_connection(persist_flags)?;
+    let db_conn_job = handle_connection(persist_flags)?;
+    // let db_conn_result = slurmdb_connect(persist_flags);
+    //
+    // let mut db_conn = match db_conn_result {
+    //     Ok(conn) => Ok(conn),
+    //     Err(_) => Err(QosError::DbConnError),
+    // }?;
+
+    // will automatically drop when it drops out of scope
+
+    // make sure that C can take in the user info struct 
+    
+    let user_list = SlurmUserList::new(&mut db_conn_qos, user_query);
+
+    let users = process_user_list(user_list)?;
+
+    // assuming we only get one user back
+    let Some(user) = users.first() else {
+        return Err(QosError::SlurmUserError);
+    };
+
+    println!("\nUser: {}", user.name);
+
+    let qos_vec = get_qos_info(&mut db_conn_qos, user.associations);
+
+    let qos_names: Vec<String> = qos_vec.iter().map(|q| q.name.clone()).collect();
+
+    let jobs_vec = get_jobs_info(&mut db_conn_job, user.associations, qos_names.clone());
+
+    QosJobInfo {
+        qos: qos_vec,
+        jobs: jobs_vec,
+    }
+
 
     // at all points, wrap these raw return into Rust types with Drop impls that use the
     // equivalent slurmdb_destroy_db function
@@ -440,17 +488,30 @@ pub fn print_user_info(name: Option<String>) {
 
     let mut persist_flags: u16 = 0;
 
-    let qos_details = get_user_info(&mut user_query, &mut persist_flags);
+    let qos_job_data = get_user_info(&mut user_query, &mut persist_flags);
 
-    if let Ok(qos) = qos_details {
-        for q in qos {
-            println!("\n QoS Details:");
-            for p in q {
+    for q in qos_job_data.qos {
+        println!("\n QoS Details:");
+        for p in q {
 
-                println!("{}", p.name);
-                println!("  Priority: {}, Max Jobs/User: {}, Max TRES/User: {}, Max TRES/Account: {}, Max TRES/Job: {}", 
-                    p.priority, p.max_jobs_per_user, p.max_tres_per_user, p.max_tres_per_account, p.max_tres_per_job);
-            }
+            println!("{}", p.name);
+            println!("  Priority: {}, Max Jobs/User: {}, Max TRES/User: {}, Max TRES/Account: {}, Max TRES/Job: {}", 
+                p.priority, p.max_jobs_per_user, p.max_tres_per_user, p.max_tres_per_account, p.max_tres_per_job);
+        }
+    }
+
+    for j in qos_job_data.jobs {
+        println!("\n Job Details:");
+        for i in j {
+            println!("{}", i.job_name);
+            println!("  Priority: {}, Job ID: {}, Partition: {}, Nodes: {}, Allocated Nodes: {}, Eligible: {}, Submit Time: {}", 
+                i.priority, 
+                i.job_id, 
+                i.partition, 
+                i.node_names, 
+                i.alloc_nodes, 
+                i.eligible, 
+                i.submit_time);
         }
     }
 }
