@@ -396,7 +396,7 @@ fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) -> Res
                     "gpu".to_string(), 
                     "gpuxl".to_string(), 
                     "eval".to_string(), 
-                    "gnx".to_string()
+                    //"gnx".to_string()
                 ]),
                 format_list: None,
                 id_list: None,
