@@ -400,7 +400,7 @@ fn get_qos_info(db_conn: &mut DbConn, assocs: Vec<SlurmAssoc>) -> Vec<SlurmQos> 
     }).collect();
 }
 
-fn get_jobs_info(db_conn: &mut DbConn, assocs: Vec<SlurmAssoc>, qos_names: Vec<String>) -> Vec<SlurmJobs> {
+fn get_jobs_info(db_conn: DbConn, assocs: Vec<SlurmAssoc>, qos_names: Vec<String>) -> Vec<SlurmJobs> {
 
     let accts: Vec<String> = assocs.iter().map(|assoc| assoc.acct.clone()).collect();
 
@@ -414,7 +414,7 @@ fn get_jobs_info(db_conn: &mut DbConn, assocs: Vec<SlurmAssoc>, qos_names: Vec<S
     let mut jobs_query = JobsQueryInfo::new(jobs_config);
 
     // create the wrapper for the list, calls slurmdb_jobs_get internally 
-    let jobs_list = SlurmJobsList::new(&mut db_conn, &mut jobs_query);
+    let jobs_list = SlurmJobsList::new(db_conn, &mut jobs_query);
 
     // process the resulting list and get details
     process_jobs_list(jobs_list).unwrap_or(vec![]) // find a better way to handle this error case
@@ -427,6 +427,8 @@ fn handle_connection(persist_flags: &mut u16) -> Result<DbConn, QosError>{
         Ok(conn) => Ok(conn),
         Err(_) => Err(QosError::DbConnError),
     }?;
+
+    Ok(db_conn)
 
 }
 
@@ -460,7 +462,7 @@ fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) -> Qos
 
     let qos_names: Vec<String> = qos_vec.iter().map(|q| q.name.clone()).collect();
 
-    let jobs_vec = get_jobs_info(&mut db_conn_job, user.associations, qos_names.clone());
+    let jobs_vec = get_jobs_info(db_conn_job, user.associations, qos_names.clone());
 
     QosJobInfo {
         qos: qos_vec,

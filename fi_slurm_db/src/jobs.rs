@@ -107,7 +107,7 @@ pub struct SlurmJobsList {
 }
 
 impl SlurmJobsList {
-    pub fn new(db_conn: &mut DbConn, jobs_query: &mut JobsQueryInfo) -> Self {
+    pub fn new(mut db_conn: DbConn, jobs_query: &mut JobsQueryInfo) -> Self {
         unsafe {
             // jobs_query.jobs is a *mut slurmdb_jobs_cond_t
             let ptr = slurmdb_jobs_get(db_conn.as_mut_ptr(), jobs_query.jobs);
