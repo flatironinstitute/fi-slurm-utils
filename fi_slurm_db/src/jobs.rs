@@ -188,8 +188,8 @@ impl SlurmJobs {
                 priority: (*rec).priority,
                 node_names,
                 alloc_nodes: (*rec).alloc_nodes,
-                eligible: (*rec).eligible, // have to convert this i64 to datetime
-                submit_time: (*rec).submit, // have to convert this i64 to datetime
+                eligible: DateTime::from_timestamp((*rec).eligible, 0).unwrap(), // have to convert this i64 to datetime
+                submit_time: DateTime::from_timestamp((*rec).submit, 0).unwrap(), // have to convert this i64 to datetime
             }
         }
     }

@@ -29,7 +29,7 @@ use rust_bind::bindings::{slurm_list_destroy, slurmdb_assoc_cond_t, slurmdb_asso
 use users::get_current_username;
 
 use crate::db::{DbConn, slurmdb_connect};
-use crate::jobs::{process_jobs_list, JobsConfig, JobsQueryInfo, SlurmJobs, SlurmJobsList, JobsError};
+use crate::jobs::{process_jobs_list, JobsConfig, JobsQueryInfo, SlurmJobs, SlurmJobsList};
 use crate::qos::{process_qos_list, QosConfig, QosQueryInfo, SlurmQos, SlurmQosList, QosError};
 use crate::utils::{bool_to_int, vec_to_slurm_list, SlurmIterator};
 
@@ -353,11 +353,11 @@ fn process_user_list(user_list: SlurmUserList) -> Result<Vec<SlurmUser>, QosErro
 
 struct QosJobInfo {
     qos: Vec<Vec<SlurmQos>>,
-    jobs: Vec<Vec<SlurmJobs>>,
+    jobs: Vec<SlurmJobs>,
 }
 
-fn get_qos_info(db_conn: &mut DbConn, assocs: Vec<SlurmAssoc>) -> Vec<SlurmQos> {
-    let ret: Vec<SlurmQos> = assocs.iter().filter_map(|target_assoc| {
+fn get_qos_info(mut db_conn: DbConn, assocs: &[SlurmAssoc]) -> Vec<Vec<SlurmQos>> {
+    let ret: Vec<Vec<SlurmQos>> = assocs.iter().filter_map(|target_assoc| {
 
         println!("Found QoS ID# {} under account '{}': {} \n {:?}", 
             target_assoc.id, 
@@ -402,9 +402,23 @@ fn get_qos_info(db_conn: &mut DbConn, assocs: Vec<SlurmAssoc>) -> Vec<SlurmQos> 
     ret
 }
 
-fn get_jobs_info(db_conn: DbConn, assocs: Vec<SlurmAssoc>, qos_names: Vec<String>) -> Vec<SlurmJobs> {
+fn get_jobs_info(db_conn: DbConn, assocs: &[SlurmAssoc], qos: &Vec<Vec<SlurmQos>>) -> Vec<SlurmJobs> {
 
     let accts: Vec<String> = assocs.iter().map(|assoc| assoc.acct.clone()).collect();
+
+    println!("{:?}", accts.clone());
+
+    let mut qos_names: Vec<String> = Vec::new();
+
+    for q in qos {
+        for p in q {
+            qos_names.push(p.name.clone())
+        }
+    };
+
+    println!("{:?}", qos_names.clone());
+
+    //let qos_names = qos.first().unwrap().iter().map(|q| *q.name).collect();
 
     let jobs_config = JobsConfig {
         acct_list: Some(accts),
@@ -419,13 +433,13 @@ fn get_jobs_info(db_conn: DbConn, assocs: Vec<SlurmAssoc>, qos_names: Vec<String
     let jobs_list = SlurmJobsList::new(db_conn, &mut jobs_query);
 
     // process the resulting list and get details
-    process_jobs_list(jobs_list).unwrap_or(vec![]) // find a better way to handle this error case
+    process_jobs_list(jobs_list).unwrap_or_default() // find a better way to handle this error case
 }
 
 fn handle_connection(persist_flags: &mut u16) -> Result<DbConn, QosError>{
     let db_conn_result = slurmdb_connect(persist_flags);
 
-    let mut db_conn = match db_conn_result {
+    let db_conn = match db_conn_result {
         Ok(conn) => Ok(conn),
         Err(_) => Err(QosError::DbConnError),
     }?;
@@ -436,14 +450,8 @@ fn handle_connection(persist_flags: &mut u16) -> Result<DbConn, QosError>{
 
 fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) -> Result<QosJobInfo, QosError>{
 
-    let db_conn_qos = handle_connection(persist_flags)?;
+    let mut db_conn_qos = handle_connection(persist_flags)?;
     let db_conn_job = handle_connection(persist_flags)?;
-    // let db_conn_result = slurmdb_connect(persist_flags);
-    //
-    // let mut db_conn = match db_conn_result {
-    //     Ok(conn) => Ok(conn),
-    //     Err(_) => Err(QosError::DbConnError),
-    // }?;
 
     // will automatically drop when it drops out of scope
 
@@ -460,11 +468,11 @@ fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) -> Res
 
     println!("\nUser: {}", user.name);
 
-    let qos_vec = get_qos_info(&mut db_conn_qos, user.associations);
+    let qos_vec = get_qos_info(db_conn_qos, &user.associations);
 
-    let qos_names: Vec<String> = qos_vec.iter().map(|q| q.name.clone()).collect();
+    //let qos_names: Vec<String> = qos_vec.iter().map(|q| q.iter().map(|p| p.name)).collect();
 
-    let jobs_vec = get_jobs_info(db_conn_job, user.associations, qos_names.clone());
+    let jobs_vec = get_jobs_info(db_conn_job, &user.associations, &qos_vec);
 
     Ok(QosJobInfo {
         qos: qos_vec,
@@ -492,7 +500,7 @@ pub fn print_user_info(name: Option<String>) {
 
     let mut persist_flags: u16 = 0;
 
-    let qos_job_data = get_user_info(&mut user_query, &mut persist_flags).unwrap_or(panic!());
+    let qos_job_data = get_user_info(&mut user_query, &mut persist_flags).unwrap();
 
     for q in qos_job_data.qos {
         println!("\n QoS Details:");
@@ -504,18 +512,21 @@ pub fn print_user_info(name: Option<String>) {
         }
     }
 
-    for j in qos_job_data.jobs {
-        println!("\n Job Details:");
-        for i in j {
-            println!("{}", i.job_name);
+    if qos_job_data.jobs.is_empty() {
+        println!("\n No jobs running")
+    } else {
+        for j in qos_job_data.jobs {
+            println!("\n Job Details:");
+            println!("{}", j.job_name);
             println!("  Priority: {}, Job ID: {}, Partition: {}, Nodes: {}, Allocated Nodes: {}, Eligible: {}, Submit Time: {}", 
-                i.priority, 
-                i.job_id, 
-                i.partition, 
-                i.node_names, 
-                i.alloc_nodes, 
-                i.eligible, 
-                i.submit_time);
+                j.priority, 
+                j.job_id, 
+                j.partition, 
+                j.node_names, 
+                j.alloc_nodes, 
+                j.eligible, 
+                j.submit_time);
         }
     }
+
 }
