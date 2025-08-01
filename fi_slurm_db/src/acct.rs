@@ -421,7 +421,7 @@ pub fn print_user_info(name: Option<String>) {
     let now = Utc::now();
     let assoc_config = AssocConfig {
         acct_list: None,
-        cluster_list: None,
+        cluster_list: Some(vec!["rusty".to_string()]),
         def_qos_id_list: None,
         flags: 0, // bitflags
         format_list: None,
