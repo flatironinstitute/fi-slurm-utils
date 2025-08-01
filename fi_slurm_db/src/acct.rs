@@ -344,7 +344,7 @@ fn process_user_list(user_list: SlurmUserList) -> Result<Vec<SlurmUser>, QosErro
         return Err(QosError::UserListNull)
     }
 
-    let iterator = SlurmIterator::new(user_list.ptr);
+    let iterator = unsafe { SlurmIterator::new(user_list.ptr) };
     let results: Vec<SlurmUser> = iterator.filter_map(|node_ptr| {
         let user_rec_ptr = node_ptr as *const slurmdb_user_rec_t;
         SlurmUser::from_c_rec(user_rec_ptr).ok()

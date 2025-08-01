@@ -10,7 +10,7 @@ use rust_bind::bindings::{list_itr_t, slurm_list_append, slurm_list_create, slur
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-enum DbConnError {
+pub enum DbConnError {
     #[error("Could not establish connection to SlurmDB. Please ensure that SlurmDB is present and slurm_init has been run.")]
     DbConnectionError,
 }

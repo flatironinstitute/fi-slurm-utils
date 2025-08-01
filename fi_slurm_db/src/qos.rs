@@ -9,7 +9,6 @@ use rust_bind::bindings::{list_itr_t, slurm_list_append, slurm_list_create, slur
 
 
 use crate::db::DbConn;
-use crate::qos::QosError;
 use crate::utils::{vec_to_slurm_list, SlurmIterator};
 
 use thiserror::Error;
@@ -149,7 +148,7 @@ pub struct SlurmQos {
 // start working on the TRES part, that should be the same, at least
 
 impl SlurmQos {
-    pub fn from_c_rec(rec: *const slurmdb_qos_rec_t) -> Self {
+    pub unsafe fn from_c_rec(rec: *const slurmdb_qos_rec_t) -> Self {
         unsafe {
             // guard against null name pointer
             let name = if (*rec).name.is_null() {
@@ -194,12 +193,12 @@ pub fn process_qos_list(qos_list: SlurmQosList) -> Result<Vec<SlurmQos>, QosErro
         return Err(QosError::QosListNull)
     }
 
-    let iterator = SlurmIterator::new(qos_list.ptr);
+    let iterator = unsafe { SlurmIterator::new(qos_list.ptr) };
 
     let results: Vec<SlurmQos> = iterator.map(|node_ptr| {
         // not even an unsafe cast!
         let qos_rec_ptr = node_ptr as *const slurmdb_qos_rec_t;
-        SlurmQos::from_c_rec(qos_rec_ptr)
+        unsafe { SlurmQos::from_c_rec(qos_rec_ptr) }
     }).collect();
 
     if !results.is_empty() {

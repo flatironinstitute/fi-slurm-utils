@@ -59,7 +59,7 @@ pub struct SlurmIterator {
 }
 
 impl SlurmIterator {
-    pub fn new(list_ptr: *mut xlist) -> Self {
+    pub unsafe fn new(list_ptr: *mut xlist) -> Self {
         if list_ptr.is_null() {
             return Self { ptr: std::ptr::null_mut() };
         }
