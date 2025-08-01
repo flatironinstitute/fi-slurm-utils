@@ -180,7 +180,7 @@ fn _create_user_cond(usernames: Vec<String>, usage_start: DateTime<Utc>, usage_e
     
     let assoc = AssocConfig {
         acct_list: None, 
-        cluster_list: None, 
+        cluster_list: Some(vec!["rusty".to_string()]), 
         def_qos_id_list: None, 
         flags: 0, 
         format_list: None, 
