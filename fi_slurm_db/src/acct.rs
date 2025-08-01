@@ -19,22 +19,18 @@
 // tempt a double-free by adding one
 
 use std::{
-    ffi::{CStr, CString}, 
+    ffi::CStr, 
     ops::{Deref, DerefMut}, 
-    os::raw::c_void
 };
 use chrono::{DateTime, Utc, Duration};
 
-use rust_bind::bindings::{list_itr_t, slurm_list_append, slurm_list_create, slurm_list_destroy, slurm_list_iterator_create, slurm_list_iterator_destroy, slurm_list_next, slurmdb_assoc_cond_t, slurmdb_assoc_rec_t, slurmdb_connection_close, slurmdb_connection_get, slurmdb_qos_cond_t, slurmdb_qos_get, slurmdb_qos_rec_t, slurmdb_user_cond_t, slurmdb_user_rec_t, slurmdb_users_get, xlist};
+use rust_bind::bindings::{slurm_list_destroy, slurmdb_assoc_cond_t, slurmdb_assoc_rec_t, slurmdb_user_cond_t, slurmdb_user_rec_t, slurmdb_users_get, xlist};
 
-use thiserror::Error;
 use users::get_current_username;
 
 use crate::db::{DbConn, slurmdb_connect};
 use crate::qos::{process_qos_list, QosConfig, QosQueryInfo, SlurmQos, SlurmQosList, QosError};
 use crate::utils::{bool_to_int, vec_to_slurm_list, SlurmIterator};
-
-
 
 
 struct AssocConfig {

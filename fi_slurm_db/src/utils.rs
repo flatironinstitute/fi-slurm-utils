@@ -1,11 +1,9 @@
 use std::{
-    ffi::{CStr, CString}, 
-    ops::{Deref, DerefMut}, 
+    ffi::CString, 
     os::raw::c_void
 };
-use chrono::{DateTime, Utc, Duration};
 
-use rust_bind::bindings::{list_itr_t, slurm_list_append, slurm_list_create, slurm_list_destroy, slurm_list_iterator_create, slurm_list_iterator_destroy, slurm_list_next, slurmdb_assoc_cond_t, slurmdb_assoc_rec_t, slurmdb_connection_close, slurmdb_connection_get, slurmdb_qos_cond_t, slurmdb_qos_get, slurmdb_qos_rec_t, slurmdb_user_cond_t, slurmdb_user_rec_t, slurmdb_users_get, xlist};
+use rust_bind::bindings::{list_itr_t, slurm_list_append, slurm_list_create, slurm_list_iterator_create, slurm_list_iterator_destroy, slurm_list_next, xlist};
 
 
 /// A custom destructor function that can be passed to C
