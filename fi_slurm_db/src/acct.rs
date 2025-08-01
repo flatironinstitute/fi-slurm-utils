@@ -432,7 +432,7 @@ fn handle_connection(persist_flags: &mut u16) -> Result<DbConn, QosError>{
 
 }
 
-fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) -> QosJobInfo {
+fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) -> Result<QosJobInfo, QosError>{
 
     let db_conn_qos = handle_connection(persist_flags)?;
     let db_conn_job = handle_connection(persist_flags)?;
@@ -464,10 +464,10 @@ fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) -> Qos
 
     let jobs_vec = get_jobs_info(db_conn_job, user.associations, qos_names.clone());
 
-    QosJobInfo {
+    Ok(QosJobInfo {
         qos: qos_vec,
         jobs: jobs_vec,
-    }
+    })
 
 
     // at all points, wrap these raw return into Rust types with Drop impls that use the
@@ -490,7 +490,7 @@ pub fn print_user_info(name: Option<String>) {
 
     let mut persist_flags: u16 = 0;
 
-    let qos_job_data = get_user_info(&mut user_query, &mut persist_flags);
+    let qos_job_data = get_user_info(&mut user_query, &mut persist_flags).unwrap_or(panic!());
 
     for q in qos_job_data.qos {
         println!("\n QoS Details:");
