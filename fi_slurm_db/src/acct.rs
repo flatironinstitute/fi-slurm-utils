@@ -398,6 +398,8 @@ fn get_qos_info(db_conn: &mut DbConn, assocs: Vec<SlurmAssoc>) -> Vec<SlurmQos> 
 
         qos_details.ok()
     }).collect();
+
+    ret
 }
 
 fn get_jobs_info(db_conn: DbConn, assocs: Vec<SlurmAssoc>, qos_names: Vec<String>) -> Vec<SlurmJobs> {
