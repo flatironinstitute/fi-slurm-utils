@@ -4,6 +4,7 @@
 
 pub mod acct;
 pub mod db;
+pub mod jobs;
 pub mod qos;
 pub mod utils;
 
