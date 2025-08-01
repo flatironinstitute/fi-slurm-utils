@@ -378,15 +378,28 @@ fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) -> Res
 
         println!("Found QoS ID# {} under account '{}': {} \n {:?}", target_assoc.id, target_assoc.acct, target_assoc.comment, target_assoc.qos);
         
+        
+        // we keep the process up to here: we now have the acct, which is what we want
+        // from here, we change the process: when we create qos_config below, instead of passing in
+        // the qos ids, we pass in the acct name and a few others
+        // that may be the only necessary change here
+
+
         // query for qos details
-        let qos_details: Result<Vec<SlurmQos>, QosError> = if !target_assoc.qos.is_empty() {
+        let qos_details: Result<Vec<SlurmQos>, QosError> = if !target_assoc.acct.is_empty() {
 
             // build the query, currently very sparse
             let qos_config = QosConfig {
-                name_list: None, // despite being returned as strings, the target_assoc_qos are
-                // numbers, we need to pass them into id instead
+                name_list: Some(vec![
+                    target_assoc.acct, 
+                    "inter".to_string(), 
+                    "gpu".to_string(), 
+                    "gpuxl".to_string(), 
+                    "eval".to_string(), 
+                    "gnx".to_string()
+                ]),
                 format_list: None,
-                id_list: Some(target_assoc.qos.clone()),
+                id_list: None,
             };
 
             // create the wrapper for the query
