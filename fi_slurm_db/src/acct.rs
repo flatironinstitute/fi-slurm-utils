@@ -391,7 +391,7 @@ fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) -> Res
             // build the query, currently very sparse
             let qos_config = QosConfig {
                 name_list: Some(vec![
-                    target_assoc.acct, 
+                    target_assoc.acct.clone(), 
                     "inter".to_string(), 
                     "gpu".to_string(), 
                     "gpuxl".to_string(), 
