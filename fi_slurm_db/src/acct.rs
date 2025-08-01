@@ -176,11 +176,11 @@ impl DerefMut for UserQueryInfo {
     }
 }
 
-fn _create_user_cond(usernames: Vec<String>, usage_start: DateTime<Utc>, usage_end: DateTime<Utc>) -> UserQueryInfo {
+fn create_user_cond(usernames: Vec<String>, usage_start: DateTime<Utc>, usage_end: DateTime<Utc>) -> UserQueryInfo {
     
     let assoc = AssocConfig {
         acct_list: None, 
-        cluster_list: None, 
+        cluster_list: Some(vec!["rusty".to_string()]), 
         def_qos_id_list: None, 
         flags: 0, 
         format_list: None, 
@@ -423,22 +423,7 @@ pub fn print_user_info(name: Option<String>) {
     });
 
     let now = Utc::now();
-    let assoc_config = AssocConfig {
-        acct_list: None,
-        cluster_list: Some(vec!["rusty".to_string()]),
-        def_qos_id_list: None,
-        flags: 0, // bitflags
-        format_list: None,
-        id_list: None,
-        parent_acct_list: None,
-        partition_list: None,
-        qos_list: None,
-        usage_end: now - Duration::weeks(5),
-        usage_start: now,
-        user_list: Some(vec![name]),
-    };
-
-    let mut user_query = UserQueryInfo::new(assoc_config, None, None, true, false, false, false, 0);
+    let mut user_query = create_user_cond(vec![name], now, now - Duration::weeks(5));
 
     let mut persist_flags: u16 = 0;
 
