@@ -510,8 +510,13 @@ pub fn print_user_info(name: Option<String>) {
         for p in q {
 
             println!("{}", p.name);
-            println!("  Priority: {}, Max Jobs/User: {}, Max TRES/User: {}, Max TRES/Group: {}, Max TRES/Account: {}, Max TRES/Job: {}", 
-                p.priority, p.max_jobs_per_user, p.max_tres_per_user, p.max_tres_per_group, p.max_tres_per_account, p.max_tres_per_job);
+            println!("  Priority: {}, Max Jobs/User: {}, Max TRES/User: {}, Max TRES/Group: {}, Max TRES/Job: {}", 
+                p.priority, 
+                p.max_jobs_per_user, 
+                p.max_tres_per_user, 
+                p.max_tres_per_group, 
+                // p.max_tres_per_account, 
+                p.max_tres_per_job);
         }
     }
 
