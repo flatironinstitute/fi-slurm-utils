@@ -131,6 +131,7 @@ pub struct SlurmQos {
     pub priority: u32,
     pub max_jobs_per_user: u32,
     pub max_tres_per_user: String,
+    pub max_tres_per_group: String,
     pub max_tres_per_account: String,
     pub max_tres_per_job: String,
 
@@ -161,6 +162,12 @@ impl SlurmQos {
                 CStr::from_ptr((*rec).max_tres_pu).to_string_lossy().into_owned()
             };
 
+            let max_tres_per_group = if (*rec).grp_tres.is_null() {
+                String::from("foo")
+            } else {
+                CStr::from_ptr((*rec).grp_tres).to_string_lossy().into_owned()
+            };
+
             let max_tres_per_account = if (*rec).max_tres_pa.is_null() {
                 String::from("foo")
             } else {
@@ -178,6 +185,7 @@ impl SlurmQos {
                 priority: (*rec).priority,
                 max_jobs_per_user: (*rec).max_jobs_pu,
                 max_tres_per_user,
+                max_tres_per_group,
                 max_tres_per_account,
                 max_tres_per_job,
             }
