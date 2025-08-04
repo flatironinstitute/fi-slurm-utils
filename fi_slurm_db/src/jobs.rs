@@ -35,17 +35,23 @@ pub struct JobsConfig {
     pub acct_list: Option<Vec<String>>,
     pub format_list: Option<Vec<String>>,
     pub qos_list: Option<Vec<String>>,
+    pub usage_end: DateTime<Utc>,
+    pub usage_start: DateTime<Utc>,
+
     //...
     // refer to slurmdb_job_cond_t in bindings for more fields
 }
 
 impl JobsConfig {
     pub fn into_c_struct(self) -> slurmdb_job_cond_t {
+
         unsafe {
             let mut c_struct: slurmdb_job_cond_t = std::mem::zeroed();
             c_struct.acct_list = vec_to_slurm_list(self.acct_list);
             c_struct.format_list = vec_to_slurm_list(self.format_list);
             c_struct.qos_list = vec_to_slurm_list(self.qos_list);
+            c_struct.usage_end = self.usage_end.timestamp();
+            c_struct.usage_end = self.usage_start.timestamp();
             //...
 
             c_struct

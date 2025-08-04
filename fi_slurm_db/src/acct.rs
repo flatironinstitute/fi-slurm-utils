@@ -420,10 +420,13 @@ fn get_jobs_info(db_conn: DbConn, assocs: &[SlurmAssoc], qos: &Vec<Vec<SlurmQos>
 
     //let qos_names = qos.first().unwrap().iter().map(|q| *q.name).collect();
 
+    let now = Utc::now();
     let jobs_config = JobsConfig {
         acct_list: Some(accts),
         format_list: None,
         qos_list: Some(qos_names),
+        usage_end: now,
+        usage_start: now - Duration::weeks(5),
     };
 
     // create the wrapper for the query
@@ -496,7 +499,7 @@ pub fn print_user_info(name: Option<String>) {
     });
 
     let now = Utc::now();
-    let mut user_query = create_user_cond(vec![name], now, now - Duration::weeks(5));
+    let mut user_query = create_user_cond(vec![name], now - Duration::weeks(5), now);
 
     let mut persist_flags: u16 = 0;
 
