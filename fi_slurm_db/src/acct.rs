@@ -512,12 +512,12 @@ pub fn print_user_info(name: Option<String>) {
             println!("{}", p.name);
             // at this point, just need to parse them
             println!("  Priority: {}, Max Jobs/User: {}, Max TRES/User: {}, Max TRES/Group: {}, Max TRES/Job: {}", 
-                tres_parser(p.priority), 
-                tres_parser(p.max_jobs_per_user), 
-                tres_parser(p.max_tres_per_user), 
-                tres_parser(p.max_tres_per_group), 
-                // tres_parser(p.max_tres_per_account), 
-                tres_parser(p.max_tres_per_job));
+                tres_parser(p.priority.to_string()), 
+                tres_parser(p.max_jobs_per_user.to_string()), 
+                tres_parser(p.max_tres_per_user.to_string()), 
+                tres_parser(p.max_tres_per_group.to_string()), 
+                // tres_parser(p.max_tres_per_account.to_string()), 
+                tres_parser(p.max_tres_per_job.to_string()));
         }
     }
 
@@ -540,16 +540,20 @@ pub fn print_user_info(name: Option<String>) {
 }
 
 fn tres_parser(tres: String) -> String {
-    let split = tres.split("=");
 
-    let unit = match split[0] {
-        "1" => "Cores",
-        "2" => "Memory(gb)",
-        "4" | "1001" => "Nodes",
-        _ => "Unknown unit"
-    };
+    tres.split(',').map(|t| {
+        if let Some((category, quantity)) = t.split_once('=') {
+            let unit = match category {
+                "1" => "Cores",
+                "2" => "Memory(gb)",
+                "4" | "1001" => "Nodes",
+                _ => "Unknown unit"
+            };
 
-    let quantity = split[1];
+            format!("{quantity} {unit}")
 
-    format!("{quantity} {unit}")
+        } else {
+            "bar".to_string()
+        }
+    }).collect::<String>()
 }
