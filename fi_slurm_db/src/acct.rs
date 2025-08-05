@@ -509,15 +509,16 @@ pub fn print_user_info(name: Option<String>) {
         println!("\n QoS Details:");
         for p in q {
 
-            println!("{}", p.name);
-            // at this point, just need to parse them
-            println!("  Priority: {}, Max Jobs/User: {}, Max TRES/User: {}, Max TRES/Group: {}, Max TRES/Job: {}", 
-                tres_parser(p.priority.to_string()), 
-                tres_parser(p.max_jobs_per_user.to_string()), 
-                tres_parser(p.max_tres_per_user.to_string()), 
-                tres_parser(p.max_tres_per_group.to_string()), 
-                // tres_parser(p.max_tres_per_account.to_string()), 
-                tres_parser(p.max_tres_per_job.to_string()));
+            TresInfo::new(p).print();
+        //    println!("{}", p.name);
+        //    // at this point, just need to parse them
+        //    println!("  Priority: {}, Max Jobs/User: {}, Max TRES/User: {}, Max TRES/Group: {}, Max TRES/Job: {}", 
+        //        p.priority.to_string(), 
+        //        tres_parser(p.max_jobs_per_user.to_string()), 
+        //        tres_parser(p.max_tres_per_user.to_string()), 
+        //        tres_parser(p.max_tres_per_group.to_string()), 
+        //        // tres_parser(p.max_tres_per_account.to_string()), 
+        //        tres_parser(p.max_tres_per_job.to_string()));
         }
     }
 
@@ -539,6 +540,59 @@ pub fn print_user_info(name: Option<String>) {
     }
 }
 
+struct TresInfo {
+    name: String,
+    priority: u32,
+    max_jobs_per_user: u32,
+    max_tres_per_user: Option<String>,
+    max_tres_per_group: Option<String>,
+    max_tres_per_job: Option<String>,
+}
+
+impl TresInfo {
+    pub fn new(qos: SlurmQos) -> Self {
+        Self {
+
+            name: qos.name,
+            priority: qos.priority,
+            max_jobs_per_user: qos.max_jobs_per_user,
+            max_tres_per_user: if qos.max_tres_per_user == "foo" { None } else { Some(qos.max_tres_per_user)},
+            max_tres_per_group: if qos.max_tres_per_group == "foo" { None } else { Some(qos.max_tres_per_group)},
+            max_tres_per_job: if qos.max_tres_per_job == "foo" { None } else { Some(qos.max_tres_per_job)},
+
+        }
+    }
+    pub fn print(self) {
+
+        let jpu = tres_parser(self.max_jobs_per_user.to_string());
+        let tpu = tres_parser(self.max_tres_per_user.unwrap_or("".to_string()));
+        let tpg = tres_parser(self.max_tres_per_group.unwrap_or("".to_string()));
+        let tpj = tres_parser(self.max_tres_per_job.unwrap_or("".to_string()));
+        println!("{} \n {} {} {} {} {} \n", 
+            self.name, 
+            self.priority, 
+            if jpu.is_empty() {"".to_string()} else {format!("\n JPU: {}", jpu)}, 
+            if tpu.is_empty() {"".to_string()} else {format!("\n TPU: {}", tpu)}, 
+            if tpg.is_empty() {"".to_string()} else {format!("\n TPG: {}", tpg)}, 
+            if tpj.is_empty() {"".to_string()} else {format!("\n TPJ: {}", tpj)}, 
+        )
+    }
+}
+
+//pub struct SlurmQos {
+//    pub name: String,
+//    pub priority: u32,
+//    pub max_jobs_per_user: u32,
+//    pub max_tres_per_user: String,
+//    pub max_tres_per_group: String,
+//    pub max_tres_per_account: String,
+//    pub max_tres_per_job: String,
+//
+//
+//    //...
+//    // refer to slurmdb_qos_rec_t in bindings
+//}
+
 fn tres_parser(tres: String) -> String {
 
     tres.split(',').map(|t| {
@@ -546,14 +600,15 @@ fn tres_parser(tres: String) -> String {
             let unit = match category {
                 "1" => "Cores",
                 "2" => "Memory(gb)",
-                "4" | "1001" => "Nodes",
+                "4" => "Nodes",
+                "1001" => "GPUs",
                 _ => "Unknown unit"
             };
 
-            format!("{quantity} {unit}")
+            format!(" {quantity} {unit}")
 
         } else {
-            "bar".to_string()
+            "".to_string()
         }
     }).collect::<String>()
 }
