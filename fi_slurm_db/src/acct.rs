@@ -510,13 +510,14 @@ pub fn print_user_info(name: Option<String>) {
         for p in q {
 
             println!("{}", p.name);
+            // at this point, just need to parse them
             println!("  Priority: {}, Max Jobs/User: {}, Max TRES/User: {}, Max TRES/Group: {}, Max TRES/Job: {}", 
-                p.priority, 
-                p.max_jobs_per_user, 
-                p.max_tres_per_user, 
-                p.max_tres_per_group, 
-                // p.max_tres_per_account, 
-                p.max_tres_per_job);
+                tres_parser(p.priority), 
+                tres_parser(p.max_jobs_per_user), 
+                tres_parser(p.max_tres_per_user), 
+                tres_parser(p.max_tres_per_group), 
+                // tres_parser(p.max_tres_per_account), 
+                tres_parser(p.max_tres_per_job));
         }
     }
 
@@ -536,5 +537,19 @@ pub fn print_user_info(name: Option<String>) {
                 j.submit_time);
         }
     }
+}
 
+fn tres_parser(tres: String) -> String {
+    let split = tres.split("=");
+
+    let unit = match split[0] {
+        "1" => "Cores",
+        "2" => "Memory(gb)",
+        "4" | "1001" => "Nodes",
+        _ => "Unknown unit"
+    };
+
+    let quantity = split[1];
+
+    format!("{quantity} {unit}")
 }
