@@ -547,7 +547,7 @@ fn print_node_recursive(
             )
         } else {
             let text = if col_widths.max_preempt_nodes_width > 0 {
-                let padding = " ".repeat(col_widths.max_preempt_nodes_width + 2);
+                let padding = " ".repeat(col_widths.max_preempt_nodes_width + 3);
                 format!("{}{}/{}", idle_str, padding, total_str)
             } else {
                 format!("{}/{}", idle_str, total_str)
