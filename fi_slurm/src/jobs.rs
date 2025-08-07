@@ -296,9 +296,9 @@ impl SlurmJobs {
         }
     }
     pub fn get_resource_use(&self) -> (u32, u32) {
-        let (node_use, core_use) = self.jobs.iter().fold((0, 0), |acc, (_, job)| {
-            acc.0 + job.num_nodes;
-            acc.1 + job.num_cpus;
+        let (node_use, core_use) = self.jobs.iter().fold((0, 0), |mut acc, (_, job)| {
+            acc.0 += job.num_nodes;
+            acc.1 += job.num_cpus;
             acc
         });
 
