@@ -6,7 +6,7 @@ pub mod tui;
 use clap::Parser;
 use fi_slurm::nodes::{NodeState, SlurmNodes};
 use std::collections::{HashMap, HashSet};
-use fi_slurm::jobs::{SlurmJobs, enrich_jobs_with_node_ids};
+use fi_slurm::jobs::{enrich_jobs_with_node_ids, JobState, SlurmJobs};
 use fi_slurm::{jobs, nodes, utils::{SlurmConfig, initialize_slurm}};
 use fi_slurm::filter::{self, gather_all_features};
 use crate::tui::app::tui_execute;
@@ -50,18 +50,20 @@ fn main() -> Result<(), String> {
 
         let top_n = args.leaderboard.first().unwrap_or(&10);
 
-        let mut map: HashMap<String, (u32, u32, u32)> = HashMap::new();
+        let mut map: HashMap<String, (u32, u32)> = HashMap::new();
 
         let jobs_collection = jobs::get_jobs()?;
 
         jobs_collection.jobs.iter().for_each(|(_, job)| {
-            let usage = map.entry(job.user_name.clone()).or_insert((0, 0, job.job_id)); //(job.user_name, (job.num_nodes, job.num_cpus))
+            if job.job_state == JobState::Running {
+                let usage = map.entry(job.user_name.clone()).or_insert((0, 0)); //(job.user_name, (job.num_nodes, job.num_cpus))
 
-            usage.0 += job.num_nodes;
-            usage.1 += job.num_cpus;
+                usage.0 += job.num_nodes;
+                usage.1 += job.num_cpus;
+            }
         });
 
-        let mut sorted_scores: Vec<(&String, &(u32, u32, u32))> = map.iter().collect();
+        let mut sorted_scores: Vec<(&String, &(u32, u32))> = map.iter().collect();
 
         sorted_scores.sort_by(|a, b| b.1.cmp(a.1));
 
@@ -69,7 +71,7 @@ fn main() -> Result<(), String> {
             let rank = position + 1;
             let padding = if rank > 9 { "" } else {" "}; // just valid for the first 100
             let (initial, surname) = user.split_at_checked(1).unwrap_or(("Dr", "Evil"));
-            println!("{}. {} {}. {} is using {} nodes and {} cores, sample id: {}", rank, padding, initial.to_uppercase(), surname.to_uppercase(), score.0, score.1, score.2);
+            println!("{}. {} {}. {} is using {} nodes and {} cores", rank, padding, initial.to_uppercase(), surname.to_uppercase(), score.0, score.1);
         }
 
         return Ok(())
@@ -80,6 +82,10 @@ fn main() -> Result<(), String> {
     } else {
         None
     };
+
+
+    // make sure that all the jobs we're presenting here are based on actually running jobs, not
+    // pending ones!
 
     if args.qos {
         //let name = "nposner";
