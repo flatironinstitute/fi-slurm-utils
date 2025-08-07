@@ -6,13 +6,13 @@ pub mod tui;
 use clap::Parser;
 use fi_slurm::nodes::{NodeState, SlurmNodes};
 use std::collections::{HashMap, HashSet};
-use fi_slurm::jobs::{enrich_jobs_with_node_ids, JobState, SlurmJobs};
+use fi_slurm::jobs::{enrich_jobs_with_node_ids, JobState, SlurmJobs, AccountJobUsage};
 use fi_slurm::{jobs, nodes, utils::{SlurmConfig, initialize_slurm}};
 use fi_slurm::filter::{self, gather_all_features};
 use crate::tui::app::tui_execute;
 use users::get_current_username;
 
-use fi_slurm_db::acct::get_tres_info;
+use fi_slurm_db::acct::{TresMax, get_tres_info};
 
 use std::time::Instant;
 use chrono::{DateTime, Utc};
@@ -99,39 +99,65 @@ fn main() -> Result<(), String> {
             }).to_string_lossy().into_owned() // handle the rare None case
         });
 
-        let jobs_collection = jobs::get_jobs()?;
-        let filtered_jobs = jobs_collection.filter_by(jobs::FilterMethod::UserName(name.clone()));
+
+        let accounts = get_tres_info(Some(name.clone())).first().unwrap().clone(); //None case tries to get name from OS
+        
+        //println!("{}", accounts.len());
+
+
+        // what we want to do now:
+        // grab jobs information for each of the (usually five) tresinfo structs
+        // so we know overall how many nodes/jobs are being used on them, for the general
+        // purpose view
+        //
+        // Then, we hone in on the specific user: we look for the jobs that user is running on each
+        // of those accounts, and record the number of nodes, cores, etc
+        //
+        // then we have to collect all this information and present it in a user-friendly way
+        //
+        //and eventually, move this to another file where it belongs
+
 
         // having filtered the jobs, now get the resources from each
         // and could also get by partition as well? Would have to filter separately??
 
-        let (nodes, cores) = filtered_jobs.get_resource_use();     
 
-        println!("{nodes} nodes and {cores} cores in use by jobs");
 
-        // the job struct has both partition and account information
-        // how do we know which one corresponds to the qos names that we have?
+        let jobs_collection = jobs::get_jobs().unwrap();
 
-        // we would also need to distinguish them by eval, gpu, inter, etc, these are partitions,
-        // right? not sure
-        // maybe we do end up needing to collate with node information??
+        let account_info: Vec<AccountJobUsage> = accounts.iter().map(|a| {
+            let account = a.clone().name;
 
-        let tres_info = get_tres_info(Some(name)); //None case tries to get name from OS
+            //println!("{account} partitoin");
+
+            let filtered_jobs = jobs_collection.clone()
+                .filter_by(jobs::FilterMethod::Account(account.clone()))
+                .filter_by(jobs::FilterMethod::UserName(name.clone()));
+
+            let (nodes, cores) = filtered_jobs.get_resource_use();
+
+
+            //println!("In partition {account}, there are {nodes} nodes and {cores} cores in use");
+            //
+            a.clone().print();
+            //max_tres_per_user: if qos.max_tres_per_user == "foo" { None } else { Some(qos.max_tres_per_user.clone())},
+
+            let tres_max = TresMax::new(a.max_tres_per_user.clone().unwrap_or("".to_string()));
+            let max_nodes = tres_max.max_nodes.unwrap_or(0);
+            let max_cores = tres_max.max_cores.unwrap_or(0);
+
+            AccountJobUsage::new(&account, nodes, cores, max_nodes, max_cores)
+        }).collect();
+
+        println!("QOS       CORES  NODES");
+        for acc in account_info {
+            acc.print(2);
+        }
         
-        tres_info.iter().map(|ts| {
-            for t in ts {
-                // assuming this is a partition
-                let partition = t.name;
-
-                let jobs_collection = jobs::get_jobs()?;
-                let filtered_jobs = jobs_collection.filter_by(jobs::FilterMethod::Partition(partition.clone()));
-                let (nodes, cores) = filtered_jobs.get_resource_use();
-
-                println!("In partition {partition}, there are {nodes} nodes and {cores} cores in use");
-
-                t.print();
-            }
-        });
+        let jobs_collection = jobs::get_jobs()?;
+        let filtered_jobs = jobs_collection.filter_by(jobs::FilterMethod::UserName(name.clone()));
+        let (nodes, cores) = filtered_jobs.get_resource_use();     
+        println!("{nodes} nodes and {cores} cores in use by jobs");
 
         return Ok(())
     }

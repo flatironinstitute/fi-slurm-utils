@@ -513,14 +513,15 @@ pub fn get_tres_info(name: Option<String>) -> Vec<Vec<TresInfo>> {
 
     let tres_infos: Vec<Vec<TresInfo>> = qos_job_data.qos.iter().map(|q| {
         q.iter().map(|p| {
-            TresInfo::new(*p)
-        }).collect();
+            TresInfo::new(p)
+        }).collect()
     }).collect();
 
     tres_infos
 }
 
-struct TresInfo {
+#[derive(Clone)]
+pub struct TresInfo {
     pub name: String,
     pub priority: u32,
     pub max_jobs_per_user: u32,
@@ -530,15 +531,15 @@ struct TresInfo {
 }
 
 impl TresInfo {
-    pub fn new(qos: SlurmQos) -> Self {
+    pub fn new(qos: &SlurmQos) -> Self {
         Self {
 
-            name: qos.name,
+            name: qos.name.clone(),
             priority: qos.priority,
             max_jobs_per_user: qos.max_jobs_per_user,
-            max_tres_per_user: if qos.max_tres_per_user == "foo" { None } else { Some(qos.max_tres_per_user)},
-            max_tres_per_group: if qos.max_tres_per_group == "foo" { None } else { Some(qos.max_tres_per_group)},
-            max_tres_per_job: if qos.max_tres_per_job == "foo" { None } else { Some(qos.max_tres_per_job)},
+            max_tres_per_user: if qos.max_tres_per_user == "foo" { None } else { Some(qos.max_tres_per_user.clone())},
+            max_tres_per_group: if qos.max_tres_per_group == "foo" { None } else { Some(qos.max_tres_per_group.clone())},
+            max_tres_per_job: if qos.max_tres_per_job == "foo" { None } else { Some(qos.max_tres_per_job.clone())},
 
         }
     }
@@ -559,20 +560,6 @@ impl TresInfo {
     }
 }
 
-//pub struct SlurmQos {
-//    pub name: String,
-//    pub priority: u32,
-//    pub max_jobs_per_user: u32,
-//    pub max_tres_per_user: String,
-//    pub max_tres_per_group: String,
-//    pub max_tres_per_account: String,
-//    pub max_tres_per_job: String,
-//
-//
-//    //...
-//    // refer to slurmdb_qos_rec_t in bindings
-//}
-
 fn tres_parser(tres: String) -> String {
 
     tres.split(',').map(|t| {
@@ -591,4 +578,53 @@ fn tres_parser(tres: String) -> String {
             "".to_string()
         }
     }).collect::<String>()
+}
+
+//pub struct SlurmQos {
+//    pub name: String,
+//    pub priority: u32,
+//    pub max_jobs_per_user: u32,
+//    pub max_tres_per_user: String,
+//    pub max_tres_per_group: String,
+//    pub max_tres_per_account: String,
+//    pub max_tres_per_job: String,
+//
+//
+//    //...
+//    // refer to slurmdb_qos_rec_t in bindings
+//}
+
+
+pub struct TresMax {
+    pub max_nodes: Option<u32>,
+    pub max_cores: Option<u32>,
+    pub max_memory: Option<u32>,
+    pub max_gpus: Option<u32>,
+}
+
+impl TresMax {
+    pub fn new(tres: String) -> Self {
+
+        let mut init: TresMax = Self {
+            max_nodes: None,
+            max_cores: None,
+            max_memory: None,
+            max_gpus: None,
+        };
+
+        let _ = tres.split(',').map(|t| {
+            if let Some((category, quantity)) = t.split_once('=') {
+                match category {
+                    "1" => init.max_cores = Some(quantity.parse::<u32>().unwrap_or(1)),
+                    "2" => init.max_memory = Some(quantity.parse::<u32>().unwrap_or(1)),
+                    "4" => init.max_nodes = Some(quantity.parse::<u32>().unwrap_or(1)),
+                    "1001" => init.max_gpus = Some(quantity.parse::<u32>().unwrap_or(1)),
+                    _ => (),
+                };
+                //format!(" {quantity} {unit}")
+            }
+        });
+
+        init
+    }
 }

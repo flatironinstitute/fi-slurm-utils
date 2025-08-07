@@ -267,6 +267,7 @@ pub enum FilterMethod {
     UserId(u32),
     UserName(String),
     Partition(String),
+    Account(String),
 }
 
 /// A safe, owned collection of Slurm jobs, mapping job ID to the Job object
@@ -288,6 +289,7 @@ impl SlurmJobs {
                 FilterMethod::UserId(id) => *id == job.user_id,
                 FilterMethod::UserName(name) => *name == job.user_name,
                 FilterMethod::Partition(partition) => *partition == job.partition,
+                FilterMethod::Account(account) => *account == job.account,
             }
         });
 
@@ -335,5 +337,37 @@ pub fn enrich_jobs_with_node_ids(
         // 3. (Optional) Free the memory from the raw string if it's no longer needed.
         job.raw_hostlist.clear();
         job.raw_hostlist.shrink_to_fit();
+    }
+}
+
+pub struct AccountJobUsage {
+    account: String,
+    nodes: u32,
+    cores: u32,
+    max_nodes: u32,
+    max_cores: u32,
+
+}
+
+impl AccountJobUsage {
+    pub fn new(account: &str, nodes: u32, cores: u32, max_nodes: u32, max_cores: u32) -> Self {
+        Self {
+            account: account.to_string(),
+            nodes,
+            cores,
+            max_nodes,
+            max_cores,
+
+        }
+    }
+    pub fn print(&self, padding: usize) {
+        println!("{} {} {}/{} {}/{}", 
+            self.account, 
+            "".repeat(padding), 
+            self.nodes, 
+            self.max_nodes, 
+            self.cores, 
+            self.max_cores
+        )
     }
 }
