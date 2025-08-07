@@ -514,7 +514,7 @@ pub fn get_tres_info(name: Option<String>) -> Vec<Vec<TresInfo>> {
     let tres_infos: Vec<Vec<TresInfo>> = qos_job_data.qos.iter().map(|q| {
         q.iter().map(|p| {
             TresInfo::new(*p);
-        }).collect();
+        }).collect()
     }).collect();
 
     tres_infos
