@@ -15,3 +15,4 @@ chrono = "0.4.41"
 crossterm = "0.29.0"
 tokio = { version = "1.46.1", features = ["rt-multi-thread", "macros", "sync"] }
 thiserror = "2.0.12"
+users = "0.11.0"

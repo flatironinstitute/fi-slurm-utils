@@ -4,18 +4,6 @@ use rust_bind::bindings::{job_info, job_info_msg_t, slurm_free_job_info_msg, slu
 use crate::parser::parse_tres_str; 
 use crate::utils::{c_str_to_string, time_t_to_datetime};
 
-/// Fetches all job information from Slurm and returns it as a safe,
-/// owned Rust data structure
-///
-/// This function is the primary entry point for accessing job data. It handles
-/// all unsafe FFI calls, data conversion, and memory management internally
-pub fn get_jobs() -> Result<SlurmJobs, String> {
-    // We load the raw C data into memory,
-    // convert into safe, Rust-native structs, 
-    // and then consume the wrapper to drop the original C memory
-    RawSlurmJobInfo::load(0)?.into_slurm_jobs()
-}
-
 /// We use this struct to manage the C-allocatd memory,
 /// automatically dropping it when it goes out of memory
 pub struct RawSlurmJobInfo {
@@ -52,7 +40,7 @@ impl RawSlurmJobInfo {
 
         if return_code == 0 && !job_info_msg_ptr.is_null() {
             // Success: wrap the raw pointer in our safe struct and return it.
-            Ok(RawSlurmJobInfo { ptr: job_info_msg_ptr })
+            Ok(Self { ptr: job_info_msg_ptr })
         } else {
             // Failure: return an error. No struct is created, no memory is leaked
             Err("Failed to load job information from Slurm".to_string())
@@ -120,6 +108,19 @@ impl RawSlurmJobInfo {
         })
     }
 }
+
+/// Fetches all job information from Slurm and returns it as a safe,
+/// owned Rust data structure
+///
+/// This function is the primary entry point for accessing job data. It handles
+/// all unsafe FFI calls, data conversion, and memory management internally
+pub fn get_jobs() -> Result<SlurmJobs, String> {
+    // We load the raw C data into memory,
+    // convert into safe, Rust-native structs, 
+    // and then consume the wrapper to drop the original C memory
+    RawSlurmJobInfo::load(0)?.into_slurm_jobs()
+}
+
 
 struct _JobInfoMsg {
     last_backfill: time_t,
@@ -219,6 +220,8 @@ pub struct Job {
     pub raw_hostlist: String,
     pub node_ids: Vec<usize>,
     pub allocated_gres: HashMap<String, u64>,
+    // also a gres_total field?? the one above is probably tres, not gres
+    //
 
     // Other Information 
     pub work_dir: String,
@@ -260,6 +263,11 @@ impl Job {
     }
 }
 
+pub enum FilterMethod {
+    UserId(u32),
+    UserName(String),
+}
+
 /// A safe, owned collection of Slurm jobs, mapping job ID to the Job object
 #[derive(Debug, Clone)]
 pub struct SlurmJobs {
@@ -268,6 +276,25 @@ pub struct SlurmJobs {
     pub last_update: DateTime<Utc>,
     /// Timestamp of the last backfill cycle, if available
     pub last_backfill: DateTime<Utc>,
+}
+
+impl SlurmJobs {
+    pub fn filter_by(self, method: FilterMethod) -> Self {
+        // go through the hashmap of jobs and figure out which ones either meet the user id
+        // or the user name, just pass those back out, no need to change the other fields.
+        self.jobs.iter().filter(|&(_, job)| { 
+            match method { 
+                FilterMethod::UserId(id) => id == job.user_id,
+                FilterMethod::UserName(name) => name == job.user_name,
+            }
+        }).collect()
+    }
+    pub fn get_resource_use(&self) -> (u32, u32) {
+        let (node_use, core_use) = self.jobs.iter().fold((0, 0), |acc, (_, job)| {
+            acc.0 + job.num_nodes;
+            acc.1 + job.num_cpus;
+        });
+    } 
 }
 
 /// Iterates through all loaded jobs and populates their `node_ids` vector.

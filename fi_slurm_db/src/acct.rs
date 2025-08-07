@@ -451,7 +451,7 @@ fn handle_connection(persist_flags: &mut u16) -> Result<DbConn, QosError>{
 
 }
 
-fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) -> Result<QosJobInfo, QosError>{
+pub fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) -> Result<QosJobInfo, QosError>{
 
     let mut db_conn_qos = handle_connection(persist_flags)?;
     let db_conn_job = handle_connection(persist_flags)?;
@@ -522,6 +522,7 @@ pub fn print_user_info(name: Option<String>) {
         }
     }
 
+    
     if qos_job_data.jobs.is_empty() {
         println!("\n No jobs running")
     } else {
