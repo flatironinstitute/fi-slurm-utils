@@ -512,10 +512,9 @@ pub fn get_tres_info(name: Option<String>) -> Vec<Vec<TresInfo>> {
     // also get the user associations out of here, extra return
 
     let tres_infos: Vec<Vec<TresInfo>> = qos_job_data.qos.iter().map(|q| {
-
-        for p in q {
+        q.iter().map(|p| {
             TresInfo::new(*p);
-        }
+        }).collect();
     }).collect();
 
     tres_infos
