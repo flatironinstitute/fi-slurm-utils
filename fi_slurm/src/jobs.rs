@@ -279,22 +279,31 @@ pub struct SlurmJobs {
 }
 
 impl SlurmJobs {
-    pub fn filter_by(self, method: FilterMethod) -> Self {
+    pub fn filter_by(mut self, method: FilterMethod) -> Self {
         // go through the hashmap of jobs and figure out which ones either meet the user id
         // or the user name, just pass those back out, no need to change the other fields.
-        self.jobs.iter().filter(|&(_, job)| { 
-            match method { 
-                FilterMethod::UserId(id) => id == job.user_id,
-                FilterMethod::UserName(name) => name == job.user_name,
+        self.jobs.retain(|_, job| { 
+            match &method { 
+                FilterMethod::UserId(id) => *id == job.user_id,
+                FilterMethod::UserName(name) => *name == job.user_name,
             }
-        }).collect()
+        });
+
+        Self {
+            jobs: self.jobs,
+            last_update: self.last_update,
+            last_backfill: self.last_backfill,
+        }
     }
     pub fn get_resource_use(&self) -> (u32, u32) {
         let (node_use, core_use) = self.jobs.iter().fold((0, 0), |acc, (_, job)| {
             acc.0 + job.num_nodes;
             acc.1 + job.num_cpus;
+            acc
         });
-    } 
+
+        (node_use, core_use)
+    }
 }
 
 /// Iterates through all loaded jobs and populates their `node_ids` vector.

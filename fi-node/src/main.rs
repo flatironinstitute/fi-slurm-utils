@@ -12,7 +12,7 @@ use fi_slurm::filter::{self, gather_all_features};
 use crate::tui::app::tui_execute;
 use users::get_current_username;
 
-use fi_slurm_db::acct::{print_user_info, get_user_info};
+use fi_slurm_db::acct::print_user_info;
 
 use std::time::Instant;
 use chrono::{DateTime, Utc};
@@ -64,8 +64,8 @@ fn main() -> Result<(), String> {
             }).to_string_lossy().into_owned() // handle the rare None case
         });
 
-        let mut jobs_collection = jobs::get_jobs()?;
-        let filtered_jobs = jobs_collection.filter_by(jobs::FilterMethod::UserName(name));
+        let jobs_collection = jobs::get_jobs()?;
+        let filtered_jobs = jobs_collection.filter_by(jobs::FilterMethod::UserName(name.clone()));
 
         // having filtered the jobs, now get the resources from each
         // and could also get by partition as well? Would have to filter separately??
