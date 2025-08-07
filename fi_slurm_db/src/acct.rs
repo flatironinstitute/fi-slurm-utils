@@ -494,7 +494,7 @@ pub fn print_fi_limits() {
 }
 
 
-pub fn get_tres_info(name: Option<String>) -> Vec<TresInfo> {
+pub fn get_tres_info(name: Option<String>) -> Vec<Vec<TresInfo>> {
 
     let name = name.unwrap_or_else(|| {
         get_current_username().unwrap_or_else(|| {

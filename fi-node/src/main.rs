@@ -118,19 +118,19 @@ fn main() -> Result<(), String> {
 
         let tres_info = get_tres_info(Some(name)); //None case tries to get name from OS
         
-        tres_info.iter().map(|t| {
+        tres_info.iter().map(|ts| {
+            for t in ts {
+                // assuming this is a partition
+                let partition = t.name;
 
-            // assuming this is a partition
-            let partition = t.name;
+                let jobs_collection = jobs::get_jobs()?;
+                let filtered_jobs = jobs_collection.filter_by(jobs::FilterMethod::Partition(partition.clone()));
+                let (nodes, cores) = filtered_jobs.get_resource_use();
 
-            let jobs_collection = jobs::get_jobs()?;
-            let filtered_jobs = jobs_collection.filter_by(jobs::FilterMethod::Partition(partition.clone()));
-            let (nodes, cores) = filtered_jobs.get_resource_use();
+                println!("In partition {partition}, there are {nodes} nodes and {cores} cores in use");
 
-            println!("In partition {partition}, there are {nodes} nodes and {cores} cores in use");
-
-            t.print();
-
+                t.print();
+            }
         });
 
         return Ok(())
