@@ -359,12 +359,12 @@ struct QosJobInfo {
 fn get_qos_info(mut db_conn: DbConn, assocs: &[SlurmAssoc]) -> Vec<Vec<SlurmQos>> {
     let ret: Vec<Vec<SlurmQos>> = assocs.iter().filter_map(|target_assoc| {
 
-        println!("Found QoS ID# {} under account '{}': {} \n {:?}", 
-            target_assoc.id, 
-            target_assoc.acct, 
-            target_assoc.comment, 
-            target_assoc.qos
-        );
+        // println!("Found QoS ID# {} under account '{}': {} \n {:?}", 
+        //     target_assoc.id, 
+        //     target_assoc.acct, 
+        //     target_assoc.comment, 
+        //     target_assoc.qos
+        // );
 
         // query for qos details
         let qos_details: Result<Vec<SlurmQos>, QosError> = if !target_assoc.acct.is_empty() {
@@ -406,7 +406,7 @@ fn get_jobs_info(db_conn: DbConn, assocs: &[SlurmAssoc], qos: &Vec<Vec<SlurmQos>
 
     let accts: Vec<String> = assocs.iter().map(|assoc| assoc.acct.clone()).collect();
 
-    println!("{:?}", accts.clone());
+    // println!("{:?}", accts.clone());
 
     let mut qos_names: Vec<String> = Vec::new();
 
@@ -489,7 +489,12 @@ pub fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) ->
     // itself
 }
 
-pub fn print_user_info(name: Option<String>) {
+pub fn print_fi_limits() {
+
+}
+
+
+pub fn get_tres_info(name: Option<String>) -> Vec<TresInfo> {
 
     let name = name.unwrap_or_else(|| {
         get_current_username().unwrap_or_else(|| {
@@ -503,51 +508,26 @@ pub fn print_user_info(name: Option<String>) {
 
     let mut persist_flags: u16 = 0;
 
-    let qos_job_data = get_user_info(&mut user_query, &mut persist_flags).unwrap();
+    let qos_job_data = get_user_info(&mut user_query, &mut persist_flags).unwrap(); // we could
+    // also get the user associations out of here, extra return
 
-    for q in qos_job_data.qos {
-        println!("\nQoS Details: \n");
+    let tres_infos: Vec<TresInfo> = qos_job_data.qos.iter().map(|q| {
+
         for p in q {
-
-            TresInfo::new(p).print();
-        //    println!("{}", p.name);
-        //    // at this point, just need to parse them
-        //    println!("  Priority: {}, Max Jobs/User: {}, Max TRES/User: {}, Max TRES/Group: {}, Max TRES/Job: {}", 
-        //        p.priority.to_string(), 
-        //        tres_parser(p.max_jobs_per_user.to_string()), 
-        //        tres_parser(p.max_tres_per_user.to_string()), 
-        //        tres_parser(p.max_tres_per_group.to_string()), 
-        //        // tres_parser(p.max_tres_per_account.to_string()), 
-        //        tres_parser(p.max_tres_per_job.to_string()));
+            TresInfo::new(p)
         }
-    }
+    }).collect();
 
-    
-    if qos_job_data.jobs.is_empty() {
-        println!("\n No jobs running")
-    } else {
-        for j in qos_job_data.jobs {
-            println!("\n Job Details:");
-            println!("{}", j.job_name);
-            println!("  Priority: {}, Job ID: {}, Partition: {}, Nodes: {}, Allocated Nodes: {}, Eligible: {}, Submit Time: {}", 
-                j.priority, 
-                j.job_id, 
-                j.partition, 
-                j.node_names, 
-                j.alloc_nodes, 
-                j.eligible, 
-                j.submit_time);
-        }
-    }
+    tres_infos
 }
 
 struct TresInfo {
-    name: String,
-    priority: u32,
-    max_jobs_per_user: u32,
-    max_tres_per_user: Option<String>,
-    max_tres_per_group: Option<String>,
-    max_tres_per_job: Option<String>,
+    pub name: String,
+    pub priority: u32,
+    pub max_jobs_per_user: u32,
+    pub max_tres_per_user: Option<String>,
+    pub max_tres_per_group: Option<String>,
+    pub max_tres_per_job: Option<String>,
 }
 
 impl TresInfo {

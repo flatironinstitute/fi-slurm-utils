@@ -266,6 +266,7 @@ impl Job {
 pub enum FilterMethod {
     UserId(u32),
     UserName(String),
+    Partition(String),
 }
 
 /// A safe, owned collection of Slurm jobs, mapping job ID to the Job object
@@ -286,6 +287,7 @@ impl SlurmJobs {
             match &method { 
                 FilterMethod::UserId(id) => *id == job.user_id,
                 FilterMethod::UserName(name) => *name == job.user_name,
+                FilterMethod::Partition(partition) => *partition == job.partition,
             }
         });
 

@@ -12,7 +12,7 @@ use fi_slurm::filter::{self, gather_all_features};
 use crate::tui::app::tui_execute;
 use users::get_current_username;
 
-use fi_slurm_db::acct::print_user_info;
+use fi_slurm_db::acct::get_tres_info;
 
 use std::time::Instant;
 use chrono::{DateTime, Utc};
@@ -107,14 +107,32 @@ fn main() -> Result<(), String> {
 
         let (nodes, cores) = filtered_jobs.get_resource_use();     
 
+        println!("{nodes} nodes and {cores} cores in use by jobs");
+
+        // the job struct has both partition and account information
+        // how do we know which one corresponds to the qos names that we have?
 
         // we would also need to distinguish them by eval, gpu, inter, etc, these are partitions,
         // right? not sure
         // maybe we do end up needing to collate with node information??
 
-        print_user_info(Some(name)); //None case tries to get name from OS
+        let tres_info = get_tres_info(Some(name)); //None case tries to get name from OS
         
-        println!("{nodes} nodes and {cores} cores in use by jobs");
+        tres_info.iter().map(|t| {
+
+            // assuming this is a partition
+            let partition = t.name;
+
+            let jobs_collection = jobs::get_jobs()?;
+            let filtered_jobs = jobs_collection.filter_by(jobs::FilterMethod::Partition(partition.clone()));
+            let (nodes, cores) = filtered_jobs.get_resource_use();
+
+            println!("In partition {partition}, there are {nodes} nodes and {cores} cores in use");
+
+            t.print();
+
+        });
+
         return Ok(())
     }
 
