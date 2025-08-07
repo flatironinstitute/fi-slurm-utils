@@ -511,10 +511,10 @@ pub fn get_tres_info(name: Option<String>) -> Vec<TresInfo> {
     let qos_job_data = get_user_info(&mut user_query, &mut persist_flags).unwrap(); // we could
     // also get the user associations out of here, extra return
 
-    let tres_infos: Vec<TresInfo> = qos_job_data.qos.iter().map(|q| {
+    let tres_infos: Vec<Vec<TresInfo>> = qos_job_data.qos.iter().map(|q| {
 
         for p in q {
-            TresInfo::new(p)
+            TresInfo::new(*p);
         }
     }).collect();
 
