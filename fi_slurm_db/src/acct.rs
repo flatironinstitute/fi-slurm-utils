@@ -506,7 +506,7 @@ pub fn print_user_info(name: Option<String>) {
     let qos_job_data = get_user_info(&mut user_query, &mut persist_flags).unwrap();
 
     for q in qos_job_data.qos {
-        println!("\n QoS Details:");
+        println!("\nQoS Details: \n");
         for p in q {
 
             TresInfo::new(p).print();
