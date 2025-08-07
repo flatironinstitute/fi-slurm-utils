@@ -46,6 +46,31 @@ fn main() -> Result<(), String> {
     // non-trivial functions of the Slurm API
     initialize_slurm();
 
+    if args.leaderboard {
+
+        let mut map: HashMap<String, (u32, u32)> = HashMap::new();
+
+        let jobs_collection = jobs::get_jobs()?;
+
+        jobs_collection.jobs.iter().map(|(_, job)| {
+            let usage = map.entry(job.user_name).or_insert((0, 0)); //(job.user_name, (job.num_nodes, job.num_cpus))
+
+            *usage.0 += job.num_nodes;
+            *usage.1 += job.num_cpus;
+        });
+
+        let mut sorted_scores: Vec<(&String, &(&u32, &u32))> = map.iter().collect();
+
+        sorted_scores.sort_unstable_by(|a, b| b.1.0.cmp(a.1.0));
+
+        for (position, (user, score)) in sorted_scores.iter().enumerate().take(10) {
+            println!("{position + 1}. {user} is using {score.0} nodes and {score.1} cores");
+        }
+        
+
+        return Ok(())
+    }
+
     let qos_name = if !args.qn.is_empty() {
         args.qn.first()
     } else {
@@ -366,6 +391,8 @@ struct Args {
     qos: bool,
     #[arg(long)]
     qn: Vec<String>,
+    #[arg(long)]
+    leaderboard: bool,
 }
 
 
