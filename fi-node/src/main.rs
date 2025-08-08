@@ -104,8 +104,9 @@ fn main() -> Result<(), String> {
 
 
             // printing gres totals to see how they're formatted
-            let gres_count = account_jobs.get_gres_total();
-            // println!("{:?}", all_gres);
+            let group_gres_count = account_jobs.get_gres_total();
+            let account_gres_strings = account_jobs.get_gres_strings();
+            println!(" Account Gres: {:?}", account_gres_strings);
 
             // for all use of the center, not just this user
             let (group_nodes, group_cores) = account_jobs.get_resource_use();
@@ -114,24 +115,33 @@ fn main() -> Result<(), String> {
                 .filter_by(jobs::FilterMethod::UserName(name.clone()));
 
             let (user_nodes, user_cores) = user_jobs.get_resource_use();
+            let user_gres_count = user_jobs.get_gres_total();
+            let user_gres_strings = user_jobs.get_gres_strings();
+            println!("User Gres: {:?}", user_gres_strings);
 
             let user_tres_max = TresMax::new(a.max_tres_per_user.clone().unwrap_or("".to_string()));
             let user_max_nodes = user_tres_max.max_nodes.unwrap_or(0);
             let user_max_cores = user_tres_max.max_cores.unwrap_or(0);
+            let user_max_gres = user_tres_max.max_gpus.unwrap_or(0);
 
             let group_tres_max = TresMax::new(a.max_tres_per_group.clone().unwrap_or("".to_string()));
             let group_max_nodes = group_tres_max.max_nodes.unwrap_or(0);
             let group_max_cores = group_tres_max.max_cores.unwrap_or(0);
+            let group_max_gres = group_tres_max.max_gpus.unwrap_or(0);
 
             AccountJobUsage::new(&account, 
                 group_nodes, 
                 group_cores, 
+                group_gres_count,
                 user_nodes, 
                 user_cores, 
+                user_gres_count,
                 user_max_nodes, 
                 user_max_cores, 
+                user_max_gres,
                 group_max_nodes, 
-                group_max_cores
+                group_max_cores,
+                group_max_gres,
             )
         }).collect();
 

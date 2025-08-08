@@ -256,10 +256,9 @@ impl Job {
             raw_hostlist: unsafe {c_str_to_string(raw_job.nodes)},
             node_ids: Vec::new(),
             allocated_gres: unsafe {parse_tres_str(raw_job.tres_alloc_str)},
-            gres_total: unsafe { if !raw_job.gres_total.is_null() { 
+            gres_total: if !raw_job.gres_total.is_null() { 
                 Some(unsafe { CStr::from_ptr(raw_job.gres_total) }.to_string_lossy().to_string())
-            } else { None }
-            },
+            } else { None },
             // like the tres are 
             work_dir: unsafe {c_str_to_string(raw_job.work_dir)},
             command: unsafe {c_str_to_string(raw_job.command)},
@@ -314,15 +313,16 @@ impl SlurmJobs {
         (node_use, core_use)
     }
     pub fn get_gres_total(&self) -> u32 {
-        let gres_totals: Vec<u32> = self.jobs.iter().filter_map(|(_, job)| {
-            if let Some(gres) = job.gres_total {
-                gres.split(':').map(|g| {
+        let gres_totals: Vec<Vec<u32>> = self.jobs.iter().filter_map(|(_, job)| {
+            if let Some(gres) = &job.gres_total {
+                let temp: Vec<u32> = gres.split(':').filter_map(|g| {
                     if let Ok(count) = g.parse::<u32>() {
                         Some(count)
                     } else {
                         None
                     }
-                })
+                }).collect();
+                Some(temp)
             } else {
                 None
             }
@@ -330,7 +330,14 @@ impl SlurmJobs {
 
         // have to parse them out, to get the number after the last :
         
-        gres_totals.iter().sum()
+        gres_totals.iter().flatten().sum()
+    }
+    pub fn get_gres_strings(&self) -> Vec<String> {
+        let gres: Vec<String> = self.jobs.values().map(|job| {
+            job.gres_total.clone().unwrap_or("".to_string())
+        }).collect();
+
+        gres
     }
 }
 
@@ -381,6 +388,7 @@ pub struct AccountJobUsage {
 }
 
 impl AccountJobUsage {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         account: &str, 
         center_nodes: u32, 
