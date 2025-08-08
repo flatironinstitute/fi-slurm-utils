@@ -377,77 +377,59 @@ pub fn enrich_jobs_with_node_ids(
 
 pub struct AccountJobUsage {
     account: String,
-    center_nodes: u32, 
-    center_cores: u32, 
-    center_gres: u32, 
-    user_nodes: u32, 
-    user_cores: u32, 
-    user_gres: u32, 
-    user_max_nodes: u32, 
-    user_max_cores: u32,
-    user_max_gres: u32,
-    group_max_nodes: u32,
-    group_max_cores: u32,
-    group_max_gres: u32,
+    nodes: u32, 
+    cores: u32, 
+    gpus: u32, 
+    max_nodes: u32, 
+    max_cores: u32,
+    max_gpus: u32,
 }
 
 impl AccountJobUsage {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         account: &str, 
-        center_nodes: u32, 
-        center_cores: u32, 
-        center_gres: u32, 
-        user_nodes: u32, 
-        user_cores: u32, 
-        user_gres: u32, 
-        user_max_nodes: u32, 
-        user_max_cores: u32,
-        user_max_gres: u32,
-        group_max_nodes: u32,
-        group_max_cores: u32,
-        group_max_gres: u32,
+        nodes: u32, 
+        cores: u32, 
+        gpus: u32, 
+        max_nodes: u32, 
+        max_cores: u32,
+        max_gres: u32,
     ) -> Self { 
         Self {
             account: account.to_string(),
-            center_nodes, 
-            center_cores, 
-            center_gres, 
-            user_nodes, 
-            user_cores, 
-            user_gres, 
-            user_max_nodes, 
-            user_max_cores,
-            user_max_gres,
-            group_max_nodes,
-            group_max_cores,
-            group_max_gres,
+            nodes, 
+            cores, 
+            gpus, 
+            max_nodes, 
+            max_cores,
+            max_gpus,
         }
     }
-    pub fn print_user(&self, padding: usize) {
-        println!("{} {} {}/{} {}/{} {}/{}", 
-            self.account, 
-            " ".repeat(padding), 
-            self.user_cores, 
-            self.user_max_cores,
-            self.user_nodes, 
-            self.user_max_nodes, 
-            self.user_gres, 
-            self.user_max_gres, 
-        )
-    }
-    pub fn print_center(&self, padding: usize) {
-        println!("{} {} {}/{} {}/{} {}/{}", 
-            self.account, 
-            " ".repeat(padding), 
-            self.center_cores, 
-            self.group_max_cores,
-            self.center_nodes, 
-            self.group_max_nodes, 
-            self.center_gres, 
-            self.group_max_gres, 
-        )
-    }
+    // pub fn print_user(&self, padding: usize) {
+    //     println!("{} {} {}/{} {}/{} {}/{}", 
+    //         self.account, 
+    //         " ".repeat(padding), 
+    //         self.user_cores, 
+    //         self.user_max_cores,
+    //         self.user_nodes, 
+    //         self.user_max_nodes, 
+    //         self.user_gres, 
+    //         self.user_max_gres, 
+    //     )
+    // }
+    // pub fn print_center(&self, padding: usize) {
+    //     println!("{} {} {}/{} {}/{} {}/{}", 
+    //         self.account, 
+    //         " ".repeat(padding), 
+    //         self.center_cores, 
+    //         self.group_max_cores,
+    //         self.center_nodes, 
+    //         self.group_max_nodes, 
+    //         self.center_gres, 
+    //         self.group_max_gres, 
+    //     )
+    // }
 }
 
 // to print a vector of account job usage in a sensible way
@@ -457,21 +439,55 @@ pub fn print_accounts(accounts: Vec<AccountJobUsage>) {
     let header_nodes = "NODES";
     let header_gpus = "GPUS";
 
+
+    let mut max_name_length: usize = 0;
+    let mut max_core_length: usize = 0;
+    let mut max_max_core_length: usize = 0;
+    let mut max_node_length: usize = 0;
+    let mut max_max_node_length: usize = 0;
+    let mut max_gpu_length: usize = 0;
+    let mut max_max_gpu_length: usize = 0;
     
-    //for acc in accounts {
-    //    let name_length = acc.account.len();
-    //    let core_component_length = acc.cores.len();
-    //    let max_core_length = acc.max_cores.len();
-    //    let node_component_length = acc.nodes.len();
-    //    let max_node_length = acc.max_nodes.len();
-    //    let gpu_component_length = acc.gpus.len();
-    //    let max_gpu_length = acc.max_gpus.len();
-    //
-    //    // for each of these, we get the longest, and use that for spacing
-    //    // padding out the rest to fit the same way
-    //}
+    for acc in accounts {
+        max_counter(max_name_length, acc.account.len());
+        max_counter(max_core_length, acc.max_cores.to_string().len());
+        max_counter(max_max_core_length, acc.max_cores.to_string().len());
+        max_counter(max_node_length, acc.nodes.to_string().len());
+        max_counter(max_max_node_length, acc.max_nodes.to_string().len());
+        max_counter(max_gpu_length, acc.gpus.to_string().len());
+        max_counter(max_max_gpu_length, acc.max_gpus.to_string().len());
+
+       // for each of these, we get the longest, and use that for spacing
+       // padding out the rest to fit the same way
+    }
+
+    let padding = " ".repeat(3);
+
+    for acc in accounts {
+        let line = format!("{:<max_name_length$}{}{:>max_core_length$}/{:>max_max_core_length$}{}{:>max_node_length$}/{:>max_max_node_length$}{}{:>max_gpu_length$}/{:>max_max_gpu_length$}", 
+            acc.account, 
+            padding,
+            acc.cores,
+            acc.max_cores,
+            padding,
+            acc.nodes,
+            acc.max_nodes,
+            padding,
+            acc.gpus,
+            acc.max_gpus,
+        );
+
+        println!(line);
+    }
 
     // iterate through, get the lengths of each set of printed components, align them as we did in
     // the report, and then print
 
+}
+
+// could this be a fold? maybe, but I don't want to deal with all those zips
+fn max_counter(mut acc: usize, add: usize) {
+    if add > acc {
+        acc = add
+    } else {}
 }
