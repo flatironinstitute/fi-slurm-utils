@@ -105,7 +105,7 @@ fn main() -> Result<(), String> {
 
             // printing gres totals to see how they're formatted
             let all_gres = account_jobs.get_gres_info();
-            println!("{}", all_gres);
+            println!("{:?}", all_gres);
 
             // for all use of the center, not just this user
             let (group_nodes, group_cores) = account_jobs.get_resource_use();
