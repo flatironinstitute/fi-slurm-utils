@@ -104,8 +104,8 @@ fn main() -> Result<(), String> {
 
 
             // printing gres totals to see how they're formatted
-            let all_gres = account_jobs.get_gres_info();
-            println!("{:?}", all_gres);
+            let gres_count = account_jobs.get_gres_total();
+            // println!("{:?}", all_gres);
 
             // for all use of the center, not just this user
             let (group_nodes, group_cores) = account_jobs.get_resource_use();
@@ -123,16 +123,25 @@ fn main() -> Result<(), String> {
             let group_max_nodes = group_tres_max.max_nodes.unwrap_or(0);
             let group_max_cores = group_tres_max.max_cores.unwrap_or(0);
 
-            AccountJobUsage::new(&account, group_nodes, group_cores, user_nodes, user_cores, user_max_nodes, user_max_cores, group_max_nodes, group_max_cores)
+            AccountJobUsage::new(&account, 
+                group_nodes, 
+                group_cores, 
+                user_nodes, 
+                user_cores, 
+                user_max_nodes, 
+                user_max_cores, 
+                group_max_nodes, 
+                group_max_cores
+            )
         }).collect();
 
         println!("\nUser Limits");
-        println!("QOS       CORES  NODES");
+        println!("QOS       CORES  NODES  GPUS");
         for acc in &account_info {
             acc.print_user(5);
         }
         println!("\nCenter Limits");
-        println!("QOS       CORES  NODES");
+        println!("QOS       CORES  NODES  GPUS");
         for acc in &account_info {
             acc.print_center(5);
         }

@@ -221,7 +221,7 @@ pub struct Job {
     pub raw_hostlist: String,
     pub node_ids: Vec<usize>,
     pub allocated_gres: HashMap<String, u64>,
-    pub gres_total: String,
+    pub gres_total: Option<String>,
 
     // Other Information 
     pub work_dir: String,
@@ -257,8 +257,8 @@ impl Job {
             node_ids: Vec::new(),
             allocated_gres: unsafe {parse_tres_str(raw_job.tres_alloc_str)},
             gres_total: unsafe { if !raw_job.gres_total.is_null() { 
-                unsafe { CStr::from_ptr(raw_job.gres_total) }.to_string_lossy().to_string()
-            } else { "null".to_string() }
+                Some(unsafe { CStr::from_ptr(raw_job.gres_total) }.to_string_lossy().to_string())
+            } else { None }
             },
             // like the tres are 
             work_dir: unsafe {c_str_to_string(raw_job.work_dir)},
@@ -313,12 +313,24 @@ impl SlurmJobs {
 
         (node_use, core_use)
     }
-    pub fn get_gres_info(&self) -> Vec<String> {
-        let gres_totals: Vec<String> = self.jobs.iter().map(|(_, job)| {
-            job.gres_total.clone()
+    pub fn get_gres_total(&self) -> u32 {
+        let gres_totals: Vec<Option<String>> = self.jobs.iter().filter_map(|(_, job)| {
+            if let Some(gres) = job.gres_total {
+                gres.split(':').map(|g| {
+                    if let Ok(count) = g.parse::<u32>() {
+                        Some(count)
+                    } else {
+                        None
+                    }
+                })
+            } else {
+                None
+            }
         }).collect();
+
+        // have to parse them out, to get the number after the last :
         
-        gres_totals
+        gres_totals.iter().sum()
     }
 }
 
@@ -354,15 +366,18 @@ pub fn enrich_jobs_with_node_ids(
 
 pub struct AccountJobUsage {
     account: String,
-    center_nodes: u32,
-    center_cores: u32,
-    user_nodes: u32,
-    user_cores: u32,
-    user_max_nodes: u32,
+    center_nodes: u32, 
+    center_cores: u32, 
+    center_gres: u32, 
+    user_nodes: u32, 
+    user_cores: u32, 
+    user_gres: u32, 
+    user_max_nodes: u32, 
     user_max_cores: u32,
+    user_max_gres: u32,
     group_max_nodes: u32,
     group_max_cores: u32,
-
+    group_max_gres: u32,
 }
 
 impl AccountJobUsage {
@@ -370,44 +385,55 @@ impl AccountJobUsage {
         account: &str, 
         center_nodes: u32, 
         center_cores: u32, 
+        center_gres: u32, 
         user_nodes: u32, 
         user_cores: u32, 
+        user_gres: u32, 
         user_max_nodes: u32, 
         user_max_cores: u32,
+        user_max_gres: u32,
         group_max_nodes: u32,
         group_max_cores: u32,
+        group_max_gres: u32,
     ) -> Self { 
         Self {
             account: account.to_string(),
-            center_nodes,
-            center_cores,
-            user_nodes,
-            user_cores,
-            user_max_nodes,
+            center_nodes, 
+            center_cores, 
+            center_gres, 
+            user_nodes, 
+            user_cores, 
+            user_gres, 
+            user_max_nodes, 
             user_max_cores,
+            user_max_gres,
             group_max_nodes,
             group_max_cores,
-
+            group_max_gres,
         }
     }
     pub fn print_user(&self, padding: usize) {
-        println!("{} {} {}/{} {}/{}", 
+        println!("{} {} {}/{} {}/{} {}/{}", 
             self.account, 
             " ".repeat(padding), 
             self.user_cores, 
             self.user_max_cores,
             self.user_nodes, 
             self.user_max_nodes, 
+            self.user_gres, 
+            self.user_max_gres, 
         )
     }
     pub fn print_center(&self, padding: usize) {
-        println!("{} {} {}/{} {}/{}", 
+        println!("{} {} {}/{} {}/{} {}/{}", 
             self.account, 
             " ".repeat(padding), 
             self.center_cores, 
             self.group_max_cores,
             self.center_nodes, 
             self.group_max_nodes, 
+            self.center_gres, 
+            self.group_max_gres, 
         )
     }
 }
