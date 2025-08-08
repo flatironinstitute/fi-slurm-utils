@@ -314,7 +314,7 @@ impl SlurmJobs {
         (node_use, core_use)
     }
     pub fn get_gres_total(&self) -> u32 {
-        let gres_totals: Vec<Option<String>> = self.jobs.iter().filter_map(|(_, job)| {
+        let gres_totals: Vec<u32> = self.jobs.iter().filter_map(|(_, job)| {
             if let Some(gres) = job.gres_total {
                 gres.split(':').map(|g| {
                     if let Ok(count) = g.parse::<u32>() {
