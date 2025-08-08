@@ -6,7 +6,7 @@ pub mod tui;
 use clap::Parser;
 use fi_slurm::nodes::{NodeState, SlurmNodes};
 use std::collections::{HashMap, HashSet};
-use fi_slurm::jobs::{enrich_jobs_with_node_ids, JobState, SlurmJobs, AccountJobUsage};
+use fi_slurm::jobs::{enrich_jobs_with_node_ids, JobState, SlurmJobs, AccountJobUsage, print_accounts};
 use fi_slurm::{jobs, nodes, utils::{SlurmConfig, initialize_slurm}};
 use fi_slurm::filter::{self, gather_all_features};
 use crate::tui::app::tui_execute;
@@ -96,6 +96,9 @@ fn main() -> Result<(), String> {
 
         let jobs_collection = jobs::get_jobs().unwrap();
 
+        let user_usage: Vec<AccountJobUsage> = Vec::new();
+        let center_usage: Vec<AccountJobUsage> = Vec::new();
+
         let account_info: Vec<AccountJobUsage> = accounts.iter().map(|a| {
             let group = a.clone().name;
 
@@ -107,19 +110,19 @@ fn main() -> Result<(), String> {
             // filter separately, by partition for the group data and by account for individual
             // data?
 
-            let partition_jobs = jobs_collection.clone()
+            let center_jobs = jobs_collection.clone()
                 .filter_by(jobs::FilterMethod::Partition(group.clone()));
 
 
 
             // printing gres totals to see how they're formatted
-            let partition_gres_count = partition_jobs.get_gres_total();
+            let center_gres_count = center_jobs.get_gres_total();
 
-            //let partition_gres_strings = partition_jobs.get_gres_strings();
+            //let partition_gres_strings = center_jobs.get_gres_strings();
             //println!(" Partition Gres: {:?}", partition_gres_strings);
 
             // for all use of the center, not just this user
-            let (partition_nodes, partition_cores) = partition_jobs.get_resource_use();
+            let (center_nodes, center_cores) = center_jobs.get_resource_use();
 
 
             // for user, we filter further from account
@@ -138,45 +141,53 @@ fn main() -> Result<(), String> {
             let user_max_cores = user_tres_max.max_cores.unwrap_or(0);
             let user_max_gres = user_tres_max.max_gpus.unwrap_or(0);
 
-            let partition_tres_max = TresMax::new(a.max_tres_per_group.clone().unwrap_or("".to_string()));
-            let partition_max_nodes = partition_tres_max.max_nodes.unwrap_or(0);
-            let partition_max_cores = partition_tres_max.max_cores.unwrap_or(0);
-            let partition_max_gres = partition_tres_max.max_gpus.unwrap_or(0);
+            let center_tres_max = TresMax::new(a.max_tres_per_group.clone().unwrap_or("".to_string()));
+            let center_max_nodes = center_tres_max.max_nodes.unwrap_or(0);
+            let center_max_cores = center_tres_max.max_cores.unwrap_or(0);
+            let center_max_gres = center_tres_max.max_gpus.unwrap_or(0);
 
-            AccountJobUsage::new(&group, 
-                partition_nodes, 
-                partition_cores, 
-                partition_gres_count,
+
+            user_usage.push(AccountJobUsage::new(
+                &group, 
                 user_nodes, 
                 user_cores, 
                 user_gres_count,
                 user_max_nodes, 
                 user_max_cores, 
                 user_max_gres,
-                partition_max_nodes, 
-                partition_max_cores,
-                partition_max_gres,
-            )
+            ));
+            center_usage.push(AccountJobUsage::new(
+                &group, 
+                center_nodes, 
+                center_cores, 
+                center_gres_count,
+                center_max_nodes, 
+                center_max_cores, 
+                center_max_gres,
+            ));
         }).collect();
 
         // ok, now develop new function
         // for printing whole blocks of users or centers
         // the different blocks don't need to be aligned
         println!("\nUser Limits");
-        println!("QOS       CORES  NODES  GPUS");
-        for acc in &account_info {
-            acc.print_user(5);
-        }
+        print_accounts(user_usage);
+
+        // println!("QOS       CORES  NODES  GPUS");
+        // for acc in &account_info {
+        //     acc.print_user(5);
+        // }
         println!("\nCenter Limits");
-        println!("QOS       CORES  NODES  GPUS");
-        for acc in &account_info {
-            acc.print_center(5);
-        }
+        print_accounts(center_usage);
+        // println!("QOS       CORES  NODES  GPUS");
+        // for acc in &account_info {
+        //     acc.print_center(5);
+        // }
         
-        let jobs_collection = jobs::get_jobs()?;
-        let filtered_jobs = jobs_collection.filter_by(jobs::FilterMethod::UserName(name.clone()));
-        let (nodes, cores) = filtered_jobs.get_resource_use();     
-        println!("\n{nodes} nodes and {cores} cores in use by jobs");
+        // let jobs_collection = jobs::get_jobs()?;
+        // let filtered_jobs = jobs_collection.filter_by(jobs::FilterMethod::UserName(name.clone()));
+        // let (nodes, cores) = filtered_jobs.get_resource_use();     
+        // println!("\n{nodes} nodes and {cores} cores in use by jobs");
 
         return Ok(())
     }
