@@ -257,7 +257,7 @@ impl Job {
             node_ids: Vec::new(),
             allocated_gres: unsafe {parse_tres_str(raw_job.tres_alloc_str)},
             gres_total: unsafe { if !raw_job.gres_total.is_null() { 
-                unsafe { CStr::from_ptr(raw_job.gres_total) }.to_string_lossy()
+                unsafe { CStr::from_ptr(raw_job.gres_total) }.to_string_lossy().to_string()
             } else { "null".to_string() }
             },
             // like the tres are 
