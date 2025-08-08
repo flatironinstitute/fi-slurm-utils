@@ -416,7 +416,7 @@ fn get_jobs_info(db_conn: DbConn, assocs: &[SlurmAssoc], qos: &Vec<Vec<SlurmQos>
         }
     };
 
-    println!("{:?}", qos_names.clone());
+    //println!("{:?}", qos_names.clone());
 
     //let qos_names = qos.first().unwrap().iter().map(|q| *q.name).collect();
 
@@ -612,7 +612,7 @@ impl TresMax {
             max_gpus: None,
         };
 
-        let _ = tres.split(',').map(|t| {
+        tres.split(',').for_each(|t| {
             if let Some((category, quantity)) = t.split_once('=') {
                 match category {
                     "1" => init.max_cores = Some(quantity.parse::<u32>().unwrap_or(1)),

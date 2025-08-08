@@ -342,32 +342,60 @@ pub fn enrich_jobs_with_node_ids(
 
 pub struct AccountJobUsage {
     account: String,
-    nodes: u32,
-    cores: u32,
-    max_nodes: u32,
-    max_cores: u32,
+    center_nodes: u32,
+    center_cores: u32,
+    user_nodes: u32,
+    user_cores: u32,
+    user_max_nodes: u32,
+    user_max_cores: u32,
+    group_max_nodes: u32,
+    group_max_cores: u32,
 
 }
 
 impl AccountJobUsage {
-    pub fn new(account: &str, nodes: u32, cores: u32, max_nodes: u32, max_cores: u32) -> Self {
+    pub fn new(
+        account: &str, 
+        center_nodes: u32, 
+        center_cores: u32, 
+        user_nodes: u32, 
+        user_cores: u32, 
+        user_max_nodes: u32, 
+        user_max_cores: u32,
+        group_max_nodes: u32,
+        group_max_cores: u32,
+    ) -> Self { 
         Self {
             account: account.to_string(),
-            nodes,
-            cores,
-            max_nodes,
-            max_cores,
+            center_nodes,
+            center_cores,
+            user_nodes,
+            user_cores,
+            user_max_nodes,
+            user_max_cores,
+            group_max_nodes,
+            group_max_cores,
 
         }
     }
-    pub fn print(&self, padding: usize) {
+    pub fn print_user(&self, padding: usize) {
         println!("{} {} {}/{} {}/{}", 
             self.account, 
-            "".repeat(padding), 
-            self.nodes, 
-            self.max_nodes, 
-            self.cores, 
-            self.max_cores
+            " ".repeat(padding), 
+            self.user_cores, 
+            self.user_max_cores,
+            self.user_nodes, 
+            self.user_max_nodes, 
+        )
+    }
+    pub fn print_center(&self, padding: usize) {
+        println!("{} {} {}/{} {}/{}", 
+            self.account, 
+            " ".repeat(padding), 
+            self.center_cores, 
+            self.group_max_cores,
+            self.center_nodes, 
+            self.group_max_nodes, 
         )
     }
 }

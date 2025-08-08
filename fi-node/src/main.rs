@@ -83,14 +83,7 @@ fn main() -> Result<(), String> {
         None
     };
 
-
-    // make sure that all the jobs we're presenting here are based on actually running jobs, not
-    // pending ones!
-
     if args.qos {
-        //let name = "nposner";
-        //println!("{}", name);
-
 
         let name = qos_name.cloned().unwrap_or_else(|| {
             get_current_username().unwrap_or_else(|| {
@@ -99,65 +92,50 @@ fn main() -> Result<(), String> {
             }).to_string_lossy().into_owned() // handle the rare None case
         });
 
-
         let accounts = get_tres_info(Some(name.clone())).first().unwrap().clone(); //None case tries to get name from OS
-        
-        //println!("{}", accounts.len());
-
-
-        // what we want to do now:
-        // grab jobs information for each of the (usually five) tresinfo structs
-        // so we know overall how many nodes/jobs are being used on them, for the general
-        // purpose view
-        //
-        // Then, we hone in on the specific user: we look for the jobs that user is running on each
-        // of those accounts, and record the number of nodes, cores, etc
-        //
-        // then we have to collect all this information and present it in a user-friendly way
-        //
-        //and eventually, move this to another file where it belongs
-
-
-        // having filtered the jobs, now get the resources from each
-        // and could also get by partition as well? Would have to filter separately??
-
-
 
         let jobs_collection = jobs::get_jobs().unwrap();
 
         let account_info: Vec<AccountJobUsage> = accounts.iter().map(|a| {
             let account = a.clone().name;
 
-            //println!("{account} partitoin");
+            let account_jobs = jobs_collection.clone()
+                .filter_by(jobs::FilterMethod::Account(account.clone()));
 
-            let filtered_jobs = jobs_collection.clone()
-                .filter_by(jobs::FilterMethod::Account(account.clone()))
+            // for all use of the center, not just this user
+            let (group_nodes, group_cores) = account_jobs.get_resource_use();
+
+            let user_jobs = account_jobs.clone()
                 .filter_by(jobs::FilterMethod::UserName(name.clone()));
 
-            let (nodes, cores) = filtered_jobs.get_resource_use();
+            let (user_nodes, user_cores) = user_jobs.get_resource_use();
 
+            let user_tres_max = TresMax::new(a.max_tres_per_user.clone().unwrap_or("".to_string()));
+            let user_max_nodes = user_tres_max.max_nodes.unwrap_or(0);
+            let user_max_cores = user_tres_max.max_cores.unwrap_or(0);
 
-            //println!("In partition {account}, there are {nodes} nodes and {cores} cores in use");
-            //
-            a.clone().print();
-            //max_tres_per_user: if qos.max_tres_per_user == "foo" { None } else { Some(qos.max_tres_per_user.clone())},
+            let group_tres_max = TresMax::new(a.max_tres_per_group.clone().unwrap_or("".to_string()));
+            let group_max_nodes = group_tres_max.max_nodes.unwrap_or(0);
+            let group_max_cores = group_tres_max.max_cores.unwrap_or(0);
 
-            let tres_max = TresMax::new(a.max_tres_per_user.clone().unwrap_or("".to_string()));
-            let max_nodes = tres_max.max_nodes.unwrap_or(0);
-            let max_cores = tres_max.max_cores.unwrap_or(0);
-
-            AccountJobUsage::new(&account, nodes, cores, max_nodes, max_cores)
+            AccountJobUsage::new(&account, group_nodes, group_cores, user_nodes, user_cores, user_max_nodes, user_max_cores, group_max_nodes, group_max_cores)
         }).collect();
 
+        println!("\nUser Limits");
         println!("QOS       CORES  NODES");
-        for acc in account_info {
-            acc.print(2);
+        for acc in &account_info {
+            acc.print_user(5);
+        }
+        println!("\nCenter Limits");
+        println!("QOS       CORES  NODES");
+        for acc in &account_info {
+            acc.print_center(5);
         }
         
         let jobs_collection = jobs::get_jobs()?;
         let filtered_jobs = jobs_collection.filter_by(jobs::FilterMethod::UserName(name.clone()));
         let (nodes, cores) = filtered_jobs.get_resource_use();     
-        println!("{nodes} nodes and {cores} cores in use by jobs");
+        println!("\n{nodes} nodes and {cores} cores in use by jobs");
 
         return Ok(())
     }
