@@ -315,7 +315,7 @@ impl SlurmJobs {
     }
     pub fn get_gres_info(&self) -> Vec<String> {
         let gres_totals: Vec<String> = self.jobs.iter().map(|(_, job)| {
-            job.gres_total
+            job.gres_total.clone()
         }).collect();
         
         gres_totals
