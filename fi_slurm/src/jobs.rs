@@ -294,6 +294,10 @@ impl SlurmJobs {
                 FilterMethod::UserName(name) => *name == job.user_name,
                 FilterMethod::Partition(partition) => *partition == job.partition,
                 FilterMethod::Account(account) => *account == job.account,
+                //FilterMethod::UserId(id) => (*id == job.user_id) && (job.job_state == JobState::Running),
+                //FilterMethod::UserName(name) => (*name == job.user_name) && (job.job_state == JobState::Running),
+                //FilterMethod::Partition(partition) => (*partition == job.partition) && (job.job_state == JobState::Running),
+                //FilterMethod::Account(account) => (*account == job.account) && (job.job_state == JobState::Running),
             }
         });
 
@@ -444,4 +448,17 @@ impl AccountJobUsage {
             self.group_max_gres, 
         )
     }
+}
+
+// to print a vector of account job usage in a sensible way
+
+pub fn print_accounts(accounts: Vec<AccountJobUsage>) {
+    let header_cores = "CORES";
+    let header_nodes = "NODES";
+    let header_gpus = "GPUS";
+
+
+    // iterate through, get the lengths of each set of printed components, align them as we did in
+    // the report, and then print
+
 }

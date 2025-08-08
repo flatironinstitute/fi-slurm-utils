@@ -97,54 +97,71 @@ fn main() -> Result<(), String> {
         let jobs_collection = jobs::get_jobs().unwrap();
 
         let account_info: Vec<AccountJobUsage> = accounts.iter().map(|a| {
-            let account = a.clone().name;
+            let group = a.clone().name;
 
-            let account_jobs = jobs_collection.clone()
-                .filter_by(jobs::FilterMethod::Account(account.clone()));
+            // looks like we want to filter by both partition and account, separately? ,and get
+            // whether there are non-zero contents. if so, we print
+            // issue is, the centers overlap, with different info depending on whether you search
+            // by partition or account
+            //
+            // filter separately, by partition for the group data and by account for individual
+            // data?
+
+            let partition_jobs = jobs_collection.clone()
+                .filter_by(jobs::FilterMethod::Partition(group.clone()));
+
 
 
             // printing gres totals to see how they're formatted
-            let group_gres_count = account_jobs.get_gres_total();
-            let account_gres_strings = account_jobs.get_gres_strings();
-            println!(" Account Gres: {:?}", account_gres_strings);
+            let partition_gres_count = partition_jobs.get_gres_total();
+
+            //let partition_gres_strings = partition_jobs.get_gres_strings();
+            //println!(" Partition Gres: {:?}", partition_gres_strings);
 
             // for all use of the center, not just this user
-            let (group_nodes, group_cores) = account_jobs.get_resource_use();
+            let (partition_nodes, partition_cores) = partition_jobs.get_resource_use();
 
-            let user_jobs = account_jobs.clone()
+
+            // for user, we filter further from account
+            let user_jobs = jobs_collection.clone()
+                .filter_by(jobs::FilterMethod::Account(group.clone()))
                 .filter_by(jobs::FilterMethod::UserName(name.clone()));
 
             let (user_nodes, user_cores) = user_jobs.get_resource_use();
             let user_gres_count = user_jobs.get_gres_total();
-            let user_gres_strings = user_jobs.get_gres_strings();
-            println!("User Gres: {:?}", user_gres_strings);
+
+            //let user_gres_strings = user_jobs.get_gres_strings();
+            //println!("User Gres: {:?}", user_gres_strings);
 
             let user_tres_max = TresMax::new(a.max_tres_per_user.clone().unwrap_or("".to_string()));
             let user_max_nodes = user_tres_max.max_nodes.unwrap_or(0);
             let user_max_cores = user_tres_max.max_cores.unwrap_or(0);
             let user_max_gres = user_tres_max.max_gpus.unwrap_or(0);
 
-            let group_tres_max = TresMax::new(a.max_tres_per_group.clone().unwrap_or("".to_string()));
-            let group_max_nodes = group_tres_max.max_nodes.unwrap_or(0);
-            let group_max_cores = group_tres_max.max_cores.unwrap_or(0);
-            let group_max_gres = group_tres_max.max_gpus.unwrap_or(0);
+            let partition_tres_max = TresMax::new(a.max_tres_per_group.clone().unwrap_or("".to_string()));
+            let partition_max_nodes = partition_tres_max.max_nodes.unwrap_or(0);
+            let partition_max_cores = partition_tres_max.max_cores.unwrap_or(0);
+            let partition_max_gres = partition_tres_max.max_gpus.unwrap_or(0);
 
-            AccountJobUsage::new(&account, 
-                group_nodes, 
-                group_cores, 
-                group_gres_count,
+            AccountJobUsage::new(&group, 
+                partition_nodes, 
+                partition_cores, 
+                partition_gres_count,
                 user_nodes, 
                 user_cores, 
                 user_gres_count,
                 user_max_nodes, 
                 user_max_cores, 
                 user_max_gres,
-                group_max_nodes, 
-                group_max_cores,
-                group_max_gres,
+                partition_max_nodes, 
+                partition_max_cores,
+                partition_max_gres,
             )
         }).collect();
 
+        // ok, now develop new function
+        // for printing whole blocks of users or centers
+        // the different blocks don't need to be aligned
         println!("\nUser Limits");
         println!("QOS       CORES  NODES  GPUS");
         for acc in &account_info {

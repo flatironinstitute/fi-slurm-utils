@@ -370,7 +370,8 @@ fn get_qos_info(mut db_conn: DbConn, assocs: &[SlurmAssoc]) -> Vec<Vec<SlurmQos>
                     "gpu".to_string(), 
                     "gpuxl".to_string(), 
                     "eval".to_string(), 
-                    //"gnx".to_string()
+                    "gen".to_string(), 
+                    "sljks".to_string(), //dummy
                 ]),
                 format_list: None,
                 id_list: None,
