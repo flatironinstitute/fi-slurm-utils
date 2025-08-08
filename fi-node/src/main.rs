@@ -7,9 +7,10 @@ pub mod limits;
 use clap::Parser;
 use fi_slurm::nodes::{NodeState, SlurmNodes};
 use std::collections::{HashMap, HashSet};
-use fi_slurm::jobs::{enrich_jobs_with_node_ids, JobState, SlurmJobs, AccountJobUsage, print_accounts};
-use fi_slurm::{jobs, nodes, utils::{SlurmConfig, initialize_slurm}};
-use fi_slurm::filter::{self, gather_all_features};
+use fi_slurm::jobs::{enrich_jobs_with_node_ids, JobState, SlurmJobs, AccountJobUsage, print_accounts, get_jobs, FilterMethod};
+use fi_slurm::utils::{SlurmConfig, initialize_slurm};
+use fi_slurm::nodes::get_nodes;
+use fi_slurm::filter::{self, gather_all_features, filter_nodes_by_feature};
 use crate::tui::app::tui_execute;
 use limits::leaderboard;
 use users::get_current_username;
@@ -72,7 +73,7 @@ fn main() -> Result<(), String> {
 
         let accounts = get_tres_info(Some(name.clone())).first().unwrap().clone(); //None case tries to get name from OS
 
-        let jobs_collection = jobs::get_jobs().unwrap();
+        let jobs_collection = get_jobs().unwrap();
 
         let user_usage: Vec<AccountJobUsage> = Vec::new();
         let center_usage: Vec<AccountJobUsage> = Vec::new();
@@ -81,15 +82,15 @@ fn main() -> Result<(), String> {
             let group = a.clone().name;
 
             let center_jobs = jobs_collection.clone()
-                .filter_by(jobs::FilterMethod::Partition(group.clone()));
+                .filter_by(FilterMethod::Partition(group.clone()));
 
             let center_gres_count = center_jobs.get_gres_total();
 
             let (center_nodes, center_cores) = center_jobs.get_resource_use();
 
             let user_jobs = jobs_collection.clone()
-                .filter_by(jobs::FilterMethod::Partition(group.clone()))
-                .filter_by(jobs::FilterMethod::UserName(name.clone()));
+                .filter_by(FilterMethod::Partition(group.clone()))
+                .filter_by(FilterMethod::UserName(name.clone()));
 
             let (user_nodes, user_cores) = user_jobs.get_resource_use();
             let user_gres_count = user_jobs.get_gres_total();
@@ -148,10 +149,10 @@ fn main() -> Result<(), String> {
     // Load Data 
     if args.debug { println!("Starting to load Slurm data: {:?}", start.elapsed()); }
 
-    let mut nodes_collection = nodes::get_nodes()?;
+    let mut nodes_collection = get_nodes()?;
     if args.debug { println!("Finished loading node data from Slurm: {:?}", start.elapsed()); }
 
-    let mut jobs_collection = jobs::get_jobs()?;
+    let mut jobs_collection = get_jobs()?;
     if args.debug { println!("Finished loading job data from Slurm: {:?}", start.elapsed()); }
 
     enrich_jobs_with_node_ids(&mut jobs_collection, &nodes_collection.name_to_id);
@@ -170,7 +171,7 @@ fn main() -> Result<(), String> {
         Some(preempt_node(&mut nodes_collection, &node_to_job_map, &jobs_collection))
     } else { None };
 
-    let filtered_nodes = filter::filter_nodes_by_feature(&nodes_collection, &args.feature, args.exact);
+    let filtered_nodes = filter_nodes_by_feature(&nodes_collection, &args.feature, args.exact);
     if args.debug && !args.feature.is_empty() { println!("Finished filtering data: {:?}", start.elapsed()); }
 
     // validating input
@@ -254,7 +255,7 @@ fn build_node_to_job_map(slurm_jobs: &SlurmJobs) -> HashMap<usize, Vec<u32>> {
     let mut node_to_job_map: HashMap<usize, Vec<u32>> = HashMap::new();
 
     for job in slurm_jobs.jobs.values() {
-        if job.job_state != crate::jobs::JobState::Running || job.node_ids.is_empty() {
+        if job.job_state != JobState::Running || job.node_ids.is_empty() {
             continue;
         }
         for &node_id in &job.node_ids {
