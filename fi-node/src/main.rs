@@ -124,7 +124,7 @@ fn main() -> Result<(), String> {
 
             // for user, we filter further from account
             let user_jobs = jobs_collection.clone()
-                .filter_by(jobs::FilterMethod::Account(group.clone()))
+                .filter_by(jobs::FilterMethod::Partition(group.clone()))
                 .filter_by(jobs::FilterMethod::UserName(name.clone()));
 
             let (user_nodes, user_cores) = user_jobs.get_resource_use();

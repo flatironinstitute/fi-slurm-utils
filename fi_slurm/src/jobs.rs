@@ -458,18 +458,18 @@ pub fn print_accounts(accounts: Vec<AccountJobUsage>) {
     let header_gpus = "GPUS";
 
     
-    for acc in accounts {
-        let name_length = acc.account.len();
-        let core_component_length = acc.cores.len();
-        let max_core_length = acc.max_cores.len();
-        let node_component_length = acc.nodes.len();
-        let max_node_length = acc.max_nodes.len();
-        let gpu_component_length = acc.gpus.len();
-        let max_gpu_length = acc.max_gpus.len();
-
-        // for each of these, we get the longest, and use that for spacing
-        // padding out the rest to fit the same way
-    }
+    //for acc in accounts {
+    //    let name_length = acc.account.len();
+    //    let core_component_length = acc.cores.len();
+    //    let max_core_length = acc.max_cores.len();
+    //    let node_component_length = acc.nodes.len();
+    //    let max_node_length = acc.max_nodes.len();
+    //    let gpu_component_length = acc.gpus.len();
+    //    let max_gpu_length = acc.max_gpus.len();
+    //
+    //    // for each of these, we get the longest, and use that for spacing
+    //    // padding out the rest to fit the same way
+    //}
 
     // iterate through, get the lengths of each set of printed components, align them as we did in
     // the report, and then print
