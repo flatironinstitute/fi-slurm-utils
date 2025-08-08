@@ -359,13 +359,6 @@ struct QosJobInfo {
 fn get_qos_info(mut db_conn: DbConn, assocs: &[SlurmAssoc]) -> Vec<Vec<SlurmQos>> {
     let ret: Vec<Vec<SlurmQos>> = assocs.iter().filter_map(|target_assoc| {
 
-        // println!("Found QoS ID# {} under account '{}': {} \n {:?}", 
-        //     target_assoc.id, 
-        //     target_assoc.acct, 
-        //     target_assoc.comment, 
-        //     target_assoc.qos
-        // );
-
         // query for qos details
         let qos_details: Result<Vec<SlurmQos>, QosError> = if !target_assoc.acct.is_empty() {
 
@@ -406,8 +399,6 @@ fn get_jobs_info(db_conn: DbConn, assocs: &[SlurmAssoc], qos: &Vec<Vec<SlurmQos>
 
     let accts: Vec<String> = assocs.iter().map(|assoc| assoc.acct.clone()).collect();
 
-    // println!("{:?}", accts.clone());
-
     let mut qos_names: Vec<String> = Vec::new();
 
     for q in qos {
@@ -415,10 +406,6 @@ fn get_jobs_info(db_conn: DbConn, assocs: &[SlurmAssoc], qos: &Vec<Vec<SlurmQos>
             qos_names.push(p.name.clone())
         }
     };
-
-    //println!("{:?}", qos_names.clone());
-
-    //let qos_names = qos.first().unwrap().iter().map(|q| *q.name).collect();
 
     let now = Utc::now();
     let jobs_config = JobsConfig {
@@ -473,15 +460,12 @@ pub fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) ->
 
     let qos_vec = get_qos_info(db_conn_qos, &user.associations);
 
-    //let qos_names: Vec<String> = qos_vec.iter().map(|q| q.iter().map(|p| p.name)).collect();
-
     let jobs_vec = get_jobs_info(db_conn_job, &user.associations, &qos_vec);
 
     Ok(QosJobInfo {
         qos: qos_vec,
         jobs: jobs_vec,
     })
-
 
     // at all points, wrap these raw return into Rust types with Drop impls that use the
     // equivalent slurmdb_destroy_db function
@@ -579,21 +563,6 @@ fn tres_parser(tres: String) -> String {
         }
     }).collect::<String>()
 }
-
-//pub struct SlurmQos {
-//    pub name: String,
-//    pub priority: u32,
-//    pub max_jobs_per_user: u32,
-//    pub max_tres_per_user: String,
-//    pub max_tres_per_group: String,
-//    pub max_tres_per_account: String,
-//    pub max_tres_per_job: String,
-//
-//
-//    //...
-//    // refer to slurmdb_qos_rec_t in bindings
-//}
-
 
 pub struct TresMax {
     pub max_nodes: Option<u32>,

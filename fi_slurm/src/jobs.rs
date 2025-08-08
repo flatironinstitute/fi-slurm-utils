@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
+use std::ffi::CStr;
 use rust_bind::bindings::{job_info, job_info_msg_t, slurm_free_job_info_msg, slurm_load_jobs, time_t};
 use crate::parser::parse_tres_str; 
 use crate::utils::{c_str_to_string, time_t_to_datetime};
@@ -220,8 +221,7 @@ pub struct Job {
     pub raw_hostlist: String,
     pub node_ids: Vec<usize>,
     pub allocated_gres: HashMap<String, u64>,
-    // also a gres_total field?? the one above is probably tres, not gres
-    //
+    pub gres_total: String,
 
     // Other Information 
     pub work_dir: String,
@@ -256,6 +256,11 @@ impl Job {
             raw_hostlist: unsafe {c_str_to_string(raw_job.nodes)},
             node_ids: Vec::new(),
             allocated_gres: unsafe {parse_tres_str(raw_job.tres_alloc_str)},
+            gres_total: unsafe { if !raw_job.gres_total.is_null() { 
+                unsafe { CStr::from_ptr(raw_job.gres_total) }.to_string_lossy()
+            } else { "null".to_string() }
+            },
+            // like the tres are 
             work_dir: unsafe {c_str_to_string(raw_job.work_dir)},
             command: unsafe {c_str_to_string(raw_job.command)},
             exit_code: raw_job.exit_code,
@@ -307,6 +312,13 @@ impl SlurmJobs {
         });
 
         (node_use, core_use)
+    }
+    pub fn get_gres_info(&self) -> Vec<String> {
+        let gres_totals: Vec<String> = self.jobs.iter().map(|(_, job)| {
+            job.gres_total
+        }).collect();
+        
+        gres_totals
     }
 }
 
