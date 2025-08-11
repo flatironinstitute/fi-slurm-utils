@@ -460,6 +460,8 @@ pub fn print_accounts(accounts: Vec<AccountJobUsage>) {
         accumulator.max_node_length = accumulator.max_node_length.max(acc.max_nodes.to_string().len());
         accumulator.gpu_length = accumulator.gpu_length.max(acc.gpus.to_string().len());
         accumulator.max_gpu_length = accumulator.max_gpu_length.max(acc.max_gpus.to_string().len());
+
+        accumulator
     });
     
     let max_name_length = max.name_length;
