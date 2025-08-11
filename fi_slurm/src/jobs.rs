@@ -447,11 +447,6 @@ struct MaxAcctUsage {
 }
 
 pub fn print_accounts(accounts: Vec<AccountJobUsage>) {
-    let header_cores = "CORES";
-    let header_nodes = "NODES";
-    let header_gpus = "GPUS";
-
-
     let max: &MaxAcctUsage = &accounts.iter().fold(MaxAcctUsage::default(), |mut accumulator, acc| {
         accumulator.name_length = accumulator.name_length.max(acc.account.len());
         accumulator.core_length = accumulator.core_length.max(acc.cores.to_string().len());
@@ -472,24 +467,86 @@ pub fn print_accounts(accounts: Vec<AccountJobUsage>) {
     let max_gpu_length = max.gpu_length;
     let max_max_gpu_length = max.max_gpu_length;
 
-    let padding = " ".repeat(3);
+    let padding = " ".repeat(4);
 
-    for acc in &accounts {
-        let line = format!("{:<max_name_length$}{}{:>max_core_length$}/{:>max_max_core_length$}{}{:>max_node_length$}/{:>max_max_node_length$}{}{:>max_gpu_length$}/{:>max_max_gpu_length$}", 
-            acc.account, 
+    let header_cores = "CORES";
+    let header_nodes = "NODES";
+    let header_gpus = "GPUS";
+
+    let cores_data_width = max_core_length + 1 + max_max_core_length;
+    let nodes_data_width = max_node_length + 1 + max_max_node_length;
+    let gpus_data_width = max_gpu_length + 1 + max_max_gpu_length;
+
+    let final_cores_width = cores_data_width.max(header_cores.len());
+    let final_nodes_width = nodes_data_width.max(header_nodes.len());
+    let final_gpus_width = gpus_data_width.max(header_gpus.len());
+
+    //let cores_col_width = max_core_length + 1 + max_max_core_length;
+    //let nodes_col_width = max_node_length + 1 + max_max_node_length;
+    //let gpus_col_width = max_gpu_length + 1 + max_max_gpu_length;
+
+    // We left-align (`:<`) the header text within the final calculated column width.
+    let header_line = format!(
+        "{:<max_name_length$}{}{:<final_cores_width$}{}{:<final_nodes_width$}{}{:<final_gpus_width$}",
+        "", // Placeholder for the account name column
+        padding,
+        header_cores,
+        padding,
+        header_nodes,
+        padding,
+        header_gpus
+    );
+
+    //let header_line = format!(
+    //    "{:<max_name_length$}{}{:<cores_col_width$}{}{:<nodes_col_width$}{}{:<gpus_col_width$}",
+    //    " ", 
+    //    padding,
+    //    header_cores,
+    //    padding,
+    //    header_nodes,
+    //    padding,
+    //    header_gpus
+    //);
+
+    println!("{}", header_line);
+
+    for acc in accounts {
+        // First, create the "value/max" string for each column for this specific account
+        let cores_str = format!("{:>max_core_length$}/{:>max_max_core_length$}", acc.cores, acc.max_cores);
+        let nodes_str = format!("{:>max_node_length$}/{:>max_max_node_length$}", acc.nodes, acc.max_nodes);
+        let gpus_str = format!("{:>max_gpu_length$}/{:>max_max_gpu_length$}", acc.gpus, acc.max_gpus);
+
+        // Now, format the full line, left-aligning each data string within the final column width.
+        // This ensures the start of each data string aligns perfectly with the start of its header.
+        let data_line = format!(
+            "{:<max_name_length$}{}{:<final_cores_width$}{}{:<final_nodes_width$}{}{:<final_gpus_width$}",
+            acc.account,
             padding,
-            acc.cores,
-            acc.max_cores,
+            cores_str,
             padding,
-            acc.nodes,
-            acc.max_nodes,
+            nodes_str,
             padding,
-            acc.gpus,
-            acc.max_gpus,
+            gpus_str,
         );
-
-        println!("{}", line);
+        println!("{}", data_line);
     }
+
+    //for acc in &accounts {
+    //    let line = format!("{:<max_name_length$}{}{:>max_core_length$}/{:>max_max_core_length$}{}{:>max_node_length$}/{:>max_max_node_length$}{}{:>max_gpu_length$}/{:>max_max_gpu_length$}", 
+    //        acc.account, 
+    //        padding,
+    //        acc.cores,
+    //        acc.max_cores,
+    //        padding,
+    //        acc.nodes,
+    //        acc.max_nodes,
+    //        padding,
+    //        acc.gpus,
+    //        acc.max_gpus,
+    //    );
+    //
+    //    println!("{}", line);
+    //}
 
     // iterate through, get the lengths of each set of printed components, align them as we did in
     // the report, and then print
