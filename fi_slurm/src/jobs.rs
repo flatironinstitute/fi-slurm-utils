@@ -446,6 +446,15 @@ struct MaxAcctUsage {
     max_gpu_length: usize,
 }
 
+
+fn zero_to_dash(x: u32) -> String {
+    if x == 0 {
+        "-".to_string()
+    } else {
+        x.to_string()
+    }
+}
+
 pub fn print_accounts(accounts: Vec<AccountJobUsage>) {
     let max: &MaxAcctUsage = &accounts.iter().fold(MaxAcctUsage::default(), |mut accumulator, acc| {
         accumulator.name_length = accumulator.name_length.max(acc.account.len());
@@ -497,24 +506,13 @@ pub fn print_accounts(accounts: Vec<AccountJobUsage>) {
         header_gpus
     );
 
-    //let header_line = format!(
-    //    "{:<max_name_length$}{}{:<cores_col_width$}{}{:<nodes_col_width$}{}{:<gpus_col_width$}",
-    //    " ", 
-    //    padding,
-    //    header_cores,
-    //    padding,
-    //    header_nodes,
-    //    padding,
-    //    header_gpus
-    //);
-
     println!("{}", header_line);
 
     for acc in accounts {
         // First, create the "value/max" string for each column for this specific account
-        let cores_str = format!("{:>max_core_length$}/{:>max_max_core_length$}", acc.cores, acc.max_cores);
-        let nodes_str = format!("{:>max_node_length$}/{:>max_max_node_length$}", acc.nodes, acc.max_nodes);
-        let gpus_str = format!("{:>max_gpu_length$}/{:>max_max_gpu_length$}", acc.gpus, acc.max_gpus);
+        let cores_str = format!("{:>max_core_length$}/{:>max_max_core_length$}", acc.cores, zero_to_dash(acc.max_cores));
+        let nodes_str = format!("{:>max_node_length$}/{:>max_max_node_length$}", acc.nodes, zero_to_dash(acc.max_nodes));
+        let gpus_str = format!("{:>max_gpu_length$}/{:>max_max_gpu_length$}", acc.gpus, zero_to_dash(acc.max_gpus));
 
         // Now, format the full line, left-aligning each data string within the final column width.
         // This ensures the start of each data string aligns perfectly with the start of its header.
@@ -530,23 +528,6 @@ pub fn print_accounts(accounts: Vec<AccountJobUsage>) {
         );
         println!("{}", data_line);
     }
-
-    //for acc in &accounts {
-    //    let line = format!("{:<max_name_length$}{}{:>max_core_length$}/{:>max_max_core_length$}{}{:>max_node_length$}/{:>max_max_node_length$}{}{:>max_gpu_length$}/{:>max_max_gpu_length$}", 
-    //        acc.account, 
-    //        padding,
-    //        acc.cores,
-    //        acc.max_cores,
-    //        padding,
-    //        acc.nodes,
-    //        acc.max_nodes,
-    //        padding,
-    //        acc.gpus,
-    //        acc.max_gpus,
-    //    );
-    //
-    //    println!("{}", line);
-    //}
 
     // iterate through, get the lengths of each set of printed components, align them as we did in
     // the report, and then print
