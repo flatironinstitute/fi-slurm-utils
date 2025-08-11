@@ -496,7 +496,7 @@ pub fn print_accounts(accounts: Vec<AccountJobUsage>) {
 
     // We left-align (`:<`) the header text within the final calculated column width.
     let header_line = format!(
-        "{:<max_name_length$}{}{:<final_cores_width$}{}{:<final_nodes_width$}{}{:<final_gpus_width$}",
+        "{:<max_name_length$}{}{:>final_cores_width$}{}{:>final_nodes_width$}{}{:>final_gpus_width$}",
         "", // Placeholder for the account name column
         padding,
         header_cores,
