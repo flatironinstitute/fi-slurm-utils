@@ -434,32 +434,41 @@ impl AccountJobUsage {
 
 // to print a vector of account job usage in a sensible way
 
+
+#[derive(Clone, Copy, Default)]
+struct MaxAcctUsage {
+    name_length: usize,
+    core_length: usize,
+    max_core_length: usize,
+    node_length: usize,
+    max_node_length: usize,
+    gpu_length: usize,
+    max_gpu_length: usize,
+}
+
 pub fn print_accounts(accounts: Vec<AccountJobUsage>) {
     let header_cores = "CORES";
     let header_nodes = "NODES";
     let header_gpus = "GPUS";
 
 
-    let mut max_name_length: usize = 0;
-    let mut max_core_length: usize = 0;
-    let mut max_max_core_length: usize = 0;
-    let mut max_node_length: usize = 0;
-    let mut max_max_node_length: usize = 0;
-    let mut max_gpu_length: usize = 0;
-    let mut max_max_gpu_length: usize = 0;
+    let max: MaxAcctUsage = &accounts.iter().fold(MaxAcctUsage::default(), |mut accumulator, &acc| {
+        accumulator.name_length = accumulator.name_length.max(acc.account.len());
+        accumulator.core_length = accumulator.core_length.max(acc.cores.to_string().len());
+        accumulator.max_core_length = accumulator.max_core_length.max(acc.max_cores.to_string().len());
+        accumulator.node_length = accumulator.node_length.max(acc.nodes.to_string().len());
+        accumulator.max_node_length = accumulator.max_node_length.max(acc.max_nodes.to_string().len());
+        accumulator.gpu_length = accumulator.gpu_length.max(acc.gpus.to_string().len());
+        accumulator.max_gpu_length = accumulator.max_gpu_length.max(acc.max_gpus.to_string().len());
+    });
     
-    for acc in &accounts {
-        max_counter(max_name_length, acc.account.len());
-        max_counter(max_core_length, acc.max_cores.to_string().len());
-        max_counter(max_max_core_length, acc.max_cores.to_string().len());
-        max_counter(max_node_length, acc.nodes.to_string().len());
-        max_counter(max_max_node_length, acc.max_nodes.to_string().len());
-        max_counter(max_gpu_length, acc.gpus.to_string().len());
-        max_counter(max_max_gpu_length, acc.max_gpus.to_string().len());
-
-       // for each of these, we get the longest, and use that for spacing
-       // padding out the rest to fit the same way
-    }
+    let max_name_length = max.name_length;
+    let max_core_length = max.core_length;
+    let max_max_core_length = max.max_core_length;
+    let max_node_length = max.node_length;
+    let max_max_node_length = max.max_node_length;
+    let max_gpu_length = max.gpu_length;
+    let max_max_gpu_length = max.max_gpu_length;
 
     let padding = " ".repeat(3);
 
@@ -482,13 +491,5 @@ pub fn print_accounts(accounts: Vec<AccountJobUsage>) {
 
     // iterate through, get the lengths of each set of printed components, align them as we did in
     // the report, and then print
-
 }
 
-// could this be a fold? maybe, but I don't want to deal with all those zips
-fn max_counter(mut acc: usize, add: usize) {
-    if add > acc {
-        acc = add;
-        acc
-    } else {acc}
-}
