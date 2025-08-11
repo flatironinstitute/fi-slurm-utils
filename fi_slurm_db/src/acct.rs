@@ -586,10 +586,10 @@ impl TresMax {
         tres.split(',').for_each(|t| {
             if let Some((category, quantity)) = t.split_once('=') {
                 match category {
-                    "1" => init.max_cores = Some(quantity.parse::<u32>().unwrap_or(1)),
-                    "2" => init.max_memory = Some(quantity.parse::<u32>().unwrap_or(1)),
-                    "4" => init.max_nodes = Some(quantity.parse::<u32>().unwrap_or(1)),
-                    "1001" => init.max_gpus = Some(quantity.parse::<u32>().unwrap_or(1)),
+                    "1" => init.max_cores = Some(quantity.parse::<u32>().unwrap_or(8675309)),
+                    "2" => init.max_memory = Some(quantity.parse::<u32>().unwrap_or(8675309)),
+                    "4" => init.max_nodes = Some(quantity.parse::<u32>().unwrap_or(8675309)),
+                    "1001" => init.max_gpus = Some(quantity.parse::<u32>().unwrap_or(8675309)),
                     _ => (),
                 };
                 //format!(" {quantity} {unit}")
