@@ -37,14 +37,14 @@ pub fn print_limits(qos_name: Option<&String>) {
         let user_gres_count = user_jobs.get_gres_total();
 
         let user_tres_max = TresMax::new(a.max_tres_per_user.clone().unwrap_or("".to_string()));
-        let user_max_nodes = user_tres_max.max_nodes.unwrap_or(0);
-        let user_max_cores = user_tres_max.max_cores.unwrap_or(0);
-        let user_max_gres = user_tres_max.max_gpus.unwrap_or(0);
+        let user_max_nodes = user_tres_max.max_nodes.unwrap_or(33);
+        let user_max_cores = user_tres_max.max_cores.unwrap_or(33);
+        let user_max_gres = user_tres_max.max_gpus.unwrap_or(33);
 
         let center_tres_max = TresMax::new(a.max_tres_per_group.clone().unwrap_or("".to_string()));
-        let center_max_nodes = center_tres_max.max_nodes.unwrap_or(0);
-        let center_max_cores = center_tres_max.max_cores.unwrap_or(0);
-        let center_max_gres = center_tres_max.max_gpus.unwrap_or(0);
+        let center_max_nodes = center_tres_max.max_nodes.unwrap_or(33);
+        let center_max_cores = center_tres_max.max_cores.unwrap_or(33);
+        let center_max_gres = center_tres_max.max_gpus.unwrap_or(33);
 
 
         user_usage.push(AccountJobUsage::new(
