@@ -12,7 +12,7 @@ use fi_slurm::utils::{SlurmConfig, initialize_slurm};
 use fi_slurm::nodes::get_nodes;
 use fi_slurm::filter::{self, gather_all_features, filter_nodes_by_feature};
 use crate::tui::app::tui_execute;
-use limits::leaderboard;
+use limits::{print_limits, leaderboard};
 use users::get_current_username;
 
 use fi_slurm_db::acct::{TresMax, get_tres_info};
@@ -62,75 +62,8 @@ fn main() -> Result<(), String> {
         None
     };
 
-    if args.qos {
-
-        let name = qos_name.cloned().unwrap_or_else(|| {
-            get_current_username().unwrap_or_else(|| {
-                eprintln!("Could not find user information: ensure that the running user is not deleted while the program is running");
-                "".into()
-            }).to_string_lossy().into_owned() // handle the rare None case
-        });
-
-        let accounts = get_tres_info(Some(name.clone())).first().unwrap().clone(); //None case tries to get name from OS
-
-        let jobs_collection = get_jobs().unwrap();
-
-        let user_usage: Vec<AccountJobUsage> = Vec::new();
-        let center_usage: Vec<AccountJobUsage> = Vec::new();
-
-        let account_info: Vec<AccountJobUsage> = accounts.iter().map(|a| {
-            let group = a.clone().name;
-
-            let center_jobs = jobs_collection.clone()
-                .filter_by(FilterMethod::Partition(group.clone()));
-
-            let center_gres_count = center_jobs.get_gres_total();
-
-            let (center_nodes, center_cores) = center_jobs.get_resource_use();
-
-            let user_jobs = jobs_collection.clone()
-                .filter_by(FilterMethod::Partition(group.clone()))
-                .filter_by(FilterMethod::UserName(name.clone()));
-
-            let (user_nodes, user_cores) = user_jobs.get_resource_use();
-            let user_gres_count = user_jobs.get_gres_total();
-
-            let user_tres_max = TresMax::new(a.max_tres_per_user.clone().unwrap_or("".to_string()));
-            let user_max_nodes = user_tres_max.max_nodes.unwrap_or(0);
-            let user_max_cores = user_tres_max.max_cores.unwrap_or(0);
-            let user_max_gres = user_tres_max.max_gpus.unwrap_or(0);
-
-            let center_tres_max = TresMax::new(a.max_tres_per_group.clone().unwrap_or("".to_string()));
-            let center_max_nodes = center_tres_max.max_nodes.unwrap_or(0);
-            let center_max_cores = center_tres_max.max_cores.unwrap_or(0);
-            let center_max_gres = center_tres_max.max_gpus.unwrap_or(0);
-
-
-            user_usage.push(AccountJobUsage::new(
-                &group, 
-                user_nodes, 
-                user_cores, 
-                user_gres_count,
-                user_max_nodes, 
-                user_max_cores, 
-                user_max_gres,
-            ));
-            center_usage.push(AccountJobUsage::new(
-                &group, 
-                center_nodes, 
-                center_cores, 
-                center_gres_count,
-                center_max_nodes, 
-                center_max_cores, 
-                center_max_gres,
-            ));
-        }).collect();
-
-        println!("\nUser Limits");
-        print_accounts(user_usage);
-
-        println!("\nCenter Limits");
-        print_accounts(center_usage);
+    if args.limits {
+        print_limits(qos_name);
 
         return Ok(())
     }
@@ -414,10 +347,10 @@ struct Args {
     #[arg(help = "Prints the top-level summary report for each feature type")]
     summary: bool,
     #[arg(long)]
-    #[arg(help = "Query Slurm for per-user QoS information")]
-    qos: bool,
-    #[arg(long)]
-    qn: Vec<String>,
+    #[arg(help = "Query Slurm for information on cluster limits")]
+    limits: bool,
+    #[arg(short, long)]
+    user: Vec<String>,
     #[arg(long)]
     leaderboard: Vec<usize>,
 }
