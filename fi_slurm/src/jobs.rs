@@ -394,7 +394,7 @@ impl AccountJobUsage {
         gpus: u32, 
         max_nodes: u32, 
         max_cores: u32,
-        max_gres: u32,
+        max_gpus: u32,
     ) -> Self { 
         Self {
             account: account.to_string(),
@@ -477,7 +477,7 @@ pub fn print_accounts(accounts: Vec<AccountJobUsage>) {
             acc.max_gpus,
         );
 
-        println!(line);
+        println!("{}", line);
     }
 
     // iterate through, get the lengths of each set of printed components, align them as we did in
@@ -488,6 +488,7 @@ pub fn print_accounts(accounts: Vec<AccountJobUsage>) {
 // could this be a fold? maybe, but I don't want to deal with all those zips
 fn max_counter(mut acc: usize, add: usize) {
     if add > acc {
-        acc = add
-    } else {}
+        acc = add;
+        acc
+    } else {acc}
 }
