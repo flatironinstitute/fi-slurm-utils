@@ -1,6 +1,6 @@
 use crate::PreemptNodes;
-use crate::jobs::SlurmJobs;
-use crate::nodes::{Node, NodeState};
+use fi_slurm::jobs::SlurmJobs;
+use fi_slurm::nodes::{Node, NodeState};
 use fi_slurm::utils::count_blocks;
 use colored::*;
 use std::collections::{HashMap, HashSet};

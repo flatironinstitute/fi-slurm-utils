@@ -10,10 +10,9 @@ use std::collections::{HashMap, HashSet};
 use fi_slurm::jobs::{enrich_jobs_with_node_ids, JobState, SlurmJobs, AccountJobUsage, print_accounts, get_jobs, FilterMethod};
 use fi_slurm::utils::{SlurmConfig, initialize_slurm};
 use fi_slurm::nodes::get_nodes;
-use fi_slurm::filter::{self, gather_all_features, filter_nodes_by_feature};
+use fi_slurm::filter::{gather_all_features, filter_nodes_by_feature};
 use crate::tui::app::tui_execute;
 use limits::{print_limits, leaderboard};
-use users::get_current_username;
 
 use fi_slurm_db::acct::{TresMax, get_tres_info};
 
@@ -51,13 +50,13 @@ fn main() -> Result<(), String> {
 
     if !args.leaderboard.is_empty() {
         let top_n = args.leaderboard.first().unwrap_or(&10);
-        leaderboard(top_n);
+        leaderboard(*top_n);
 
         return Ok(())
     }
 
-    let qos_name = if !args.qn.is_empty() {
-        args.qn.first()
+    let qos_name = if !args.user.is_empty() {
+        args.user.first()
     } else {
         None
     };

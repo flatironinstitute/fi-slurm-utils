@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use fi_slurm::jobs::{JobState, get_jobs, AccountJobUsage, print_accounts, FilterMethod};
 use users::get_current_username;
-use std::collections::HashMap;
 use fi_slurm_db::acct::{TresMax, get_tres_info};
 
 pub fn print_limits(qos_name: Option<&String>) {
@@ -20,7 +19,7 @@ pub fn print_limits(qos_name: Option<&String>) {
     let mut user_usage: Vec<AccountJobUsage> = Vec::new();
     let mut center_usage: Vec<AccountJobUsage> = Vec::new();
 
-    let account_info: Vec<AccountJobUsage> = accounts.iter().map(|a| {
+    accounts.iter().for_each(|a| {
         let group = a.clone().name;
 
         let center_jobs = jobs_collection.clone()
@@ -66,7 +65,7 @@ pub fn print_limits(qos_name: Option<&String>) {
             center_max_cores, 
             center_max_gres,
         ));
-    }).collect();
+    });
 
     println!("\nUser Limits");
     print_accounts(user_usage);
@@ -75,10 +74,10 @@ pub fn print_limits(qos_name: Option<&String>) {
     print_accounts(center_usage);
 }
 
-pub fn leaderboard(top_n: u32) {
+pub fn leaderboard(top_n: usize) {
     let mut map: HashMap<String, (u32, u32)> = HashMap::new();
 
-    let jobs_collection = get_jobs()?;
+    let jobs_collection = get_jobs().unwrap();
 
     jobs_collection.jobs.iter().for_each(|(_, job)| {
         if job.job_state == JobState::Running {
@@ -93,7 +92,7 @@ pub fn leaderboard(top_n: u32) {
 
     sorted_scores.sort_by(|a, b| b.1.cmp(a.1));
 
-    for (position, (user, score)) in sorted_scores.iter().enumerate().take(*top_n) {
+    for (position, (user, score)) in sorted_scores.iter().enumerate().take(top_n) {
         let rank = position + 1;
         let padding = if rank > 9 { "" } else {" "}; // just valid for the first 100
         let (initial, surname) = user.split_at_checked(1).unwrap_or(("Dr", "Evil"));
