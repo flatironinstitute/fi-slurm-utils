@@ -448,7 +448,7 @@ pub fn print_accounts(accounts: Vec<AccountJobUsage>) {
     let mut max_gpu_length: usize = 0;
     let mut max_max_gpu_length: usize = 0;
     
-    for acc in accounts {
+    for acc in &accounts {
         max_counter(max_name_length, acc.account.len());
         max_counter(max_core_length, acc.max_cores.to_string().len());
         max_counter(max_max_core_length, acc.max_cores.to_string().len());
@@ -463,7 +463,7 @@ pub fn print_accounts(accounts: Vec<AccountJobUsage>) {
 
     let padding = " ".repeat(3);
 
-    for acc in accounts {
+    for acc in &accounts {
         let line = format!("{:<max_name_length$}{}{:>max_core_length$}/{:>max_max_core_length$}{}{:>max_node_length$}/{:>max_max_node_length$}{}{:>max_gpu_length$}/{:>max_max_gpu_length$}", 
             acc.account, 
             padding,
