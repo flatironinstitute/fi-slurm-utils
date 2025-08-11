@@ -1,5 +1,5 @@
-use crate::nodes::{NodeState, Node};
-use crate::jobs::SlurmJobs;
+use fi_slurm::nodes::{NodeState, Node};
+use fi_slurm::jobs::SlurmJobs;
 use colored::{Color, Colorize};
 use std::collections::HashMap;
 

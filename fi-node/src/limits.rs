@@ -1,0 +1,101 @@
+use std::collections::HashMap;
+use fi_slurm::jobs::{JobState, get_jobs, AccountJobUsage, print_accounts, FilterMethod};
+use users::get_current_username;
+use fi_slurm_db::acct::{TresMax, get_tres_info};
+
+pub fn print_limits(qos_name: Option<&String>) {
+
+    let name = qos_name.cloned().unwrap_or_else(|| {
+        get_current_username().unwrap_or_else(|| {
+            eprintln!("Could not find user information: ensure that the running user is not deleted while the program is running");
+            "".into()
+        }).to_string_lossy().into_owned() // handle the rare None case
+    });
+
+    let accounts = get_tres_info(Some(name.clone())).first().unwrap().clone(); //None case tries to get name from OS
+
+    let jobs_collection = get_jobs().unwrap();
+
+    let mut user_usage: Vec<AccountJobUsage> = Vec::new();
+    let mut center_usage: Vec<AccountJobUsage> = Vec::new();
+
+    accounts.iter().for_each(|a| {
+        let group = a.clone().name;
+
+        let center_jobs = jobs_collection.clone()
+            .filter_by(FilterMethod::Partition(group.clone()));
+
+        let center_gres_count = center_jobs.get_gres_total();
+
+        let (center_nodes, center_cores) = center_jobs.get_resource_use();
+
+        let user_jobs = jobs_collection.clone()
+            .filter_by(FilterMethod::Partition(group.clone()))
+            .filter_by(FilterMethod::UserName(name.clone()));
+
+        let (user_nodes, user_cores) = user_jobs.get_resource_use();
+        let user_gres_count = user_jobs.get_gres_total();
+
+        let user_tres_max = TresMax::new(a.max_tres_per_user.clone().unwrap_or("".to_string()));
+        let user_max_nodes = user_tres_max.max_nodes.unwrap_or(0);
+        let user_max_cores = user_tres_max.max_cores.unwrap_or(0);
+        let user_max_gres = user_tres_max.max_gpus.unwrap_or(0);
+
+        let center_tres_max = TresMax::new(a.max_tres_per_group.clone().unwrap_or("".to_string()));
+        let center_max_nodes = center_tres_max.max_nodes.unwrap_or(0);
+        let center_max_cores = center_tres_max.max_cores.unwrap_or(0);
+        let center_max_gres = center_tres_max.max_gpus.unwrap_or(0);
+
+
+        user_usage.push(AccountJobUsage::new(
+            &group, 
+            user_nodes, 
+            user_cores, 
+            user_gres_count,
+            user_max_nodes, 
+            user_max_cores, 
+            user_max_gres,
+        ));
+        center_usage.push(AccountJobUsage::new(
+            &group, 
+            center_nodes, 
+            center_cores, 
+            center_gres_count,
+            center_max_nodes, 
+            center_max_cores, 
+            center_max_gres,
+        ));
+    });
+
+    println!("\nUser Limits");
+    print_accounts(user_usage);
+
+    println!("\nCenter Limits");
+    print_accounts(center_usage);
+}
+
+pub fn leaderboard(top_n: usize) {
+    let mut map: HashMap<String, (u32, u32)> = HashMap::new();
+
+    let jobs_collection = get_jobs().unwrap();
+
+    jobs_collection.jobs.iter().for_each(|(_, job)| {
+        if job.job_state == JobState::Running {
+            let usage = map.entry(job.user_name.clone()).or_insert((0, 0)); //(job.user_name, (job.num_nodes, job.num_cpus))
+
+            usage.0 += job.num_nodes;
+            usage.1 += job.num_cpus;
+        }
+    });
+
+    let mut sorted_scores: Vec<(&String, &(u32, u32))> = map.iter().collect();
+
+    sorted_scores.sort_by(|a, b| b.1.cmp(a.1));
+
+    for (position, (user, score)) in sorted_scores.iter().enumerate().take(top_n) {
+        let rank = position + 1;
+        let padding = if rank > 9 { "" } else {" "}; // just valid for the first 100
+        let (initial, surname) = user.split_at_checked(1).unwrap_or(("Dr", "Evil"));
+        println!("{}. {} {}. {} is using {} nodes and {} cores", rank, padding, initial.to_uppercase(), surname.to_uppercase(), score.0, score.1);
+    }
+}

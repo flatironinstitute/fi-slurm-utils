@@ -1,20 +1,9 @@
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
+use std::ffi::CStr;
 use rust_bind::bindings::{job_info, job_info_msg_t, slurm_free_job_info_msg, slurm_load_jobs, time_t};
 use crate::parser::parse_tres_str; 
 use crate::utils::{c_str_to_string, time_t_to_datetime};
-
-/// Fetches all job information from Slurm and returns it as a safe,
-/// owned Rust data structure
-///
-/// This function is the primary entry point for accessing job data. It handles
-/// all unsafe FFI calls, data conversion, and memory management internally
-pub fn get_jobs() -> Result<SlurmJobs, String> {
-    // We load the raw C data into memory,
-    // convert into safe, Rust-native structs, 
-    // and then consume the wrapper to drop the original C memory
-    RawSlurmJobInfo::load(0)?.into_slurm_jobs()
-}
 
 /// We use this struct to manage the C-allocatd memory,
 /// automatically dropping it when it goes out of memory
@@ -52,7 +41,7 @@ impl RawSlurmJobInfo {
 
         if return_code == 0 && !job_info_msg_ptr.is_null() {
             // Success: wrap the raw pointer in our safe struct and return it.
-            Ok(RawSlurmJobInfo { ptr: job_info_msg_ptr })
+            Ok(Self { ptr: job_info_msg_ptr })
         } else {
             // Failure: return an error. No struct is created, no memory is leaked
             Err("Failed to load job information from Slurm".to_string())
@@ -120,6 +109,19 @@ impl RawSlurmJobInfo {
         })
     }
 }
+
+/// Fetches all job information from Slurm and returns it as a safe,
+/// owned Rust data structure
+///
+/// This function is the primary entry point for accessing job data. It handles
+/// all unsafe FFI calls, data conversion, and memory management internally
+pub fn get_jobs() -> Result<SlurmJobs, String> {
+    // We load the raw C data into memory,
+    // convert into safe, Rust-native structs, 
+    // and then consume the wrapper to drop the original C memory
+    RawSlurmJobInfo::load(0)?.into_slurm_jobs()
+}
+
 
 struct _JobInfoMsg {
     last_backfill: time_t,
@@ -219,6 +221,7 @@ pub struct Job {
     pub raw_hostlist: String,
     pub node_ids: Vec<usize>,
     pub allocated_gres: HashMap<String, u64>,
+    pub gres_total: Option<String>,
 
     // Other Information 
     pub work_dir: String,
@@ -253,11 +256,22 @@ impl Job {
             raw_hostlist: unsafe {c_str_to_string(raw_job.nodes)},
             node_ids: Vec::new(),
             allocated_gres: unsafe {parse_tres_str(raw_job.tres_alloc_str)},
+            gres_total: if !raw_job.gres_total.is_null() { 
+                Some(unsafe { CStr::from_ptr(raw_job.gres_total) }.to_string_lossy().to_string())
+            } else { None },
+            // like the tres are 
             work_dir: unsafe {c_str_to_string(raw_job.work_dir)},
             command: unsafe {c_str_to_string(raw_job.command)},
             exit_code: raw_job.exit_code,
         })
     }
+}
+
+pub enum FilterMethod {
+    UserId(u32),
+    UserName(String),
+    Partition(String),
+    Account(String),
 }
 
 /// A safe, owned collection of Slurm jobs, mapping job ID to the Job object
@@ -268,6 +282,67 @@ pub struct SlurmJobs {
     pub last_update: DateTime<Utc>,
     /// Timestamp of the last backfill cycle, if available
     pub last_backfill: DateTime<Utc>,
+}
+
+impl SlurmJobs {
+    pub fn filter_by(mut self, method: FilterMethod) -> Self {
+        // go through the hashmap of jobs and figure out which ones either meet the user id
+        // or the user name, just pass those back out, no need to change the other fields.
+        self.jobs.retain(|_, job| { 
+            match &method { 
+                FilterMethod::UserId(id) => *id == job.user_id,
+                FilterMethod::UserName(name) => *name == job.user_name,
+                FilterMethod::Partition(partition) => *partition == job.partition,
+                FilterMethod::Account(account) => *account == job.account,
+                //FilterMethod::UserId(id) => (*id == job.user_id) && (job.job_state == JobState::Running),
+                //FilterMethod::UserName(name) => (*name == job.user_name) && (job.job_state == JobState::Running),
+                //FilterMethod::Partition(partition) => (*partition == job.partition) && (job.job_state == JobState::Running),
+                //FilterMethod::Account(account) => (*account == job.account) && (job.job_state == JobState::Running),
+            }
+        });
+
+        Self {
+            jobs: self.jobs,
+            last_update: self.last_update,
+            last_backfill: self.last_backfill,
+        }
+    }
+    pub fn get_resource_use(&self) -> (u32, u32) {
+        let (node_use, core_use) = self.jobs.iter().fold((0, 0), |mut acc, (_, job)| {
+            acc.0 += job.num_nodes;
+            acc.1 += job.num_cpus;
+            acc
+        });
+
+        (node_use, core_use)
+    }
+    pub fn get_gres_total(&self) -> u32 {
+        let gres_totals: Vec<Vec<u32>> = self.jobs.iter().filter_map(|(_, job)| {
+            if let Some(gres) = &job.gres_total {
+                let temp: Vec<u32> = gres.split(':').filter_map(|g| {
+                    if let Ok(count) = g.parse::<u32>() {
+                        Some(count)
+                    } else {
+                        None
+                    }
+                }).collect();
+                Some(temp)
+            } else {
+                None
+            }
+        }).collect();
+
+        // have to parse them out, to get the number after the last :
+        
+        gres_totals.iter().flatten().sum()
+    }
+    pub fn get_gres_strings(&self) -> Vec<String> {
+        let gres: Vec<String> = self.jobs.values().map(|job| {
+            job.gres_total.clone().unwrap_or("".to_string())
+        }).collect();
+
+        gres
+    }
 }
 
 /// Iterates through all loaded jobs and populates their `node_ids` vector.
@@ -299,3 +374,181 @@ pub fn enrich_jobs_with_node_ids(
         job.raw_hostlist.shrink_to_fit();
     }
 }
+
+pub struct AccountJobUsage {
+    account: String,
+    nodes: u32, 
+    cores: u32, 
+    gpus: u32, 
+    max_nodes: u32, 
+    max_cores: u32,
+    max_gpus: u32,
+}
+
+impl AccountJobUsage {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        account: &str, 
+        nodes: u32, 
+        cores: u32, 
+        gpus: u32, 
+        max_nodes: u32, 
+        max_cores: u32,
+        max_gpus: u32,
+    ) -> Self { 
+        Self {
+            account: account.to_string(),
+            nodes, 
+            cores, 
+            gpus, 
+            max_nodes, 
+            max_cores,
+            max_gpus,
+        }
+    }
+    // pub fn print_user(&self, padding: usize) {
+    //     println!("{} {} {}/{} {}/{} {}/{}", 
+    //         self.account, 
+    //         " ".repeat(padding), 
+    //         self.user_cores, 
+    //         self.user_max_cores,
+    //         self.user_nodes, 
+    //         self.user_max_nodes, 
+    //         self.user_gres, 
+    //         self.user_max_gres, 
+    //     )
+    // }
+    // pub fn print_center(&self, padding: usize) {
+    //     println!("{} {} {}/{} {}/{} {}/{}", 
+    //         self.account, 
+    //         " ".repeat(padding), 
+    //         self.center_cores, 
+    //         self.group_max_cores,
+    //         self.center_nodes, 
+    //         self.group_max_nodes, 
+    //         self.center_gres, 
+    //         self.group_max_gres, 
+    //     )
+    // }
+}
+
+// to print a vector of account job usage in a sensible way
+
+
+#[derive(Clone, Copy, Default)]
+struct MaxAcctUsage {
+    name_length: usize,
+    core_length: usize,
+    max_core_length: usize,
+    node_length: usize,
+    max_node_length: usize,
+    gpu_length: usize,
+    max_gpu_length: usize,
+}
+
+pub fn print_accounts(accounts: Vec<AccountJobUsage>) {
+    let max: &MaxAcctUsage = &accounts.iter().fold(MaxAcctUsage::default(), |mut accumulator, acc| {
+        accumulator.name_length = accumulator.name_length.max(acc.account.len());
+        accumulator.core_length = accumulator.core_length.max(acc.cores.to_string().len());
+        accumulator.max_core_length = accumulator.max_core_length.max(acc.max_cores.to_string().len());
+        accumulator.node_length = accumulator.node_length.max(acc.nodes.to_string().len());
+        accumulator.max_node_length = accumulator.max_node_length.max(acc.max_nodes.to_string().len());
+        accumulator.gpu_length = accumulator.gpu_length.max(acc.gpus.to_string().len());
+        accumulator.max_gpu_length = accumulator.max_gpu_length.max(acc.max_gpus.to_string().len());
+
+        accumulator
+    });
+    
+    let max_name_length = max.name_length;
+    let max_core_length = max.core_length;
+    let max_max_core_length = max.max_core_length;
+    let max_node_length = max.node_length;
+    let max_max_node_length = max.max_node_length;
+    let max_gpu_length = max.gpu_length;
+    let max_max_gpu_length = max.max_gpu_length;
+
+    let padding = " ".repeat(4);
+
+    let header_cores = "CORES";
+    let header_nodes = "NODES";
+    let header_gpus = "GPUS";
+
+    let cores_data_width = max_core_length + 1 + max_max_core_length;
+    let nodes_data_width = max_node_length + 1 + max_max_node_length;
+    let gpus_data_width = max_gpu_length + 1 + max_max_gpu_length;
+
+    let final_cores_width = cores_data_width.max(header_cores.len());
+    let final_nodes_width = nodes_data_width.max(header_nodes.len());
+    let final_gpus_width = gpus_data_width.max(header_gpus.len());
+
+    //let cores_col_width = max_core_length + 1 + max_max_core_length;
+    //let nodes_col_width = max_node_length + 1 + max_max_node_length;
+    //let gpus_col_width = max_gpu_length + 1 + max_max_gpu_length;
+
+    // We left-align (`:<`) the header text within the final calculated column width.
+    let header_line = format!(
+        "{:<max_name_length$}{}{:<final_cores_width$}{}{:<final_nodes_width$}{}{:<final_gpus_width$}",
+        "", // Placeholder for the account name column
+        padding,
+        header_cores,
+        padding,
+        header_nodes,
+        padding,
+        header_gpus
+    );
+
+    //let header_line = format!(
+    //    "{:<max_name_length$}{}{:<cores_col_width$}{}{:<nodes_col_width$}{}{:<gpus_col_width$}",
+    //    " ", 
+    //    padding,
+    //    header_cores,
+    //    padding,
+    //    header_nodes,
+    //    padding,
+    //    header_gpus
+    //);
+
+    println!("{}", header_line);
+
+    for acc in accounts {
+        // First, create the "value/max" string for each column for this specific account
+        let cores_str = format!("{:>max_core_length$}/{:>max_max_core_length$}", acc.cores, acc.max_cores);
+        let nodes_str = format!("{:>max_node_length$}/{:>max_max_node_length$}", acc.nodes, acc.max_nodes);
+        let gpus_str = format!("{:>max_gpu_length$}/{:>max_max_gpu_length$}", acc.gpus, acc.max_gpus);
+
+        // Now, format the full line, left-aligning each data string within the final column width.
+        // This ensures the start of each data string aligns perfectly with the start of its header.
+        let data_line = format!(
+            "{:<max_name_length$}{}{:<final_cores_width$}{}{:<final_nodes_width$}{}{:<final_gpus_width$}",
+            acc.account,
+            padding,
+            cores_str,
+            padding,
+            nodes_str,
+            padding,
+            gpus_str,
+        );
+        println!("{}", data_line);
+    }
+
+    //for acc in &accounts {
+    //    let line = format!("{:<max_name_length$}{}{:>max_core_length$}/{:>max_max_core_length$}{}{:>max_node_length$}/{:>max_max_node_length$}{}{:>max_gpu_length$}/{:>max_max_gpu_length$}", 
+    //        acc.account, 
+    //        padding,
+    //        acc.cores,
+    //        acc.max_cores,
+    //        padding,
+    //        acc.nodes,
+    //        acc.max_nodes,
+    //        padding,
+    //        acc.gpus,
+    //        acc.max_gpus,
+    //    );
+    //
+    //    println!("{}", line);
+    //}
+
+    // iterate through, get the lengths of each set of printed components, align them as we did in
+    // the report, and then print
+}
+

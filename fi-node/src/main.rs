@@ -2,16 +2,19 @@ pub mod report;
 pub mod summary_report;
 pub mod tree_report;
 pub mod tui;
+pub mod limits;
 
 use clap::Parser;
 use fi_slurm::nodes::{NodeState, SlurmNodes};
 use std::collections::{HashMap, HashSet};
-use fi_slurm::jobs::{SlurmJobs, enrich_jobs_with_node_ids};
-use fi_slurm::{jobs, nodes, utils::{SlurmConfig, initialize_slurm}};
-use fi_slurm::filter::{self, gather_all_features};
+use fi_slurm::jobs::{enrich_jobs_with_node_ids, JobState, SlurmJobs, AccountJobUsage, print_accounts, get_jobs, FilterMethod};
+use fi_slurm::utils::{SlurmConfig, initialize_slurm};
+use fi_slurm::nodes::get_nodes;
+use fi_slurm::filter::{gather_all_features, filter_nodes_by_feature};
 use crate::tui::app::tui_execute;
+use limits::{print_limits, leaderboard};
 
-use fi_slurm_db::acct::print_user_info;
+use fi_slurm_db::acct::{TresMax, get_tres_info};
 
 use std::time::Instant;
 use chrono::{DateTime, Utc};
@@ -45,16 +48,22 @@ fn main() -> Result<(), String> {
     // non-trivial functions of the Slurm API
     initialize_slurm();
 
-    let qos_name = if !args.qn.is_empty() {
-        args.qn.first()
+    if !args.leaderboard.is_empty() {
+        let top_n = args.leaderboard.first().unwrap_or(&10);
+        leaderboard(*top_n);
+
+        return Ok(())
+    }
+
+    let qos_name = if !args.user.is_empty() {
+        args.user.first()
     } else {
         None
     };
 
-    if args.qos {
-        //let name = "nposner";
-        //println!("{}", name);
-        print_user_info(qos_name.cloned()); //None case tries to get name from OS
+    if args.limits {
+        print_limits(qos_name);
+
         return Ok(())
     }
 
@@ -72,10 +81,10 @@ fn main() -> Result<(), String> {
     // Load Data 
     if args.debug { println!("Starting to load Slurm data: {:?}", start.elapsed()); }
 
-    let mut nodes_collection = nodes::get_nodes()?;
+    let mut nodes_collection = get_nodes()?;
     if args.debug { println!("Finished loading node data from Slurm: {:?}", start.elapsed()); }
 
-    let mut jobs_collection = jobs::get_jobs()?;
+    let mut jobs_collection = get_jobs()?;
     if args.debug { println!("Finished loading job data from Slurm: {:?}", start.elapsed()); }
 
     enrich_jobs_with_node_ids(&mut jobs_collection, &nodes_collection.name_to_id);
@@ -94,7 +103,7 @@ fn main() -> Result<(), String> {
         Some(preempt_node(&mut nodes_collection, &node_to_job_map, &jobs_collection))
     } else { None };
 
-    let filtered_nodes = filter::filter_nodes_by_feature(&nodes_collection, &args.feature, args.exact);
+    let filtered_nodes = filter_nodes_by_feature(&nodes_collection, &args.feature, args.exact);
     if args.debug && !args.feature.is_empty() { println!("Finished filtering data: {:?}", start.elapsed()); }
 
     // validating input
@@ -178,7 +187,7 @@ fn build_node_to_job_map(slurm_jobs: &SlurmJobs) -> HashMap<usize, Vec<u32>> {
     let mut node_to_job_map: HashMap<usize, Vec<u32>> = HashMap::new();
 
     for job in slurm_jobs.jobs.values() {
-        if job.job_state != crate::jobs::JobState::Running || job.node_ids.is_empty() {
+        if job.job_state != JobState::Running || job.node_ids.is_empty() {
             continue;
         }
         for &node_id in &job.node_ids {
@@ -337,10 +346,12 @@ struct Args {
     #[arg(help = "Prints the top-level summary report for each feature type")]
     summary: bool,
     #[arg(long)]
-    #[arg(help = "Query Slurm for per-user QoS information")]
-    qos: bool,
+    #[arg(help = "Query Slurm for information on cluster limits")]
+    limits: bool,
+    #[arg(short, long)]
+    user: Vec<String>,
     #[arg(long)]
-    qn: Vec<String>,
+    leaderboard: Vec<usize>,
 }
 
 
