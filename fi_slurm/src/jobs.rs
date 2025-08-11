@@ -452,7 +452,7 @@ pub fn print_accounts(accounts: Vec<AccountJobUsage>) {
     let header_gpus = "GPUS";
 
 
-    let max: &MaxAcctUsage = &accounts.iter().fold(MaxAcctUsage::default(), |mut accumulator, &acc| {
+    let max: &MaxAcctUsage = &accounts.iter().fold(MaxAcctUsage::default(), |mut accumulator, acc| {
         accumulator.name_length = accumulator.name_length.max(acc.account.len());
         accumulator.core_length = accumulator.core_length.max(acc.cores.to_string().len());
         accumulator.max_core_length = accumulator.max_core_length.max(acc.max_cores.to_string().len());
