@@ -350,8 +350,8 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
     const HEADER_NODES: &str = "NODES";
     const HEADER_CPUS_PREEMPT: &str = "CORES (PREEMPTABLE) ";
     const HEADER_CPUS: &str = "CORES";
-    const HEADER_NODE_AVAIL: &str = "NODES AVAIL.";
-    const HEADER_CPU_AVAIL: &str = "CORES AVAIL.";
+    const HEADER_NODE_AVAIL: &str = "AVAIL.";
+    const HEADER_CPU_AVAIL: &str = "AVAIL.";
 
     // Calculate Column Widths
     let max_feature_width = calculate_max_width(root, 0).max(HEADER_FEATURE.len()) - 4;
@@ -451,7 +451,7 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
 
     // Print Headers with left-alignment
     println!(
-        "{:<feature_w$} {:<nodes_w$}  {:<bar_w$}{:<cpus_w$}  {:<bar_w$}",
+        "{:<feature_w$} {:<nodes_w$}  {:^bar_w$}{:<cpus_w$}  {:^bar_w$}",
         HEADER_FEATURE.bold(),
         if preempt {HEADER_NODES_PREEMPT.bold()} else {HEADER_NODES.bold()},
         HEADER_NODE_AVAIL.bold(),
