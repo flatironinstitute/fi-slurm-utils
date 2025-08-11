@@ -19,11 +19,23 @@ pub fn print_limits(qos_name: Option<&String>) {
     let mut user_usage: Vec<AccountJobUsage> = Vec::new();
     let mut center_usage: Vec<AccountJobUsage> = Vec::new();
 
+
+    // get the user ACCT, other, SCC, etc
+    // and further use that
+
+
+    //CENTER LIMITS ({acct})
     accounts.iter().for_each(|a| {
         let group = a.clone().name;
 
         let center_jobs = jobs_collection.clone()
             .filter_by(FilterMethod::Partition(group.clone()));
+            
+
+
+
+            //...
+            //.filter_by(FilterMethod::Account(group.clone()));
 
         let center_gres_count = center_jobs.get_gres_total();
 

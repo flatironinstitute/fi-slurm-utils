@@ -372,6 +372,7 @@ fn get_qos_info(mut db_conn: DbConn, assocs: &[SlurmAssoc]) -> Vec<Vec<SlurmQos>
                     "eval".to_string(), 
                     "gen".to_string(), 
                     "preempt".to_string(),
+                    "genx".to_string(),
                     "sljks".to_string(), //dummy
                 ]),
                 format_list: None,
