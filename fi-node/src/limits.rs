@@ -1,7 +1,9 @@
-use std::collections::HashMap;
-use fi_slurm::jobs::{JobState, get_jobs, AccountJobUsage, print_accounts, FilterMethod};
+use std::collections::{HashMap, HashSet};
+use fi_slurm::{jobs::{get_jobs, print_accounts, AccountJobUsage, FilterMethod, JobState}, nodes::get_nodes};
 use users::get_current_username;
 use fi_slurm_db::acct::{TresMax, get_tres_info};
+
+use crate::build_node_to_job_map;
 
 pub fn print_limits(qos_name: Option<&String>) {
 
@@ -92,6 +94,74 @@ pub fn leaderboard(top_n: usize) {
     let jobs_collection = get_jobs().unwrap();
 
     jobs_collection.jobs.iter().for_each(|(_, job)| {
+        if job.job_state == JobState::Running {
+            let usage = map.entry(job.user_name.clone()).or_insert((0, 0)); //(job.user_name, (job.num_nodes, job.num_cpus))
+
+            usage.0 += job.num_nodes;
+            usage.1 += job.num_cpus;
+        }
+    });
+
+    let mut sorted_scores: Vec<(&String, &(u32, u32))> = map.iter().collect();
+
+    sorted_scores.sort_by(|a, b| b.1.cmp(a.1));
+
+    for (position, (user, score)) in sorted_scores.iter().enumerate().take(top_n) {
+        let rank = position + 1;
+        let padding = if rank > 9 { "" } else {" "}; // just valid for the first 100
+        // let (initial, surname) = user.split_at_checked(1).unwrap_or(("Dr", "Evil"));
+        println!("{}. {} {} is using {} nodes and {} cores", rank, padding, user, score.0, score.1);
+    }
+}
+
+pub fn leaderboard_feature(top_n: usize, features: Vec<String>) {
+    let mut map: HashMap<String, (u32, u32)> = HashMap::new();
+
+    let jobs_collection = get_jobs().unwrap();
+
+    let nodes_collection = get_nodes().unwrap();
+
+    // keys are node host ids, values are job ids running on those nodes
+    let node_to_job_map = build_node_to_job_map(&jobs_collection);
+
+    // now process this 
+    // goal: collect only the jobs where at least one of its allocated nodes has at least one of
+    // the stated features
+    // we can just go through the nodes, collect all the ids where this is the case, and then use
+    // this to filter the jobs
+
+
+    let filtered_nodes: Vec<Node> = if features.len() == 1 {
+        let feature = features.first().unwrap();
+        nodes_collection.nodes.iter().filter(|node| {
+            node.features.contains(feature)
+        }).collect()
+    } else {
+        let features_set: HashSet<String> = HashSet::from(features);
+
+        nodes_collection.nodes.iter().filter(|node| {
+            node.features.iter().any(|item| features_set.contains(item))
+        }).collect()
+    };
+
+    
+    let mut filtered_job_ids: Vec<u32> = Vec::new();
+
+    filtered_nodes.iter().for_each(|node| {
+        if let Some(jobs) = node_to_job_map.get(&node.id) {
+            filtered_job_ids.extend(jobs)
+        }
+    });
+
+    // final stretch, we filter those jobs whose ids are in here
+    // is there a way to do this with fewer filtering steps?
+
+    let filtered_jobs_collection = jobs_collection
+        .filter_by(FilterMethod::JobIds(filtered_job_ids));
+
+
+
+    filtered_jobs_collection.jobs.iter().for_each(|(_, job)| {
         if job.job_state == JobState::Running {
             let usage = map.entry(job.user_name.clone()).or_insert((0, 0)); //(job.user_name, (job.num_nodes, job.num_cpus))
 
