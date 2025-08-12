@@ -73,7 +73,7 @@ impl AssocConfig {
 }
 
 /// Wrapper owning heap-allocated Slurm user condition struct
-struct UserQueryInfo {
+pub struct UserQueryInfo {
     user: *mut slurmdb_user_cond_t,
 }
 
