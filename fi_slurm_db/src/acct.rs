@@ -369,6 +369,7 @@ fn get_qos_info(mut db_conn: DbConn, assocs: &[SlurmAssoc]) -> Vec<Vec<SlurmQos>
                     target_assoc.acct.clone(), 
                     "inter".to_string(), 
                     "gpu".to_string(), 
+                    "gpupreempt".to_string(), 
                     "gpuxl".to_string(), 
                     "eval".to_string(), 
                     "gen".to_string(), 
