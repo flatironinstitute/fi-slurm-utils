@@ -36,12 +36,6 @@ pub fn print_limits(qos_name: Option<&String>) {
         let center_jobs = jobs_collection.clone()
             .filter_by(FilterMethod::Partition(group.clone()))
             .filter_by(FilterMethod::Account(user_acct.clone())); 
-            
-
-
-
-            //...
-            //.filter_by(FilterMethod::Account(group.clone()));
 
         let center_gres_count = center_jobs.get_gres_total();
 
@@ -88,7 +82,7 @@ pub fn print_limits(qos_name: Option<&String>) {
     println!("\nUser Limits");
     print_accounts(user_usage);
 
-    println!("\nCenter Limits");
+    println!("\nCenter Limits ({})", user_acct);
     print_accounts(center_usage);
 }
 
