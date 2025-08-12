@@ -439,7 +439,7 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
             let node_names = &group.summary.node_names.clone();
 
         println!(
-            "{}{}{}{}{}{}{}{} | {}",
+            "{}{}{}{}{}{}{}{}   {}",
             state_comp.colored_text,
             state_comp.padding,
             padding_str,
@@ -450,16 +450,6 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
             gpu_comp.text,
             if show_node_names {fi_slurm::parser::compress_hostlist(node_names)} else {"".to_string()}
         );
-
-            // // FIX: Print each component separately to ensure alignment.
-            // print!("{}{}", state_comp.colored_text, state_comp.padding);
-            // print!("{}", padding_str);
-            // print!("{}", count_comp.text);
-            // print!("{}", padding_str);
-            // print!("{}", cpu_comp.text);
-            // print!("{}", padding_str);
-            // println!("{}", gpu_comp.text);
-            // println!("{}", if show_node_names {fi_slurm::parser::compress_hostlist(node_names)} else {"".to_string()});
 
             let mut sorted_subgroups: Vec<&String> = group.subgroups.keys().collect();
             sorted_subgroups.sort();
@@ -484,14 +474,6 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
                         gpu_comp.text,
                         if show_node_names {fi_slurm::parser::compress_hostlist(node_names)} else {"".to_string()}
                     );
-                    // print!("{}{}", state_comp.colored_text, state_comp.padding);
-                    // print!("{}", padding_str);
-                    // print!("{}", count_comp.text);
-                    // print!("{}", padding_str);
-                    // print!("{}", cpu_comp.text);
-                    // print!("{}", padding_str);
-                    // println!("{}", gpu_comp.text);
-                    // println!("{}", if show_node_names {fi_slurm::parser::compress_hostlist(node_names)} else {"".to_string()});
                 }
             }
         }
