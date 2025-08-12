@@ -48,11 +48,14 @@ fn main() -> Result<(), String> {
     // non-trivial functions of the Slurm API
     initialize_slurm();
 
-    if !args.leaderboard.is_empty() {
-        let top_n = args.leaderboard.first().unwrap_or(&10);
-        leaderboard(*top_n);
+    match args.leaderboard {
+        None => {}, // do nothing
+        Some(num) => { // number is imputed from default of 20
+            // let top_n = args.leaderboard.unwrap_or(&20);
+            leaderboard(*num);
 
-        return Ok(())
+            return Ok(())
+        }
     }
 
     let qos_name = if !args.user.is_empty() {
@@ -351,7 +354,9 @@ struct Args {
     #[arg(short, long)]
     user: Vec<String>,
     #[arg(long)]
-    leaderboard: Vec<usize>,
+    #[arg(num_args(0..=1))]
+    #[arg(default_missing_value = 20)]
+    leaderboard: Option<usize>,
 }
 
 
