@@ -291,7 +291,7 @@ impl SlurmJobs {
         // or the user name, just pass those back out, no need to change the other fields.
         self.jobs.retain(|_, job| { 
             match &method { 
-                FilterMethod::JobIds(ids) => *ids.contains(&job.job_id),
+                FilterMethod::JobIds(ids) => ids.contains(&job.job_id),
                 FilterMethod::UserId(id) => *id == job.user_id,
                 FilterMethod::UserName(name) => *name == job.user_name,
                 FilterMethod::Partition(partition) => *partition == job.partition,
