@@ -412,8 +412,8 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
     
     // Calculate the exact width of the data part of each column
     let count_data_width = report_widths.count_width;
-    let cpu_data_width = report_widths.alloc_or_idle_cpu_width + report_widths.total_cpu_width + 1;
-    let gpu_data_width = report_widths.alloc_or_idle_gpu_width + report_widths.total_gpu_width + 1;
+    let cpu_data_width = report_widths.alloc_or_idle_cpu_width + report_widths.total_cpu_width;
+    let gpu_data_width = report_widths.alloc_or_idle_gpu_width + report_widths.total_gpu_width;
 
     // Format each header to be aligned within its data column's width
     let state_header_formatted = format!("{:<width$}", state_header.bold(), width = report_widths.state_width);
