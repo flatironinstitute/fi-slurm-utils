@@ -55,6 +55,7 @@ fn main() -> Result<(), String> {
             if args.feature.is_empty() {
                 leaderboard(num);
             } else {
+                println!("{}", args.feature);
                 leaderboard_feature(num, args.feature);
             }
 
