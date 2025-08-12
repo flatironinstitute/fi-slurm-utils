@@ -41,7 +41,6 @@ fn main() {
 
     if args.limits {
         print_limits(qos_name);
-
     }
 
 }
@@ -50,6 +49,7 @@ fn main() {
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = "This command-line and terminal application was built by Lehman Garrison, Nicolas Posner, Dylan Simon, and Alex Chavkin at the Scientific Computing Core of the Flatiron Institute. By default, it displays the availability of different node types as a tree diagram, as queried from the locally running instance of Slurm. For support, contact nposner@flatironinstitute.org")]
 struct Args {
+    #[arg(long)]
     limits: bool,
     #[arg(short, long)]
     user: Vec<String>,
