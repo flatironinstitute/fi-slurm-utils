@@ -7,23 +7,24 @@ use crate::limits::{leaderboard_feature, leaderboard, print_limits};
 
 
 
-fn main() {
+fn main() -> Result<(), String> {
 
     let args = Args::parse();
 
     initialize_slurm();
-    let _slurm_config = SlurmConfig::load().unwrap();
+    let _slurm_config = SlurmConfig::load()?;
     // not clear we need to load config, but let's test that later
 
     match args.leaderboard {
         None => {}, // do nothing
         Some(num) => { // number is imputed from default of 20
-            // let top_n = args.leaderboard.unwrap_or(&20);
-            if args.feature.is_empty() {
+            if args.filter.is_empty() {
                 leaderboard(num);
+                return Ok(())
             } else {
-                println!("{:?}", args.feature);
-                leaderboard_feature(num, args.feature);
+                println!("{:?}", args.filter);
+                leaderboard_feature(num, args.filter);
+                return Ok(())
             }
         }
     }
@@ -34,9 +35,9 @@ fn main() {
         None
     };
 
-    if args.limits {
-        print_limits(qos_name);
-    }
+    // make this the default if the leaderboard is not in use
+    print_limits(qos_name);
+    return Ok(())
 
 }
 
@@ -48,8 +49,9 @@ struct Args {
     limits: bool,
     #[arg(short, long)]
     user: Vec<String>,
+    #[arg(short, long)]
     #[arg(help = "Select individual features to filter by. `icelake` would only show information for icelake nodes. \n For multiple features, separate them with spaces, such as `genoa gpu skylake`")]
-    feature: Vec<String>,
+    filter: Vec<String>,
     #[arg(long)]
     #[arg(num_args(0..=1))]
     #[arg(default_missing_value = "20")]
