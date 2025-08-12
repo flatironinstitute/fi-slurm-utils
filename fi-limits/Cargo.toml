@@ -1,0 +1,13 @@
+[package]
+name = "fi_limits"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+clap = { version = "4.5.40", features = ["derive"] }
+fi_slurm = {path = "../fi_slurm"}
+fi_slurm_db = {path = "../fi_slurm_db"}
+fi_node = {path = "../fi-node"}
+users = "0.11.0"
+
+

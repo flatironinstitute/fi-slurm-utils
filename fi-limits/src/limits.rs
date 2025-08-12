@@ -3,7 +3,7 @@ use fi_slurm::{jobs::{get_jobs, print_accounts, AccountJobUsage, FilterMethod, J
 use users::get_current_username;
 use fi_slurm_db::acct::{TresMax, get_tres_info};
 use fi_slurm::nodes::Node;
-use crate::build_node_to_job_map;
+use fi_node::build_node_to_job_map;
 
 pub fn print_limits(qos_name: Option<&String>) {
 
