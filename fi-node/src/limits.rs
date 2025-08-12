@@ -143,6 +143,7 @@ pub fn leaderboard_feature(top_n: usize, features: Vec<String>) {
             node.features.iter().any(|item| features_set.contains(item))
         }).collect()
     };
+    println!("Filtered nodes: {}", filtered_nodes.len());
 
     
     let mut filtered_job_ids: Vec<u32> = Vec::new();
@@ -152,6 +153,8 @@ pub fn leaderboard_feature(top_n: usize, features: Vec<String>) {
             filtered_job_ids.extend(jobs)
         }
     });
+    
+    println!("Filtered job ids: {}", filtered_job_ids.len());
 
     // final stretch, we filter those jobs whose ids are in here
     // is there a way to do this with fewer filtering steps?
@@ -159,6 +162,7 @@ pub fn leaderboard_feature(top_n: usize, features: Vec<String>) {
     let filtered_jobs_collection = jobs_collection
         .filter_by(FilterMethod::JobIds(filtered_job_ids));
 
+    println!("filtered jobs: {}", filtered_jobs_collection.jobs.len());
 
 
     filtered_jobs_collection.jobs.iter().for_each(|(_, job)| {
