@@ -74,7 +74,7 @@ impl AssocConfig {
 
 /// Wrapper owning heap-allocated Slurm user condition struct
 pub struct UserQueryInfo {
-    user: *mut slurmdb_user_cond_t,
+    pub user: *mut slurmdb_user_cond_t,
 }
 
 impl UserQueryInfo {
@@ -233,6 +233,7 @@ impl Drop for SlurmUserList {
 
 
 #[derive(Debug)]
+#[allow(dead_code)]
 struct SlurmAssoc {
     acct: String,
     id: u32,
@@ -351,10 +352,10 @@ fn process_user_list(user_list: SlurmUserList) -> Result<Vec<SlurmUser>, QosErro
 }
 
 
-struct QosJobInfo {
-    user_acct: String,
-    qos: Vec<Vec<SlurmQos>>,
-    jobs: Vec<SlurmJobs>,
+pub struct QosJobInfo {
+    pub user_acct: String,
+    pub qos: Vec<Vec<SlurmQos>>,
+    pub jobs: Vec<SlurmJobs>,
 }
 
 fn get_qos_info(mut db_conn: DbConn, assocs: &[SlurmAssoc]) -> Vec<Vec<SlurmQos>> {
