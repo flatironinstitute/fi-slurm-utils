@@ -30,6 +30,10 @@ fn main() -> Result<(), String> {
 
     let args = Args::parse();
 
+    if args.leaderboard {
+        println!(" \n We've moved! For the leaderboard, please check out the new fi-limits utility, currently at `~nposner/bin/fi-limits`!")
+    }
+
     if args.term {
         let _ = tui_execute();
         return Ok(())
@@ -323,6 +327,8 @@ struct Args {
     #[arg(short, long)]
     #[arg(help = "Prints the top-level summary report for each feature type")]
     summary: bool,
+    #[arg(long)]
+    leaderboard: bool,
 }
 
 
