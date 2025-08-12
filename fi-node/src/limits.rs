@@ -131,13 +131,13 @@ pub fn leaderboard_feature(top_n: usize, features: Vec<String>) {
     // this to filter the jobs
 
 
-    let filtered_nodes: Vec<Node> = if features.len() == 1 {
+    let filtered_nodes: Vec<&Node> = if features.len() == 1 {
         let feature = features.first().unwrap();
         nodes_collection.nodes.iter().filter(|node| {
             node.features.contains(feature)
         }).collect()
     } else {
-        let features_set: HashSet<String> = features.iter().collect();
+        let features_set: HashSet<String> = HashSet::from_iter(features.iter().cloned());
 
         nodes_collection.nodes.iter().filter(|node| {
             node.features.iter().any(|item| features_set.contains(item))
