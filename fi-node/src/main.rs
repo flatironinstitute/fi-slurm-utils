@@ -12,7 +12,7 @@ use fi_slurm::utils::{SlurmConfig, initialize_slurm};
 use fi_slurm::nodes::get_nodes;
 use fi_slurm::filter::{gather_all_features, filter_nodes_by_feature};
 use crate::tui::app::tui_execute;
-use limits::{print_limits, leaderboard};
+use limits::{leaderboard, leaderboard_feature, print_limits};
 
 use fi_slurm_db::acct::{TresMax, get_tres_info};
 
@@ -52,7 +52,12 @@ fn main() -> Result<(), String> {
         None => {}, // do nothing
         Some(num) => { // number is imputed from default of 20
             // let top_n = args.leaderboard.unwrap_or(&20);
-            leaderboard(num);
+            if args.feature.is_empty() {
+                leaderboard(num);
+            } else {
+                leaderboard_feature(num, args.feature);
+            }
+
 
             return Ok(())
         }
