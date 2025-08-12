@@ -372,6 +372,7 @@ fn get_qos_info(mut db_conn: DbConn, assocs: &[SlurmAssoc]) -> Vec<Vec<SlurmQos>
                     "eval".to_string(), 
                     "gen".to_string(), 
                     "preempt".to_string(),
+                    "genx".to_string(),
                     "sljks".to_string(), //dummy
                 ]),
                 format_list: None,
@@ -586,10 +587,10 @@ impl TresMax {
         tres.split(',').for_each(|t| {
             if let Some((category, quantity)) = t.split_once('=') {
                 match category {
-                    "1" => init.max_cores = Some(quantity.parse::<u32>().unwrap_or(1)),
-                    "2" => init.max_memory = Some(quantity.parse::<u32>().unwrap_or(1)),
-                    "4" => init.max_nodes = Some(quantity.parse::<u32>().unwrap_or(1)),
-                    "1001" => init.max_gpus = Some(quantity.parse::<u32>().unwrap_or(1)),
+                    "1" => init.max_cores = Some(quantity.parse::<u32>().unwrap_or(8675309)),
+                    "2" => init.max_memory = Some(quantity.parse::<u32>().unwrap_or(8675309)),
+                    "4" => init.max_nodes = Some(quantity.parse::<u32>().unwrap_or(8675309)),
+                    "1001" => init.max_gpus = Some(quantity.parse::<u32>().unwrap_or(8675309)),
                     _ => (),
                 };
                 //format!(" {quantity} {unit}")

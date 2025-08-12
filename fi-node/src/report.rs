@@ -406,19 +406,20 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
 
     // --- Print Headers ---
     
-    let cpu_header = if allocated { "CPU (A/T)" } else { "CPU (I/T)" };
-    let gpu_header = if allocated { "GPU (A/T)" } else { "GPU (I/T)" };
+    let state_header = if allocated {"STATE (Alloc/Total)"} else {"STATE (Idle/Total)"};
+    let cpu_header = "CPU"; //if allocated { "CPU" } else { "CPU" };
+    let gpu_header = "GPU";// if allocated { "GPU" } else { "GPU" };
     
     // Calculate the exact width of the data part of each column
     let count_data_width = report_widths.count_width;
-    let cpu_data_width = report_widths.alloc_or_idle_cpu_width + report_widths.total_cpu_width + 1;
-    let gpu_data_width = report_widths.alloc_or_idle_gpu_width + report_widths.total_gpu_width + 1;
+    let cpu_data_width = report_widths.alloc_or_idle_cpu_width + report_widths.total_cpu_width;
+    let gpu_data_width = report_widths.alloc_or_idle_gpu_width + report_widths.total_gpu_width;
 
     // Format each header to be aligned within its data column's width
-    let state_header_formatted = format!("{:<width$}", "STATE".bold(), width = report_widths.state_width);
-    let count_header_formatted = format!("{:<width$}", "COUNT".bold(), width = count_data_width);
-    let cpu_header_formatted = format!("{:<width$}", cpu_header.bold(), width = cpu_data_width);
-    let gpu_header_formatted = format!("{:<width$}", gpu_header.bold(), width = gpu_data_width);
+    let state_header_formatted = format!("{:<width$}", state_header.bold(), width = report_widths.state_width);
+    let count_header_formatted = format!("{:>width$}", "COUNT".bold(), width = count_data_width);
+    let cpu_header_formatted = format!("{:>width$}", "CPU".bold(), width = cpu_data_width);
+    let gpu_header_formatted = format!("{:>width$}", "GPU".bold(), width = gpu_data_width);
 
     // Print each formatted header followed by the padding string, mirroring the data row printing
     print!("{}{}", state_header_formatted, padding_str);
@@ -439,7 +440,7 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
             let node_names = &group.summary.node_names.clone();
 
         println!(
-            "{}{}{}{}{}{}{}{} | {}",
+            "{}{}{}{}{}{}{}{}   {}",
             state_comp.colored_text,
             state_comp.padding,
             padding_str,
@@ -450,16 +451,6 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
             gpu_comp.text,
             if show_node_names {fi_slurm::parser::compress_hostlist(node_names)} else {"".to_string()}
         );
-
-            // // FIX: Print each component separately to ensure alignment.
-            // print!("{}{}", state_comp.colored_text, state_comp.padding);
-            // print!("{}", padding_str);
-            // print!("{}", count_comp.text);
-            // print!("{}", padding_str);
-            // print!("{}", cpu_comp.text);
-            // print!("{}", padding_str);
-            // println!("{}", gpu_comp.text);
-            // println!("{}", if show_node_names {fi_slurm::parser::compress_hostlist(node_names)} else {"".to_string()});
 
             let mut sorted_subgroups: Vec<&String> = group.subgroups.keys().collect();
             sorted_subgroups.sort();
@@ -473,7 +464,7 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
                     let node_names = &line.node_names.clone();
                     
                     println!(
-                        "{}{}{}{}{}{}{}{} | {}",
+                        "{}{}{}{}{}{}{}{}   {}",
                         state_comp.colored_text,
                         state_comp.padding,
                         padding_str,
@@ -484,14 +475,6 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
                         gpu_comp.text,
                         if show_node_names {fi_slurm::parser::compress_hostlist(node_names)} else {"".to_string()}
                     );
-                    // print!("{}{}", state_comp.colored_text, state_comp.padding);
-                    // print!("{}", padding_str);
-                    // print!("{}", count_comp.text);
-                    // print!("{}", padding_str);
-                    // print!("{}", cpu_comp.text);
-                    // print!("{}", padding_str);
-                    // println!("{}", gpu_comp.text);
-                    // println!("{}", if show_node_names {fi_slurm::parser::compress_hostlist(node_names)} else {"".to_string()});
                 }
             }
         }
