@@ -524,7 +524,6 @@ name = "fi_limits"
 version = "0.1.0"
 dependencies = [
  "clap",
- "fi_node",
  "fi_slurm",
  "fi_slurm_db",
  "users",

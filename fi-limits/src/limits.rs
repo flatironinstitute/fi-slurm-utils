@@ -1,9 +1,8 @@
 use std::collections::{HashMap, HashSet};
-use fi_slurm::{jobs::{get_jobs, print_accounts, AccountJobUsage, FilterMethod, JobState}, nodes::get_nodes};
+use fi_slurm::{jobs::{get_jobs, print_accounts, AccountJobUsage, FilterMethod, JobState, SlurmJobs}, nodes::get_nodes};
 use users::get_current_username;
 use fi_slurm_db::acct::{TresMax, get_tres_info};
 use fi_slurm::nodes::Node;
-use fi_node::build_node_to_job_map;
 
 pub fn print_limits(qos_name: Option<&String>) {
 
@@ -187,3 +186,19 @@ pub fn leaderboard_feature(top_n: usize, features: Vec<String>) {
         println!("{}. {} {} is using {} nodes and {} cores", rank, padding, user, score.0, score.1);
     }
 }
+
+
+fn build_node_to_job_map(slurm_jobs: &SlurmJobs) -> HashMap<usize, Vec<u32>> {
+    let mut node_to_job_map: HashMap<usize, Vec<u32>> = HashMap::new();
+
+    for job in slurm_jobs.jobs.values() {
+        if job.job_state != JobState::Running || job.node_ids.is_empty() {
+            continue;
+        }
+        for &node_id in &job.node_ids {
+            node_to_job_map.entry(node_id).or_default().push(job.job_id);
+        }
+    }
+    node_to_job_map
+}
+
