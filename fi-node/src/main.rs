@@ -6,13 +6,12 @@ pub mod tui;
 use clap::Parser;
 use fi_slurm::nodes::{NodeState, SlurmNodes};
 use std::collections::{HashMap, HashSet};
-use fi_slurm::jobs::{enrich_jobs_with_node_ids, JobState, SlurmJobs, AccountJobUsage, print_accounts, get_jobs, FilterMethod};
+use fi_slurm::jobs::{enrich_jobs_with_node_ids, JobState, SlurmJobs, get_jobs};
 use fi_slurm::utils::{SlurmConfig, initialize_slurm};
 use fi_slurm::nodes::get_nodes;
 use fi_slurm::filter::{gather_all_features, filter_nodes_by_feature};
 use crate::tui::app::tui_execute;
 
-use fi_slurm_db::acct::{TresMax, get_tres_info};
 
 use std::time::Instant;
 use chrono::{DateTime, Utc};
