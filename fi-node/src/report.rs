@@ -407,8 +407,6 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
     // --- Print Headers ---
     
     let state_header = if allocated {"STATE (Alloc/Total)"} else {"STATE (Idle/Total)"};
-    let cpu_header = "CPU"; //if allocated { "CPU" } else { "CPU" };
-    let gpu_header = "GPU";// if allocated { "GPU" } else { "GPU" };
     
     // Calculate the exact width of the data part of each column
     let count_data_width = report_widths.count_width;
