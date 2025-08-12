@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use fi_slurm::{jobs::{get_jobs, print_accounts, AccountJobUsage, FilterMethod, JobState}, nodes::get_nodes};
 use users::get_current_username;
 use fi_slurm_db::acct::{TresMax, get_tres_info};
-
+use fi_slurm::nodes::Node;
 use crate::build_node_to_job_map;
 
 pub fn print_limits(qos_name: Option<&String>) {
@@ -137,7 +137,7 @@ pub fn leaderboard_feature(top_n: usize, features: Vec<String>) {
             node.features.contains(feature)
         }).collect()
     } else {
-        let features_set: HashSet<String> = HashSet::from(features);
+        let features_set: HashSet<String> = features.iter().collect();
 
         nodes_collection.nodes.iter().filter(|node| {
             node.features.iter().any(|item| features_set.contains(item))
