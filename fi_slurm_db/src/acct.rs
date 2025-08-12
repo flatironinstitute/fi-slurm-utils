@@ -469,7 +469,7 @@ pub fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) ->
     let acct = &user.associations.first().unwrap().acct;
 
     Ok(QosJobInfo {
-        user_acct: acct,
+        user_acct: acct.to_string(),
         qos: qos_vec,
         jobs: jobs_vec,
     })
