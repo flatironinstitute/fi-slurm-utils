@@ -170,6 +170,8 @@ pub fn leaderboard_feature(top_n: usize, features: Vec<String>) {
         }
     });
 
+    println!("{}", map.len());
+
     let mut sorted_scores: Vec<(&String, &(u32, u32))> = map.iter().collect();
 
     sorted_scores.sort_by(|a, b| b.1.cmp(a.1));
