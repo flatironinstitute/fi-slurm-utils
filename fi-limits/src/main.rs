@@ -43,10 +43,8 @@ fn main() -> Result<(), String> {
 
 
 #[derive(Parser, Debug)]
-#[command(version, about, long_about = "This command-line and terminal application was built by Lehman Garrison, Nicolas Posner, Dylan Simon, and Alex Chavkin at the Scientific Computing Core of the Flatiron Institute. By default, it displays the availability of different node types as a tree diagram, as queried from the locally running instance of Slurm. For support, contact nposner@flatironinstitute.org")]
+#[command(version, about, long_about = "This command-line and terminal application was built by Lehman Garrison, Nicolas Posner, Dylan Simon, and Alex Chavkin at the Scientific Computing Core of the Flatiron Institute. By default, it displays the current resource usage and limits of the user and their center.")]
 struct Args {
-    #[arg(long)]
-    limits: bool,
     #[arg(short, long)]
     user: Vec<String>,
     #[arg(short, long)]
@@ -55,6 +53,7 @@ struct Args {
     #[arg(long)]
     #[arg(num_args(0..=1))]
     #[arg(default_missing_value = "20")]
+    #[arg(help = "Display a leaderboard of current cluster use by user, according to node and core use. If no number is passed, it defaults to showing the top 20")]
     leaderboard: Option<usize>,
 }
 
