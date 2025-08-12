@@ -1,6 +1,3 @@
-Description of how the Rust-C API works and how to extend it with future development
-
-
 The `fi_slurm` crate contains an API for querying the Slurm daemon from Rust. It is centered on a read-only pattern in two steps: requesting data from Slurm with pointers, and transferring data from C to Rust. We shall demonstrate with the example of the top-level `get_jobs()` API function.
 
 We first call the `RawSlurmJobInfo` struct's `load()` method, which initializes a raw pointer to memory owned by the `job_info_msg_t` C struct. We pass this pointer into the slurm_load_jobs C function, which we are accessing via an unsafe Rust binding.
