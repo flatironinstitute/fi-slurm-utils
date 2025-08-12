@@ -5,7 +5,7 @@ use rust_bind::bindings::{job_info, job_info_msg_t, slurm_free_job_info_msg, slu
 use crate::parser::parse_tres_str; 
 use crate::utils::{c_str_to_string, time_t_to_datetime};
 
-/// We use this struct to manage the C-allocatd memory,
+/// We use this struct to manage the C-allocated memory,
 /// automatically dropping it when it goes out of memory
 pub struct RawSlurmJobInfo {
     ptr: *mut job_info_msg_t,
