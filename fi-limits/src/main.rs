@@ -17,6 +17,8 @@ fn main() {
     let args = Args::parse();
 
     initialize_slurm();
+    let _slurm_config = SlurmConfig::load()?;
+    // not clear we need to load config, but let's test that later
 
     match args.leaderboard {
         None => {}, // do nothing
