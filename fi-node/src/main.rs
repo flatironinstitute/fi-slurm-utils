@@ -52,7 +52,7 @@ fn main() -> Result<(), String> {
         None => {}, // do nothing
         Some(num) => { // number is imputed from default of 20
             // let top_n = args.leaderboard.unwrap_or(&20);
-            leaderboard(*num);
+            leaderboard(num);
 
             return Ok(())
         }
@@ -355,7 +355,7 @@ struct Args {
     user: Vec<String>,
     #[arg(long)]
     #[arg(num_args(0..=1))]
-    #[arg(default_missing_value = 20)]
+    #[arg(default_missing_value = "20")]
     leaderboard: Option<usize>,
 }
 
