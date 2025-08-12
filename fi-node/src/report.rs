@@ -463,7 +463,7 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
                     let node_names = &line.node_names.clone();
                     
                     println!(
-                        "{}{}{}{}{}{}{}{} | {}",
+                        "{}{}{}{}{}{}{}{}   {}",
                         state_comp.colored_text,
                         state_comp.padding,
                         padding_str,
