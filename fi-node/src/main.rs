@@ -31,7 +31,8 @@ fn main() -> Result<(), String> {
     let args = Args::parse();
 
     if args.leaderboard {
-        println!(" \n We've moved! For the leaderboard, please check out the new fi-limits utility, currently at `~nposner/bin/fi-limits`!")
+        println!(" \n We've moved! For the leaderboard, please check out the new fi-limits utility, currently at `~nposner/bin/fi-limits`!");
+        return Ok(())
     }
 
     if args.term {
