@@ -305,7 +305,7 @@ fn create_avail_bar(current: u32, total: u32, width: usize, color: Color, no_col
     if total == 0 {
         // To avoid division by zero and provide clear output for empty categories
         let bar_content = " ".repeat(width);
-        return format!("|{}|", bar_content);
+        return format!("│{}│", bar_content);
     }
 
     let percentage = current as f64 / total as f64;
@@ -316,9 +316,9 @@ fn create_avail_bar(current: u32, total: u32, width: usize, color: Color, no_col
     let empty = " ".repeat(bars.1);
 
     if let Some(remainder) = bars.2 {
-        format!("|{}{}{}|", filled, remainder.color(if no_color { Color::White} else { color }), empty)
+        format!("│{}{}{}│", filled, remainder.color(if no_color { Color::White} else { color }), empty)
     } else {
-        format!("|{}{}|", filled, empty)
+        format!("│{}{}│", filled, empty)
     }
 }
 
