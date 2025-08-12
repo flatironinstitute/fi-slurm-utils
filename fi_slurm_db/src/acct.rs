@@ -352,6 +352,7 @@ fn process_user_list(user_list: SlurmUserList) -> Result<Vec<SlurmUser>, QosErro
 
 
 struct QosJobInfo {
+    user_acct: String,
     qos: Vec<Vec<SlurmQos>>,
     jobs: Vec<SlurmJobs>,
 }
@@ -465,7 +466,10 @@ pub fn get_user_info(user_query: &mut UserQueryInfo, persist_flags: &mut u16) ->
 
     let jobs_vec = get_jobs_info(db_conn_job, &user.associations, &qos_vec);
 
+    let acct = &user.associations.first().unwrap().acct;
+
     Ok(QosJobInfo {
+        user_acct: acct,
         qos: qos_vec,
         jobs: jobs_vec,
     })
@@ -481,7 +485,7 @@ pub fn print_fi_limits() {
 }
 
 
-pub fn get_tres_info(name: Option<String>) -> Vec<Vec<TresInfo>> {
+pub fn get_tres_info(name: Option<String>) -> (String, Vec<Vec<TresInfo>>) {
 
     let name = name.unwrap_or_else(|| {
         get_current_username().unwrap_or_else(|| {
@@ -504,7 +508,8 @@ pub fn get_tres_info(name: Option<String>) -> Vec<Vec<TresInfo>> {
         }).collect()
     }).collect();
 
-    tres_infos
+    let user_acct = qos_job_data.user_acct;
+    (user_acct, tres_infos)
 }
 
 #[derive(Clone)]

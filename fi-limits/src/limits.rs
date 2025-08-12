@@ -13,7 +13,10 @@ pub fn print_limits(qos_name: Option<&String>) {
         }).to_string_lossy().into_owned() // handle the rare None case
     });
 
-    let accounts = get_tres_info(Some(name.clone())).first().unwrap().clone(); //None case tries to get name from OS
+    let (user_acct, accounts_to_process) = get_tres_info(Some(name.clone())); //None case tries to get name from OS
+    
+    let accounts = accounts_to_process.first().unwrap().clone();
+    // from this, we need to get what account, like SCC, CCA, etc, the user is a part of 
 
     let jobs_collection = get_jobs().unwrap();
 
@@ -25,12 +28,14 @@ pub fn print_limits(qos_name: Option<&String>) {
     // and further use that
 
 
+
     //CENTER LIMITS ({acct})
     accounts.iter().for_each(|a| {
         let group = a.clone().name;
 
         let center_jobs = jobs_collection.clone()
-            .filter_by(FilterMethod::Partition(group.clone()));
+            .filter_by(FilterMethod::Partition(group.clone()))
+            .filter_by(FilterMethod::Account(user_acct.clone())); 
             
 
 
@@ -149,6 +154,7 @@ pub fn leaderboard_feature(top_n: usize, features: Vec<String>) {
 
     filtered_nodes.iter().for_each(|node| {
         if let Some(jobs) = node_to_job_map.get(&node.id) {
+            println!("ding!");
             filtered_job_ids.extend(jobs)
         }
     });
