@@ -4,7 +4,7 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
-use rust_bind::bindings::{partition_info, slurm_list_destroy, slurmdb_job_cond_t, slurmdb_job_rec_t, slurmdb_jobs_get, xlist};
+use rust_bind::bindings::{slurm_list_destroy, slurmdb_job_cond_t, slurmdb_job_rec_t, slurmdb_jobs_get, xlist};
 
 
 use crate::db::DbConn;
