@@ -117,7 +117,7 @@ pub fn print_limits(qos_name: Option<&String>) {
         user_usage.iter().filter(|job_usage| {
             match job_usage.account.as_str() {
                 "gen" => {
-                    gen_acc = job_usage.clone()
+                    gen_acc = job_usage.clone();
                     false
                 },
                 "inter" => { 
