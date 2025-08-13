@@ -114,17 +114,17 @@ pub fn print_limits(qos_name: Option<&String>) {
 
         // extract the gen and inter items, and remove them from user 
 
-        let gen_string = "gen".to_string();
-        let inter_string = "inter".to_string();
+        const GEN_STRING = "gen".to_string();
+        const INTER_STRING = "inter".to_string();
 
         user_usage.iter().filter(|job_usage| {
-            match job_usage.account {
-                gen_string => {
-                    gen_acc = **job_usage;
+            match &job_usage.account {
+                "gen" => {
+                    gen_acc = *job_usage;
                     false
                 },
-                inter_string => { 
-                    inter = **job_usage;
+                "inter" => { 
+                    inter = *job_usage;
                     false
                 },
                 _ => true
