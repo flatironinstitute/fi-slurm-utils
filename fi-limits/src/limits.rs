@@ -68,7 +68,7 @@ pub fn print_limits(qos_name: Option<&String>) {
             user_max_nodes, 
             user_max_cores, 
             user_max_gres,
-        ].iter().all(|i| i==0) {
+        ].iter().all(|i| *i==0) {
             user_usage.push(AccountJobUsage::new(
                 &group, 
                 user_nodes, 
@@ -86,7 +86,7 @@ pub fn print_limits(qos_name: Option<&String>) {
             center_max_nodes, 
             center_max_cores, 
             center_max_gres,
-        ].iter().all(|i| i==0) {
+        ].iter().all(|i| *i==0) {
             center_usage.push(AccountJobUsage::new(
                 &group, 
                 center_nodes, 
