@@ -79,10 +79,9 @@ pub fn print_limits(qos_name: Option<&String>) {
                 user_max_gres,
             ));
         };
+        // more expansive, don't show if there are no limits, even if there are jobs running on
+        // them
         if !vec![ 
-            center_nodes, 
-            center_cores, 
-            center_gres_count,
             center_max_nodes, 
             center_max_cores, 
             center_max_gres,
