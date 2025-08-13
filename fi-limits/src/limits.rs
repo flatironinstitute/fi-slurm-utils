@@ -114,13 +114,16 @@ pub fn print_limits(qos_name: Option<&String>) {
 
         // extract the gen and inter items, and remove them from user 
 
+        let gen_string = "gen".to_string();
+        let inter_string = "inter".to_string();
+
         user_usage.iter().filter(|job_usage| {
             match job_usage.account {
-                "gen" => {
+                gen_string => {
                     gen_acc = **job_usage;
                     false
                 },
-                "inter" => { 
+                inter_string => { 
                     inter = **job_usage;
                     false
                 },
@@ -129,7 +132,7 @@ pub fn print_limits(qos_name: Option<&String>) {
         });
 
         // creating a new line as a composite of the two
-        let gen_inter = AccountJobUsage::new(gen_acc.account, gen_acc.nodes, gen_acc.cores, gen_acc.gpus, inter.max_nodes, inter.max_cores, inter.max_gpus);
+        let gen_inter = AccountJobUsage::new(&gen_acc.account, gen_acc.nodes, gen_acc.cores, gen_acc.gpus, inter.max_nodes, inter.max_cores, inter.max_gpus);
 
         // adding it to the beginning
         user_usage.insert(0, gen_inter);
