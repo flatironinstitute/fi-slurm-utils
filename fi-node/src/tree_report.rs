@@ -64,6 +64,14 @@ fn is_node_mixed(state: &NodeState) -> bool {
     }
 }
 
+// a filter enum to decide whether we want to show only nodes with gpu, nodes without gpu, or show
+// both
+pub enum GpuFilter {
+    Gpu,
+    NotGpu,
+    All
+}
+
 /// Builds a hierarchical tree report from a flat list of Slurm nodes
 #[allow(clippy::too_many_arguments)]
 pub fn build_tree_report(
@@ -75,6 +83,7 @@ pub fn build_tree_report(
     show_node_names: bool,
     preempted_nodes: Option<PreemptNodes>,
     preempt: bool,
+    gpu_filter: GpuFilter,
 ) -> TreeReportData {
     let mut root = TreeNode {
         name: "TOTAL".to_string(),
@@ -141,12 +150,31 @@ pub fn build_tree_report(
         } else if is_mixed && !preempt {
             root.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
         }
+        
 
-        let features_for_tree: Vec<_> = if show_hidden_features {
+        // we can modify this step here to include or exclude 
+        let mut features_for_tree: Vec<_> = if show_hidden_features {
             node.features.iter().collect()
         } else {
             node.features.iter().filter(|f| !hidden_features.contains(f.as_str())).collect()
         };
+
+        // further refine with either gpu, not gpu, or both 
+        
+
+        match gpu_filter {
+            GpuFilter::Gpu => {
+                features_for_tree.retain(|f| {
+                    f.contains("gpu")
+                })
+            },
+            GpuFilter::NotGpu => {
+                features_for_tree.retain(|f| {
+                    !f.contains("gpu")
+                })
+            },
+            GpuFilter::All => { },
+        }
         
         // --- Tree Building Logic ---
         if feature_filter.is_empty() {

@@ -10,6 +10,7 @@ use fi_slurm::jobs::{enrich_jobs_with_node_ids, JobState, SlurmJobs, get_jobs};
 use fi_slurm::utils::{SlurmConfig, initialize_slurm};
 use fi_slurm::nodes::get_nodes;
 use fi_slurm::filter::{gather_all_features, filter_nodes_by_feature};
+use tree_report::{build_tree_report, print_tree_report, GpuFilter};
 use crate::tui::app::tui_execute;
 
 
@@ -71,6 +72,18 @@ fn main() -> Result<(), String> {
     if args.debug { println!("Finished loading job data from Slurm: {:?}", start.elapsed()); }
 
     enrich_jobs_with_node_ids(&mut jobs_collection, &nodes_collection.name_to_id);
+
+
+    // for filtering the final display
+    let gpu: GpuFilter = if args.all {
+        GpuFilter::All
+    } else if args.gpu { // not totally exclusive, but we want any use of --all/-a to override the
+        // others
+        GpuFilter::Gpu
+    } else { // the default, we just show those which are not gpus
+        GpuFilter::NotGpu
+    };
+
 
     // Build Cross-Reference Map 
     let node_to_job_map = build_node_to_job_map(&jobs_collection);
@@ -139,7 +152,7 @@ fn main() -> Result<(), String> {
         return Ok(())
     } else {
         // Aggregate data into the tree report 
-        let tree_report = tree_report::build_tree_report(
+        let tree_report = build_tree_report(
             &filtered_nodes,
             &jobs_collection,
             &node_to_job_map,
@@ -148,8 +161,9 @@ fn main() -> Result<(), String> {
             args.names,
             preempted_nodes,
             args.preempt,
+            args.gpu_filter,
         );
-        tree_report::print_tree_report(
+        print_tree_report(
             &tree_report,
             args.no_color,
             args.names,
@@ -328,6 +342,12 @@ struct Args {
     #[arg(short, long)]
     #[arg(help = "Prints the top-level summary report for each feature type")]
     summary: bool,
+    // for showing just the gpus
+    #[arg(short, long)]
+    gpu: bool,
+    // for showing all, not just gpus or non-gpus
+    #[arg(short, long)]
+    all: bool,
     #[arg(long)]
     leaderboard: bool,
 }
