@@ -140,6 +140,9 @@ pub struct SlurmQos {
     // refer to slurmdb_qos_rec_t in bindings
 }
 
+
+
+
 // might not have the relevant information, set on partition?
 // bc not seeing 'scc' or 'other' qos in the output of sacctmgr ..., though cca does show up
 // maybe the associations are the wrong data structure?
@@ -192,6 +195,19 @@ impl SlurmQos {
         }
     }
 }
+
+// // create a function that takes in a vec of slurmqos, goes inside, and gets the information for the
+// // gen and inter partitions, and uses the latter to build the limits on the former?
+// pub fn gen_inter_switch(qos: Vec<SlurmQos>) -> Vec<SlurmQos> {
+//     // hacky special case function
+//     let inter_limits: 
+//     qos.iter().map(|q| {
+//
+//     })
+//
+//     // add the adjusted gen to the top, don't add inter back
+//
+// }
 
 pub fn process_qos_list(qos_list: SlurmQosList) -> Result<Vec<SlurmQos>, QosError> {
 

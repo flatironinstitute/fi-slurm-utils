@@ -510,6 +510,9 @@ pub fn get_tres_info(name: Option<String>) -> (String, Vec<Vec<TresInfo>>) {
         }).collect()
     }).collect();
 
+
+    // do the special case here? After it has already been adjusted, we just go into each
+    // Vec<TresInfo> and manually adjust?
     let user_acct = qos_job_data.user_acct;
     (user_acct, tres_infos)
 }

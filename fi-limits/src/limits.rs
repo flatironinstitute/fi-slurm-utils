@@ -96,6 +96,43 @@ pub fn print_limits(qos_name: Option<&String>) {
                 center_max_gres,
             ));
         };
+
+
+        // do the gen-inter switch here, after we've constructed all of them
+        // pub struct AccountJobUsage {
+        //     account: String,
+        //     nodes: u32, 
+        //     cores: u32, 
+        //     gpus: u32, 
+        //     max_nodes: u32, 
+        //     max_cores: u32,
+        //     max_gpus: u32,
+        // }
+
+        let mut gen: AccountJobUsage;
+        let mut inter: AccountJobUsage;
+
+        // extract the gen and inter items, and remove them from user 
+
+        user_usage.iter().filter(|job_usage| {
+            match job_usage.account {
+                "gen" => {
+                    gen = job_usage;
+                    false
+                },
+                "inter" => { 
+                    inter = job_usage;
+                    false
+                },
+                _ => {},
+            }
+        });
+
+        // creating a new line as a composite of the two
+        let gen_inter = AccountJobUsage::new(gen.account, gen.nodes, gen.cores, gen.gpus, inter.max_nodes, inter.max_cores, inter.max_gpus);
+
+        // adding it to the beginning
+        user_usage.insert(0, gen_inter);
     });
 
     println!("\nUser Limits");
