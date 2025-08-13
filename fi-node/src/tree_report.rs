@@ -152,7 +152,7 @@ pub fn build_tree_report(
         
 
         // we can modify this step here to include or exclude 
-        let mut features_for_tree: Vec<_> = if show_hidden_features {
+        let features_for_tree: Vec<_> = if show_hidden_features {
             node.features.iter().collect()
         } else {
             node.features.iter().filter(|f| !hidden_features.contains(f.as_str())).collect()

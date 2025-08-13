@@ -99,7 +99,7 @@ fn main() -> Result<(), String> {
         Some(preempt_node(&mut nodes_collection, &node_to_job_map, &jobs_collection))
     } else { None };
 
-    let filtered_nodes = filter_nodes_by_feature(&nodes_collection, &args.feature, args.exact);
+    let mut filtered_nodes = filter_nodes_by_feature(&nodes_collection, &args.feature, args.exact);
     if args.debug && !args.feature.is_empty() { println!("Finished filtering data: {:?}", start.elapsed()); }
 
     // validating input
