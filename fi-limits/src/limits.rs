@@ -61,7 +61,7 @@ pub fn print_limits(qos_name: Option<&String>) {
 
         // if all substantive quantities are 0/-, don't push
 
-        if !vec![
+        if ![
             user_nodes, 
             user_cores, 
             user_gres_count, 
@@ -81,7 +81,7 @@ pub fn print_limits(qos_name: Option<&String>) {
         };
         // more expansive, don't show if there are no limits, even if there are jobs running on
         // them
-        if !vec![ 
+        if ![ 
             center_max_nodes, 
             center_max_cores, 
             center_max_gres,
@@ -97,42 +97,55 @@ pub fn print_limits(qos_name: Option<&String>) {
             ));
         };
 
+        // 1. Prepare Option containers for the items we want to find and extract.
+        let mut gen_acc: Option<AccountJobUsage> = None;
+        let mut inter_acc: Option<AccountJobUsage> = None;
 
-        // do the gen-inter switch here, after we've constructed all of them
-        // pub struct AccountJobUsage {
-        //     account: String,
-        //     nodes: u32, 
-        //     cores: u32, 
-        //     gpus: u32, 
-        //     max_nodes: u32, 
-        //     max_cores: u32,
-        //     max_gpus: u32,
-        // }
-
-        let mut gen_acc: AccountJobUsage;
-        let mut inter: AccountJobUsage;
-
-        // extract the gen and inter items, and remove them from user 
-
-        user_usage.iter().filter(|job_usage| {
+        // 2. Use `retain` to iterate and modify the vector in-place.
+        // The closure will return `false` for the items we want to remove,
+        // and `true` for the items we want to keep.
+        user_usage.retain(|job_usage| {
             match job_usage.account.as_str() {
                 "gen" => {
-                    gen_acc = job_usage.clone();
+                    // We found "gen". Clone it to take ownership, then return `false` to remove it.
+                    gen_acc = Some(job_usage.clone());
                     false
                 },
-                "inter" => { 
-                    inter = job_usage.clone();
+                "inter" => {
+                    // We found "inter". Clone it, then return `false` to remove it.
+                    inter_acc = Some(job_usage.clone());
                     false
                 },
-                _ => true
+                _ => {
+                    // This is not "gen" or "inter", so keep it in the vector.
+                    true
+                }
             }
         });
 
-        // creating a new line as a composite of the two
-        let gen_inter = AccountJobUsage::new(&gen_acc.account, gen_acc.nodes, gen_acc.cores, gen_acc.gpus, inter.max_nodes, inter.max_cores, inter.max_gpus);
+        // 3. Check if we successfully found and extracted both items.
+        // This `if let` gracefully handles the case where one or both might be missing.
+        if let (Some(gen_bla), Some(inter)) = (gen_acc, inter_acc) {
+            // 4. Create the new composite element from the owned items we extracted.
+            // Note: You might want to name the new account "gen-inter" or something similar.
+            let gen_inter = AccountJobUsage::new(
+                "gen-inter", // Using a new name for the composite account
+                gen_bla.nodes,
+                gen_bla.cores,
+                gen_bla.gpus,
+                inter.max_nodes,
+                inter.max_cores,
+                inter.max_gpus
+            );
 
-        // adding it to the beginning
-        user_usage.insert(0, gen_inter);
+            // 5. Insert the new composite at the beginning of the now-filtered vector.
+            user_usage.insert(0, gen_inter);
+        } else {
+            // It's good practice to handle the case where items weren't found.
+            println!("Warning: Could not find both 'gen' and 'inter' accounts. No composite account was created.");
+            // Note: With the current logic, if only one is found, it is still removed.
+            // You could add logic here to put it back if that's not the desired behavior.
+        }
     });
 
     println!("\nUser Limits");

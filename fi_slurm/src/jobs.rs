@@ -373,6 +373,7 @@ pub fn enrich_jobs_with_node_ids(
     }
 }
 
+#[derive(Clone)]
 pub struct AccountJobUsage {
     pub account: String,
     pub nodes: u32, 
