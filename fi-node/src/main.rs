@@ -321,6 +321,7 @@ fn preempt_node(
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = "This command-line and terminal application was built by Lehman Garrison, Nicolas Posner, Dylan Simon, and Alex Chavkin at the Scientific Computing Core of the Flatiron Institute. By default, it displays the availability of non-gpu nodes as a tree diagram, as queried from the locally running instance of Slurm. For support, contact nposner@flatironinstitute.org")]
 struct Args {
+    #[arg(short, long)]
     #[arg(help = "Shows only gpu nodes in the tree view")]
     gpu: bool,
     #[arg(short, long)]
@@ -364,7 +365,6 @@ struct Args {
     #[arg(help = "Prints the top-level summary report for each feature type")]
     summary: bool,
     // for showing just the gpus
-    #[arg(short, long)]
     #[arg(long)]
     leaderboard: bool,
 }
