@@ -117,14 +117,14 @@ pub fn print_limits(qos_name: Option<&String>) {
         user_usage.iter().filter(|job_usage| {
             match job_usage.account {
                 "gen" => {
-                    gen_acc = job_usage;
+                    gen_acc = **job_usage;
                     false
                 },
                 "inter" => { 
-                    inter = job_usage;
+                    inter = **job_usage;
                     false
                 },
-                _ => {},
+                _ => true
             }
         });
 

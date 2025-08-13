@@ -374,13 +374,13 @@ pub fn enrich_jobs_with_node_ids(
 }
 
 pub struct AccountJobUsage {
-    account: String,
-    nodes: u32, 
-    cores: u32, 
-    gpus: u32, 
-    max_nodes: u32, 
-    max_cores: u32,
-    max_gpus: u32,
+    pub account: String,
+    pub nodes: u32, 
+    pub cores: u32, 
+    pub gpus: u32, 
+    pub max_nodes: u32, 
+    pub max_cores: u32,
+    pub max_gpus: u32,
 }
 
 impl AccountJobUsage {
