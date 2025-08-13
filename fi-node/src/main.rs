@@ -319,8 +319,13 @@ fn preempt_node(
 /// A command-line utility to report the state of a Slurm cluster,
 /// showing a summary of nodes grouped by state and feature
 #[derive(Parser, Debug)]
-#[command(version, about, long_about = "This command-line and terminal application was built by Lehman Garrison, Nicolas Posner, Dylan Simon, and Alex Chavkin at the Scientific Computing Core of the Flatiron Institute. By default, it displays the availability of different node types as a tree diagram, as queried from the locally running instance of Slurm. For support, contact nposner@flatironinstitute.org")]
+#[command(version, about, long_about = "This command-line and terminal application was built by Lehman Garrison, Nicolas Posner, Dylan Simon, and Alex Chavkin at the Scientific Computing Core of the Flatiron Institute. By default, it displays the availability of non-gpu nodes as a tree diagram, as queried from the locally running instance of Slurm. For support, contact nposner@flatironinstitute.org")]
 struct Args {
+    #[arg(help = "Shows only gpu nodes in the tree view")]
+    gpu: bool,
+    #[arg(short, long)]
+    #[arg(help = "Shows only all nodes in the tree view")]
+    all: bool,
     #[arg(short, long)]
     #[arg(help = "Prints the detailed, state-by-state report of node availability")]
     #[arg(long_help = "Primarily meant for internal use by SCC members in order to get detailed views of the overall state of the cluster and its individual nodes. It divides the nodes into top-level state, Idle, Mixed, Allocated, Down, or Unknown, along with compound state flags like DRAIN, RES, MAINT when present, and provides a count of nodes and the availability/utilization of their cores and gpus. Unlike the default tree report, the detailed report declares 'available' any cpu core or gpu which belongs to a node that is IDLE or which is unallocate on a MIXED node, regardless of compound state flags like DRAIN or MAINT.")]
@@ -360,10 +365,6 @@ struct Args {
     summary: bool,
     // for showing just the gpus
     #[arg(short, long)]
-    gpu: bool,
-    // for showing all, not just gpus or non-gpus
-    #[arg(short, long)]
-    all: bool,
     #[arg(long)]
     leaderboard: bool,
 }
