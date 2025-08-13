@@ -83,7 +83,6 @@ pub fn build_tree_report(
     show_node_names: bool,
     preempted_nodes: Option<PreemptNodes>,
     preempt: bool,
-    gpu_filter: GpuFilter,
 ) -> TreeReportData {
     let mut root = TreeNode {
         name: "TOTAL".to_string(),
@@ -160,21 +159,6 @@ pub fn build_tree_report(
         };
 
         // further refine with either gpu, not gpu, or both 
-        
-
-        match gpu_filter {
-            GpuFilter::Gpu => {
-                features_for_tree.retain(|f| {
-                    f.contains("gpu")
-                })
-            },
-            GpuFilter::NotGpu => {
-                features_for_tree.retain(|f| {
-                    !f.contains("gpu")
-                })
-            },
-            GpuFilter::All => { },
-        }
         
         // --- Tree Building Logic ---
         if feature_filter.is_empty() {

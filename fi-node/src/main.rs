@@ -151,6 +151,23 @@ fn main() -> Result<(), String> {
         
         return Ok(())
     } else {
+
+        // if necessary, filter out the nodes with or without gpu information 
+
+        match gpu_filter {
+            GpuFilter::Gpu => {
+                filtered_nodes.retain(|node| {
+                    node.gpu_info.is_some() // if gpu info is some, that means there is a gpu
+                });
+            },
+            GpuFilter::NotGpu => {
+                filtered_nodes.retain(|node| {
+                    node.gpu_info.is_none() // if gpu info is none, that means there is no gpu
+                });
+            },
+            GpuFilter::All => { },
+        }
+
         // Aggregate data into the tree report 
         let tree_report = build_tree_report(
             &filtered_nodes,
@@ -161,7 +178,6 @@ fn main() -> Result<(), String> {
             args.names,
             preempted_nodes,
             args.preempt,
-            gpu_filter,
         );
         print_tree_report(
             &tree_report,
