@@ -75,7 +75,7 @@ fn main() -> Result<(), String> {
 
 
     // for filtering the final display
-    let gpu: GpuFilter = if args.all {
+    let gpu_filter: GpuFilter = if args.all {
         GpuFilter::All
     } else if args.gpu { // not totally exclusive, but we want any use of --all/-a to override the
         // others
@@ -161,7 +161,7 @@ fn main() -> Result<(), String> {
             args.names,
             preempted_nodes,
             args.preempt,
-            args.gpu_filter,
+            gpu_filter,
         );
         print_tree_report(
             &tree_report,
