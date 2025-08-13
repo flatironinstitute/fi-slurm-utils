@@ -59,25 +59,44 @@ pub fn print_limits(qos_name: Option<&String>) {
         let center_max_cores = center_tres_max.max_cores.unwrap_or(0);
         let center_max_gres = center_tres_max.max_gpus.unwrap_or(0);
 
+        // if all substantive quantities are 0/-, don't push
 
-        user_usage.push(AccountJobUsage::new(
-            &group, 
+        if !vec![
             user_nodes, 
             user_cores, 
-            user_gres_count,
+            user_gres_count, 
             user_max_nodes, 
             user_max_cores, 
             user_max_gres,
-        ));
-        center_usage.push(AccountJobUsage::new(
-            &group, 
+        ].iter().all(|i| i==0) {
+            user_usage.push(AccountJobUsage::new(
+                &group, 
+                user_nodes, 
+                user_cores, 
+                user_gres_count,
+                user_max_nodes, 
+                user_max_cores, 
+                user_max_gres,
+            ));
+        };
+        if !vec![ 
             center_nodes, 
             center_cores, 
             center_gres_count,
             center_max_nodes, 
             center_max_cores, 
             center_max_gres,
-        ));
+        ].iter().all(|i| i==0) {
+            center_usage.push(AccountJobUsage::new(
+                &group, 
+                center_nodes, 
+                center_cores, 
+                center_gres_count,
+                center_max_nodes, 
+                center_max_cores, 
+                center_max_gres,
+            ));
+        };
     });
 
     println!("\nUser Limits");
