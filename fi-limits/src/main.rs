@@ -22,7 +22,7 @@ fn main() -> Result<(), String> {
                 leaderboard(num);
                 return Ok(())
             } else {
-                println!("{:?}", args.filter);
+                println!("\nFiltering on: {:?}", args.filter);
                 leaderboard_feature(num, args.filter);
                 return Ok(())
             }
@@ -37,7 +37,7 @@ fn main() -> Result<(), String> {
 
     // make this the default if the leaderboard is not in use
     print_limits(qos_name);
-    return Ok(())
+    Ok(())
 
 }
 

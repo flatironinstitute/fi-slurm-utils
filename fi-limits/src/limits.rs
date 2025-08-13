@@ -3,6 +3,7 @@ use fi_slurm::{jobs::{get_jobs, print_accounts, AccountJobUsage, FilterMethod, J
 use users::get_current_username;
 use fi_slurm_db::acct::{TresMax, get_tres_info};
 use fi_slurm::nodes::Node;
+use fi_slurm::parser::parse_slurm_hostlist;
 
 pub fn print_limits(qos_name: Option<&String>) {
 
@@ -115,9 +116,11 @@ pub fn leaderboard(top_n: usize) {
 pub fn leaderboard_feature(top_n: usize, features: Vec<String>) {
     let mut map: HashMap<String, (u32, u32)> = HashMap::new();
 
-    let jobs_collection = get_jobs().unwrap();
+    let mut jobs_collection = get_jobs().unwrap();
 
     let nodes_collection = get_nodes().unwrap();
+
+    enrich_jobs_with_node_ids(&mut jobs_collection, &nodes_collection.name_to_id);
 
     // keys are node host ids, values are job ids running on those nodes
     let node_to_job_map = build_node_to_job_map(&jobs_collection);
@@ -141,27 +144,21 @@ pub fn leaderboard_feature(top_n: usize, features: Vec<String>) {
             node.features.iter().any(|item| features_set.contains(item))
         }).collect()
     };
-    println!("Filtered nodes: {}", filtered_nodes.len());
 
     
     let mut filtered_job_ids: Vec<u32> = Vec::new();
 
     filtered_nodes.iter().for_each(|node| {
         if let Some(jobs) = node_to_job_map.get(&node.id) {
-            println!("ding!");
             filtered_job_ids.extend(jobs)
         }
     });
     
-    println!("Filtered job ids: {}", filtered_job_ids.len());
-
     // final stretch, we filter those jobs whose ids are in here
     // is there a way to do this with fewer filtering steps?
 
     let filtered_jobs_collection = jobs_collection
         .filter_by(FilterMethod::JobIds(filtered_job_ids));
-
-    println!("filtered jobs: {}", filtered_jobs_collection.jobs.len());
 
 
     filtered_jobs_collection.jobs.iter().for_each(|(_, job)| {
@@ -172,8 +169,6 @@ pub fn leaderboard_feature(top_n: usize, features: Vec<String>) {
             usage.1 += job.num_cpus;
         }
     });
-
-    println!("{}", map.len());
 
     let mut sorted_scores: Vec<(&String, &(u32, u32))> = map.iter().collect();
 
@@ -200,5 +195,33 @@ fn build_node_to_job_map(slurm_jobs: &SlurmJobs) -> HashMap<usize, Vec<u32>> {
         }
     }
     node_to_job_map
+}
+
+pub fn enrich_jobs_with_node_ids(
+    slurm_jobs: &mut SlurmJobs, // Needs to be mutable to modify the jobs
+    name_to_id: &HashMap<String, usize>,
+) {
+    // We iterate mutably over the jobs vector
+    for job in &mut slurm_jobs.jobs.values_mut() {
+        if job.raw_hostlist.is_empty() {
+            continue;
+        }
+
+        // 1. Parse the hostlist string
+        let expanded_nodes = parse_slurm_hostlist(&job.raw_hostlist);
+
+        // 2. Convert names to IDs and populate the job's node_ids vector
+        //    Pre-allocating capacity is a small extra optimization.
+        job.node_ids.reserve(expanded_nodes.len());
+        for node_name in expanded_nodes {
+            if let Some(&id) = name_to_id.get(&node_name) {
+                job.node_ids.push(id);
+            }
+        }
+
+        // 3. (Optional) Free the memory from the raw string if it's no longer needed.
+        job.raw_hostlist.clear();
+        job.raw_hostlist.shrink_to_fit();
+    }
 }
 
