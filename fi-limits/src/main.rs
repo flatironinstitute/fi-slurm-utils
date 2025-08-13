@@ -48,6 +48,7 @@ struct Args {
     #[arg(short, long)]
     user: Vec<String>,
     #[arg(short, long)]
+    #[arg(num_args(0..))]
     #[arg(help = "Select individual features to filter by. `icelake` would only show information for icelake nodes. \n For multiple features, separate them with spaces, such as `genoa gpu skylake`")]
     filter: Vec<String>,
     #[arg(long)]
