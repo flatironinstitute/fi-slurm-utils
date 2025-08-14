@@ -146,28 +146,28 @@ pub fn build_tree_report(
             // inclusion condition
             // but the mixed logic above may not be fully accurate...
             if gpu {
-                root.stats.idle_cpus += (node.gpu_info.unwrap().total_gpus as u32).saturating_sub(node.gpu_info.unwrap().allocated_gpus);
+                root.stats.idle_cpus += (node.gpu_info.unwrap().total_gpus as u32).saturating_sub(node.gpu_info.unwrap().allocated_gpus as u32);
             } else {
                 root.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
             }
         } else if is_mixed && preempt {
 
             if gpu {
-                root.stats.idle_cpus += (node.gpu_info.unwrap().total_gpus as u32).saturating_sub(node.gpu_info.unwrap().allocated_gpus);
+                root.stats.idle_cpus += (node.gpu_info.unwrap().total_gpus as u32).saturating_sub(node.gpu_info.unwrap().allocated_gpus as u32);
             } else {
                 root.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
             }
 
             if preempted_node_ids.contains(&node.id) {
                 if gpu {
-                    *root.stats.preempt_cpus.get_or_insert(0) += (node.gpu_info.unwrap().total_gpus as u32).saturating_sub(node.gpu_info.unwrap().allocated_gpus);
+                    *root.stats.preempt_cpus.get_or_insert(0) += (node.gpu_info.unwrap().total_gpus as u32).saturating_sub(node.gpu_info.unwrap().allocated_gpus as u32);
                 } else {
                     *root.stats.preempt_cpus.get_or_insert(0) += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                 }
             }
         } else if is_mixed && !preempt {
             if gpu {
-                root.stats.idle_cpus += (node.gpu_info.unwrap().total_gpus as u32).saturating_sub(node.gpu_info.unwrap().allocated_gpus);
+                root.stats.idle_cpus += (node.gpu_info.unwrap().total_gpus as u32).saturating_sub(node.gpu_info.unwrap().allocated_gpus as u32);
             } else {
                 root.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
             }
@@ -358,14 +358,14 @@ pub fn build_tree_report(
                         } else if is_available && !preempt {
                             current_level.stats.idle_nodes += 1;
                             if gpu {
-                                current_level.stats.idle_cpus += (node.gpu_info.unwrap().total_gpus as u32).saturating_sub(node.gpu_info.unwrap().allocated_gpus);
+                                current_level.stats.idle_cpus += (node.gpu_info.unwrap().total_gpus as u32).saturating_sub(node.gpu_info.unwrap().allocated_gpus as u32);
                             } else {
                                 current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                             }
                         } else if is_mixed && preempt {
 
                             if gpu {
-                                current_level.stats.idle_cpus += (node.gpu_info.unwrap().total_gpus as u32).saturating_sub(node.gpu_info.unwrap().allocated_gpus);
+                                current_level.stats.idle_cpus += (node.gpu_info.unwrap().total_gpus as u32).saturating_sub(node.gpu_info.unwrap().allocated_gpus as u32);
                             } else {
                                 current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                             }
@@ -373,7 +373,7 @@ pub fn build_tree_report(
                             if preempted_node_ids.contains(&node.id) {
 
                                 if gpu {
-                                    *current_level.stats.preempt_cpus.get_or_insert(0) += (node.gpu_info.unwrap().total_gpus as u32).saturating_sub(node.gpu_info.unwrap().allocated_gpus);
+                                    *current_level.stats.preempt_cpus.get_or_insert(0) += (node.gpu_info.unwrap().total_gpus as u32).saturating_sub(node.gpu_info.unwrap().allocated_gpus as u32);
                                 } else {
                                     *current_level.stats.preempt_cpus.get_or_insert(0) += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                                 }
@@ -381,7 +381,7 @@ pub fn build_tree_report(
                             }
                         } else if is_mixed && !preempt {
                             if gpu {
-                                current_level.stats.idle_cpus += (node.gpu_info.unwrap().total_gpus as u32).saturating_sub(node.gpu_info.unwrap().allocated_gpus);
+                                current_level.stats.idle_cpus += (node.gpu_info.unwrap().total_gpus as u32).saturating_sub(node.gpu_info.unwrap().allocated_gpus as u32);
                             } else {
                                 current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                             }
