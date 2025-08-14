@@ -2,7 +2,6 @@ use std::collections::{HashMap, HashSet};
 use fi_slurm::{jobs::{get_jobs, print_accounts, AccountJobUsage, FilterMethod, JobState, SlurmJobs}, nodes::get_nodes};
 use users::get_current_username;
 use fi_slurm_db::acct::{TresMax, get_tres_info};
-use fi_slurm::nodes::Node;
 use fi_slurm::parser::parse_slurm_hostlist;
 
 pub fn print_limits(qos_name: Option<&String>) {
@@ -84,13 +83,11 @@ pub fn print_limits(qos_name: Option<&String>) {
 
     });
 
-    // 1. Prepare Option containers for the items we want to find and extract.
     let mut gen_acc: Option<AccountJobUsage> = None;
     let mut inter_acc: Option<AccountJobUsage> = None;
 
-    // 2. Use `retain` to iterate and modify the vector in-place.
-    // The closure will return `false` for the items we want to remove,
-    // and `true` for the items we want to keep.
+    // retain the elements other than gen and inter, and 
+    // store those elements above before removing them
     user_usage.retain(|job_usage| {
         match job_usage.account.as_str() {
             "gen" => {
@@ -110,13 +107,12 @@ pub fn print_limits(qos_name: Option<&String>) {
         }
     });
 
-    // 3. Check if we successfully found and extracted both items.
-    // This `if let` gracefully handles the case where one or both might be missing.
-    if let (Some(gen_bla), Some(inter)) = (gen_acc, inter_acc) {
-        // 4. Create the new composite element from the owned items we extracted.
-        // Note: You might want to name the new account "gen-inter" or something similar.
+    // check if both items were extracted
+    // handle the case where we failed to get both with a warning?
+    if let (Some(gen_bla), Some(inter)) = (&gen_acc, &inter_acc) {
+        // create composite element from their combination
         let gen_inter = AccountJobUsage::new(
-            "gen", // Using a new name for the composite account
+            "gen", 
             gen_bla.nodes,
             gen_bla.cores,
             gen_bla.gpus,
@@ -125,13 +121,18 @@ pub fn print_limits(qos_name: Option<&String>) {
             inter.max_gpus
         );
 
-        // 5. Insert the new composite at the beginning of the now-filtered vector.
         user_usage.insert(0, gen_inter);
     } else {
-        // It's good practice to handle the case where items weren't found.
-        println!("Warning: Could not find both 'gen' and 'inter' accounts. No composite account was created.");
-        // Note: With the current logic, if only one is found, it is still removed.
-        // You could add logic here to put it back if that's not the desired behavior.
+        // if we only found one, add it back in
+        if let Some(gen_bla) = gen_acc {
+            user_usage.insert(0, gen_bla);
+        } else if let Some (inter) = inter_acc {
+            user_usage.push(inter); // doesn't need to be at the top
+        } else {
+            // the case where neither were present, we need do nothing
+            // maybe pass in a debug bool and print a warning?
+            println!("Warning: Could not find both 'gen' and 'inter' accounts. No composite account was created.");
+        };
     }
 
 
@@ -182,7 +183,6 @@ pub fn leaderboard(top_n: usize) {
     for (position, (user, score)) in sorted_scores.iter().enumerate().take(top_n) {
         let rank = position + 1;
         let padding = if rank > 9 { "" } else {" "}; // just valid for the first 100
-        // let (initial, surname) = user.split_at_checked(1).unwrap_or(("Dr", "Evil"));
         println!("{}. {} {} is using {} nodes and {} cores", rank, padding, user, score.0, score.1);
     }
 }
@@ -205,32 +205,6 @@ pub fn leaderboard_feature(top_n: usize, features: Vec<String>) {
         .filter(|node| node.features.iter().any(|item| features_set.contains(item)))
         .filter_map(|node| node_to_job_map.get(&node.id))
         .flatten().cloned().collect();
-
-    ///
-
-    // let filtered_nodes: Vec<&Node> = if features.len() == 1 {
-    //     let feature = features.first().unwrap();
-    //     nodes_collection.nodes.iter().filter(|node| {
-    //         node.features.contains(feature)
-    //     }).collect()
-    // } else {
-    //
-    //     nodes_collection.nodes.iter().filter(|node| {
-    //         node.features.iter().any(|item| features_set.contains(item))
-    //     }).collect()
-    // };
-    //
-    //
-    // let mut filtered_job_ids: Vec<u32> = Vec::new();
-    //
-    // filtered_nodes.iter().for_each(|node| {
-    //     if let Some(jobs) = node_to_job_map.get(&node.id) {
-    //         filtered_job_ids.extend(jobs)
-    //     }
-    // });
-    
-    // final stretch, we filter those jobs whose ids are in here
-    // is there a way to do this with fewer filtering steps?
 
     let filtered_jobs_collection = jobs_collection
         .filter_by(FilterMethod::JobIds(filtered_job_ids));
@@ -273,20 +247,19 @@ fn build_node_to_job_map(slurm_jobs: &SlurmJobs) -> HashMap<usize, Vec<u32>> {
 }
 
 pub fn enrich_jobs_with_node_ids(
-    slurm_jobs: &mut SlurmJobs, // Needs to be mutable to modify the jobs
+    slurm_jobs: &mut SlurmJobs, 
     name_to_id: &HashMap<String, usize>,
 ) {
-    // We iterate mutably over the jobs vector
+    // iterate mutably over the jobs vector
     for job in &mut slurm_jobs.jobs.values_mut() {
         if job.raw_hostlist.is_empty() {
             continue;
         }
 
-        // 1. Parse the hostlist string
+        // parse the hostlist string
         let expanded_nodes = parse_slurm_hostlist(&job.raw_hostlist);
 
-        // 2. Convert names to IDs and populate the job's node_ids vector
-        //    Pre-allocating capacity is a small extra optimization.
+        // convert names to IDs and populate the job's node_ids vector
         job.node_ids.reserve(expanded_nodes.len());
         for node_name in expanded_nodes {
             if let Some(&id) = name_to_id.get(&node_name) {
@@ -294,7 +267,7 @@ pub fn enrich_jobs_with_node_ids(
             }
         }
 
-        // 3. (Optional) Free the memory from the raw string if it's no longer needed.
+        // free the memory from the raw string if it's no longer needed.
         job.raw_hostlist.clear();
         job.raw_hostlist.shrink_to_fit();
     }
