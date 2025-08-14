@@ -66,50 +66,50 @@ pub fn build_report(
 ) -> ReportData {
     let mut report_data = ReportData::new();
 
-    // This creates a new Vec<u32> where each element corresponds to a node in the input `n` slice
+    // creates a new Vec<u32> where each element corresponds to a node in the input `n` slice
     let alloc_cpus_per_node: Vec<u32> = nodes
         .iter()
         .map(|&node| {
-            // For each node, look up its job IDs, returning an option
+            // for each node, look up its job IDs, returning an option
             node_to_job_map
                 .get(&node.id)
-                // If the Option is Some(job_ids), we map over it to perform the calculation
+                // if the Option is Some(job_ids), we map over it to perform the calculation
                 .map(|job_ids| {
                     job_ids
                         .iter()
-                        // For each job_id, look up the job details. filter_map unwraps the Some results
+                        // for each job_id, look up the job details. filter_map unwraps the Some results
                         .filter_map(|job_id| jobs.jobs.get(job_id))
-                        // For each valid job, calculate the CPUs allocated to this specific node
+                        // for each valid job, calculate the CPUs allocated to this specific node
                         .map(|job| {
                             if job.num_nodes > 0 {
                                 job.num_cpus / job.num_nodes
                             } else {
-                                job.num_cpus // Should not happen, but handles malformed job data
+                                job.num_cpus // should not happen, but handles malformed job data
                             }
                         })
-                        .sum() // Sum the CPUs for all jobs on this node
+                        .sum() // sum the CPUs for all jobs on this node
                 })
-                // If the initial .get() returned None (no jobs on the node), default to 0
+                // if the initial .get() returned None (no jobs on the node), default to 0
                 .unwrap_or(0)
         })
-        .collect(); // Collect all the results into our vector
+        .collect(); // collect all the results into our vector
 
     for (node, &alloc_cpus_for_node) in nodes.iter().zip(alloc_cpus_per_node.iter()) {
-        // Slurm does not mark nodes as mixed by default, so we have to do it
+        // slurm does not mark nodes as mixed by default, so we have to do it
         let derived_state = if alloc_cpus_for_node > 0 && alloc_cpus_for_node < node.cpus as u32 {
             match &node.state {
                 NodeState::Compound { flags, .. } => NodeState::Compound { base: Box::new(NodeState::Mixed), flags: flags.to_vec()},
                 _ => NodeState::Mixed,
             }
         } else {
-            // Otherwise, we trust the state reported by Slurm
+            // otherwise, we trust the state reported by Slurm
             node.state.clone()
         };
 
-        // Get the report group for the node's derived state
+        // get the report group for the node's derived state
         let group = report_data.entry(derived_state.clone()).or_default();
 
-        // --- Update the Main Summary Line for the Group ---
+        // update the main summary line for the group
         group.summary.node_count += 1;
         group.summary.total_cpus += node.cpus as u32;
         group.summary.alloc_cpus += alloc_cpus_for_node;
@@ -119,8 +119,7 @@ pub fn build_report(
             group.summary.alloc_gpus += gpu.allocated_gpus;
         }
 
-        // --- Determine this node's contribution to idle resources ---
-        // This logic now directly implements the specified rules.
+        // determine this node's contribution to idle resources
         let (idle_cpus_for_node, idle_gpus_for_node) = if !allocated {
             let base_state = match &derived_state {
                 NodeState::Compound { base, .. } => base,
@@ -128,7 +127,7 @@ pub fn build_report(
             };
 
             match base_state {
-                // For Idle and Mixed nodes, idle resources are what's not allocated.
+                // for Idle and Mixed nodes, idle resources are what's not allocated
                 NodeState::Idle | NodeState::Mixed => {
                     let cpus = node.cpus as u32 - alloc_cpus_for_node;
                     let gpus = if let Some(gpu) = &node.gpu_info {
@@ -138,20 +137,20 @@ pub fn build_report(
                     };
                     (cpus, gpus)
                 }
-                // For any other state (Allocated, Down, etc.), no resources are considered idle.
+                // for any other state (Allocated, Down, etc.), no resources are considered idle
                 _ => (0, 0),
             }
         } else {
-            // If we're in allocated mode, idle counts are not needed.
+            // if we're in allocated mode, idle counts are not needed
             (0, 0)
         };
         
-        // Add the calculated idle resources to the summary totals
+        // add the calculated idle resources to the summary totals
         group.summary.idle_cpus += idle_cpus_for_node;
         group.summary.idle_gpus += idle_gpus_for_node;
 
 
-        // --- Update Subgroups (GPU or Feature) ---
+        // update subgroups (gpu or feature)
         if let Some(gpu) = &node.gpu_info {
             let subgroup_key = if !verbose && gpu.name.starts_with("gpu:") {
                 "gpu".to_string()
@@ -168,7 +167,7 @@ pub fn build_report(
             subgroup_line.alloc_gpus += gpu.allocated_gpus;
             if show_node_names { subgroup_line.node_names.push(node.name.clone()); }
             
-            // Add this node's idle contribution to the subgroup
+            // add this node's idle contribution to the subgroup
             subgroup_line.idle_cpus += idle_cpus_for_node;
             subgroup_line.idle_gpus += idle_gpus_for_node;
 
@@ -180,13 +179,14 @@ pub fn build_report(
             subgroup_line.alloc_cpus += alloc_cpus_for_node;
             if show_node_names { subgroup_line.node_names.push(node.name.clone()); }
 
-            // Add this node's idle contribution to the subgroup
+            // add this node's idle contribution to the subgroup
             subgroup_line.idle_cpus += idle_cpus_for_node;
         }
     };
     report_data
 }
 
+/// A struct for the widths of the different columns of a report
 pub struct ReportWidths {
     state_width: usize,
     count_width: usize,
@@ -197,7 +197,7 @@ pub struct ReportWidths {
 }
 
 pub fn get_report_widths(report_data: &ReportData, allocated: bool) -> (ReportWidths, ReportLine) {
-    // First, calculate the grand totals to ensure columns are wide enough.
+    // first, calculate the grand totals to ensure columns are wide enough
     let mut total_line = ReportLine::default();
     for group in report_data.values() {
         total_line.node_count += group.summary.node_count;
@@ -209,7 +209,7 @@ pub fn get_report_widths(report_data: &ReportData, allocated: bool) -> (ReportWi
         total_line.idle_gpus += group.summary.idle_gpus;
     }
 
-    // Use the totals to set the initial minimum widths.
+    // use the totals to set the initial minimum widths
     let initial_widths = ReportWidths {
         state_width: "STATE".len(),
         count_width: total_line.node_count.to_string().len(),
@@ -227,7 +227,7 @@ pub fn get_report_widths(report_data: &ReportData, allocated: bool) -> (ReportWi
         total_gpu_width: total_line.total_gpus.to_string().len(),
     };
 
-    // Now, fold over the data to see if any individual line needs more space.
+    // now, fold over the data to see if any individual line needs more space
     let final_widths = report_data.iter().fold(
         initial_widths,
         |mut acc_widths, (state, group)| {
@@ -261,7 +261,7 @@ pub fn get_report_widths(report_data: &ReportData, allocated: bool) -> (ReportWi
     (final_widths, total_line)
 }
 
-/// Component for the left-most column (State or Feature name).
+/// Component for the left-most column (State or Feature name)
 struct StateComponent {
     colored_text: ColoredString,
     padding: String,
@@ -305,7 +305,7 @@ impl StateComponent {
     }
 }
 
-/// Component for the node count column.
+/// Component for the node count column
 struct CountComponent {
     text: String,
 }
@@ -315,7 +315,7 @@ impl CountComponent {
     }
 }
 
-/// Component for the CPU statistics column.
+/// Component for the CPU statistics column
 struct CPUComponent {
     text: String,
 }
@@ -333,7 +333,7 @@ impl CPUComponent {
     }
 }
 
-/// Component for the GPU statistics column.
+/// Component for the GPU statistics column
 struct GPUComponent {
     text: String,
 }
@@ -373,6 +373,7 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
     .cloned()
     .collect();
 
+    // set the order in which flags should appear
     let flag_order: HashMap<&str, usize> = [
         ("EXTERNAL", 0), ("RES", 1), ("UNDRAIN", 2), ("CLOUD", 3),
         ("RESUME", 4), ("DRAIN", 5), ("COMPLETING", 6), ("NO_RESPOND", 7),
@@ -383,6 +384,7 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
         ("POWER_DRAIN", 21), ("DYNAMIC_NORM", 22), ("BLOCKED", 23)
     ].iter().cloned().collect();
 
+    // sorts the states for presentation order
     let mut sorted_states: Vec<&NodeState> = report_data.keys().collect();
     sorted_states.sort_by(|a, b| {
         let to_key = |state: &&NodeState| {
@@ -404,22 +406,22 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
         to_key(a).cmp(&to_key(b))
     });
 
-    // --- Print Headers ---
+    // print headers 
     
     let state_header = if allocated {"STATE (Alloc/Total)"} else {"STATE (Idle/Total)"};
     
-    // Calculate the exact width of the data part of each column
+    // calculate the exact width of the data part of each column
     let count_data_width = report_widths.count_width;
     let cpu_data_width = report_widths.alloc_or_idle_cpu_width + report_widths.total_cpu_width;
     let gpu_data_width = report_widths.alloc_or_idle_gpu_width + report_widths.total_gpu_width;
 
-    // Format each header to be aligned within its data column's width
+    // format each header to be aligned within its data column's width
     let state_header_formatted = format!("{:<width$}", state_header.bold(), width = report_widths.state_width);
     let count_header_formatted = format!("{:>width$}", "COUNT".bold(), width = count_data_width);
     let cpu_header_formatted = format!("{:>width$}", "CPU".bold(), width = cpu_data_width);
     let gpu_header_formatted = format!("{:>width$}", "GPU".bold(), width = gpu_data_width);
 
-    // Print each formatted header followed by the padding string, mirroring the data row printing
+    // print each formatted header followed by the padding string
     print!("{}{}", state_header_formatted, padding_str);
     print!("{}{}", count_header_formatted, padding_str);
     print!("{}{}", cpu_header_formatted, padding_str);
@@ -428,7 +430,7 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
     let total_width = report_widths.state_width + padding_str.len() + count_data_width + padding_str.len() + cpu_data_width + padding_str.len() + gpu_data_width;
     println!("{}", "-".repeat(total_width + padding));
 
-    // --- Print Report Body ---
+    // print report body
     for state in sorted_states {
         if let Some(group) = report_data.get(state) {
             let state_comp = StateComponent::new(state.to_string(), report_widths.state_width, no_color, Some(state));
@@ -477,6 +479,8 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
             }
         }
     }
+    
+    // print the total line
     println!("{}", "-".repeat(total_width));
     let state_comp = StateComponent::new("TOTAL".to_string(), report_widths.state_width, no_color, None);
     let count_comp = CountComponent::new(total_line.node_count, report_widths.count_width);
@@ -491,14 +495,12 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
     print!("{}", padding_str);
     println!("{}", gpu_comp.text);
 
-
-    // Utilization bars: show allocated or idle based on flag
-
+    // print the availability/utilization bars
     print_utilization_bars(report_data, &total_line, allocated, no_color);
 }
 
 fn print_utilization_bars(report_data: &ReportData, total_line: &ReportLine, allocated: bool, no_color: bool) {
-    println!(); // Add a blank line for spacing
+    println!(); // blank line for spacing
     if allocated {
         // --- Utilization ---
         if total_line.node_count > 0 {
