@@ -16,18 +16,11 @@ pub fn print_limits(qos_name: Option<&String>) {
     let (user_acct, accounts_to_process) = get_tres_info(Some(name.clone())); //None case tries to get name from OS
     
     let accounts = accounts_to_process.first().unwrap().clone();
-    // from this, we need to get what account, like SCC, CCA, etc, the user is a part of 
 
     let jobs_collection = get_jobs().unwrap();
 
     let mut user_usage: Vec<AccountJobUsage> = Vec::new();
     let mut center_usage: Vec<AccountJobUsage> = Vec::new();
-
-
-    // get the user ACCT, other, SCC, etc
-    // and further use that
-
-
 
     //CENTER LIMITS ({acct})
     accounts.iter().for_each(|a| {
@@ -58,8 +51,6 @@ pub fn print_limits(qos_name: Option<&String>) {
         let center_max_cores = center_tres_max.max_cores.unwrap_or(0);
         let center_max_gres = center_tres_max.max_gpus.unwrap_or(0);
 
-        // if all substantive quantities are 0/-, don't push
-
         user_usage.push(AccountJobUsage::new(
             &group, 
             user_nodes, 
@@ -69,8 +60,6 @@ pub fn print_limits(qos_name: Option<&String>) {
             user_max_cores, 
             user_max_gres,
         ));
-        // more expansive, don't show if there are no limits, even if there are jobs running on
-        // them
         center_usage.push(AccountJobUsage::new(
             &group, 
             center_nodes, 
@@ -83,6 +72,8 @@ pub fn print_limits(qos_name: Option<&String>) {
 
     });
 
+    // a special edge case to deal with the fact that we need to get the QOS limits for the gen
+    // partition from the inter QOS
     let mut gen_acc: Option<AccountJobUsage> = None;
     let mut inter_acc: Option<AccountJobUsage> = None;
 
@@ -129,15 +120,12 @@ pub fn print_limits(qos_name: Option<&String>) {
         } else if let Some (inter) = inter_acc {
             user_usage.push(inter); // doesn't need to be at the top
         } else {
-            // the case where neither were present, we need do nothing
-            // maybe pass in a debug bool and print a warning?
-            println!("Warning: Could not find both 'gen' and 'inter' accounts. No composite account was created.");
+            // the case where neither were present, we just pass a user warning
+            println!("WARNING: Could not find both 'gen' and 'inter' accounts. No composite account was created.");
         };
     }
-
-
-    // now retain only those which have no 
     
+    // only retain those lines for which there are some non-zero quantities
     user_usage.retain(|user| {
         ![ user.nodes, 
             user.cores, 
@@ -148,6 +136,7 @@ pub fn print_limits(qos_name: Option<&String>) {
         ].iter().all(|i| *i==0)
     });
 
+    // only retain those lines for which there are some non-zero LIMITS 
     center_usage.retain(|center| {
         ![ center.max_nodes, 
             center.max_cores, 
