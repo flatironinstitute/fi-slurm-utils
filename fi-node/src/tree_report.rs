@@ -355,13 +355,15 @@ fn calculate_max_width(tree_node: &TreeNode, prefix_len: usize) -> usize {
         .max(current_width)
 }
 
-pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names: bool, sort: bool, preempt: bool) {
+pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names: bool, sort: bool, preempt: bool, gpu: bool) {
     // --- Define Headers ---
     const HEADER_FEATURE: &str = "FEATURE (Avail/Total)";
     const HEADER_NODES_PREEMPT: &str = "NODES (PREEMPTABLE)";
     const HEADER_NODES: &str = "NODES";
     const HEADER_CPUS_PREEMPT: &str = "CORES (PREEMPTABLE) ";
     const HEADER_CPUS: &str = "CORES";
+    const HEADER_GPUS_PREEMPT: &str = "GPUS (PREEMPTABLE) ";
+    const HEADER_GPUS: &str = "GPUS";
     const HEADER_NODE_AVAIL: &str = "AVAIL.";
     const HEADER_CPU_AVAIL: &str = "AVAIL.";
 
@@ -393,9 +395,17 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
     };
 
     let cpus_final_width = if preempt {
-        (cpus_data_width).max(HEADER_CPUS_PREEMPT.len())
+        if gpu {
+            (cpus_data_width).max(HEADER_GPUS_PREEMPT.len())
+        } else {
+            (cpus_data_width).max(HEADER_CPUS_PREEMPT.len())
+        }
     } else {
-        (cpus_data_width).max(HEADER_CPUS.len())
+        if gpu {
+            (cpus_data_width).max(HEADER_GPUS.len())
+        } else {
+            (cpus_data_width).max(HEADER_CPUS.len())
+        }
     };
     let bar_final_width = (bar_width + 2).max(HEADER_NODE_AVAIL.len()); // +2 for "||"
 
@@ -472,7 +482,19 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
         HEADER_FEATURE.bold(),
         if preempt {HEADER_NODES_PREEMPT.bold()} else {HEADER_NODES.bold()},
         HEADER_NODE_AVAIL.bold(),
-        if preempt {HEADER_CPUS_PREEMPT.bold()} else {HEADER_CPUS.bold()},
+        if preempt {
+            if gpu {
+                HEADER_GPUS_PREEMPT.bold()
+            } else {
+                HEADER_CPUS_PREEMPT.bold()
+            }
+        } else {
+            if gpu {
+                HEADER_GPUS.bold()
+            } else {
+                HEADER_CPUS.bold()
+            }
+        },
         HEADER_CPU_AVAIL.bold(),
         feature_w = max_feature_width,
         nodes_w = nodes_final_width,
