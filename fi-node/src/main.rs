@@ -185,8 +185,8 @@ fn main() -> Result<(), String> {
             args.names,
             args.alphabetical,
             args.preempt,
-            args.gpu == GpuFilter::Gpu, // we use the gpus term only if we're talking about gpus
-            // exclusively
+            args.gpu && !args.all, // we use the gpus term only if we're talking about gpus and not
+            // all nodes
         );
 
         if args.debug { println!("Finished building tree report: {:?}", start.elapsed()); }
