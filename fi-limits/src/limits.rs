@@ -17,7 +17,11 @@ pub fn print_limits(qos_name: Option<&String>) {
     
     let accounts = accounts_to_process.first().unwrap().clone();
 
-    let jobs_collection = get_jobs().unwrap();
+    let mut jobs_collection = get_jobs().unwrap();
+
+    jobs_collection.jobs.retain(|&_, job| {
+        job.job_state == JobState::Running
+    });
 
     let mut user_usage: Vec<AccountJobUsage> = Vec::new();
     let mut center_usage: Vec<AccountJobUsage> = Vec::new();
