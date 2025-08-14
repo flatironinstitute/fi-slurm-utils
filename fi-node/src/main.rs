@@ -6,7 +6,7 @@ pub mod tui;
 use clap::Parser;
 use fi_slurm::nodes::{NodeState, SlurmNodes};
 use std::collections::{HashMap, HashSet};
-use fi_slurm::jobs::{enrich_jobs_with_node_ids, JobState, SlurmJobs, get_jobs};
+use fi_slurm::jobs::{enrich_jobs_with_node_ids, JobState, SlurmJobs, get_jobs, build_node_to_job_map};
 use fi_slurm::utils::{SlurmConfig, initialize_slurm};
 use fi_slurm::nodes::get_nodes;
 use fi_slurm::filter::{gather_all_features, filter_nodes_by_feature};
@@ -18,7 +18,7 @@ use std::time::Instant;
 use chrono::{DateTime, Utc};
 
 
-/// The main entry point for the `fi-node`
+/// The main entry point for the `fi-node` utility
 ///
 /// The function orchestrates the main pipeline:
 /// 1. Load all node and job data from Slurm
@@ -31,11 +31,7 @@ fn main() -> Result<(), String> {
 
     let args = Args::parse();
 
-    if args.leaderboard {
-        println!(" \n We've moved! For the leaderboard, please check out the new fi-limits utility, currently at `~nposner/bin/fi-limits`!");
-        return Ok(())
-    }
-
+    // entry point for the prometheus TUI utility
     if args.term {
         let _ = tui_execute();
         return Ok(())
@@ -65,14 +61,18 @@ fn main() -> Result<(), String> {
     // Load Data 
     if args.debug { println!("Starting to load Slurm data: {:?}", start.elapsed()); }
 
+    // Collect current node information from the cluster
     let mut nodes_collection = get_nodes()?;
     if args.debug { println!("Finished loading node data from Slurm: {:?}", start.elapsed()); }
 
+    // collect current job information from the cluster
     let mut jobs_collection = get_jobs()?;
     if args.debug { println!("Finished loading job data from Slurm: {:?}", start.elapsed()); }
 
+    // add the node ids instead of just node hostnames to the jobs collection
+    // necessary in order for cross-referencing and creating the node to job mapping in the build
+    // report functions
     enrich_jobs_with_node_ids(&mut jobs_collection, &nodes_collection.name_to_id);
-
 
     // for filtering the final display
     let gpu_filter: GpuFilter = if args.all {
@@ -84,7 +84,6 @@ fn main() -> Result<(), String> {
         GpuFilter::NotGpu
     };
 
-
     // Build Cross-Reference Map 
     let node_to_job_map = build_node_to_job_map(&jobs_collection);
     if args.debug { 
@@ -95,10 +94,12 @@ fn main() -> Result<(), String> {
         println!("Finished building node to job map: {:?}", start.elapsed()); 
     }
 
+    // getting information on which nodes are preempted, to be used in the build report functions
     let preempted_nodes = if args.preempt {
         Some(preempt_node(&mut nodes_collection, &node_to_job_map, &jobs_collection))
     } else { None };
 
+    // filtering nodes by feature
     let mut filtered_nodes = filter_nodes_by_feature(&nodes_collection, &args.feature, args.exact);
     if args.debug && !args.feature.is_empty() { println!("Finished filtering data: {:?}", start.elapsed()); }
 
@@ -111,8 +112,6 @@ fn main() -> Result<(), String> {
         }
 
         let _all_features = gather_all_features(&nodes_collection);
-        // TODO: more detailed error suggestions, maybe strsim, maybe just print a list of node
-        // names?
     }
 
 
@@ -125,10 +124,10 @@ fn main() -> Result<(), String> {
         println!("Started building node to job map: {:?}", start.elapsed()); 
     }
 
-
-
+    // entry point for the detailed report (replacement for nick carriero's featureInfo utility)
     if args.detailed {
         if args.debug { println!("Started building report: {:?}", start.elapsed()); }
+
         //  Aggregate Data into Report
         let report = report::build_report(&filtered_nodes, &jobs_collection, &node_to_job_map, args.names, args.allocated, args.verbose);
         if args.debug { println!("Aggregated data into {} state groups.", report.len()); 
@@ -140,6 +139,9 @@ fn main() -> Result<(), String> {
         if args.debug { println!("Finished printing report: {:?}", start.elapsed()); }
 
         return Ok(())
+
+
+    // the entry point for the summary report (DEPRECATED)
     } else if args.summary {
         // Aggregate data into summary report
         let summary_report = summary_report::build_summary_report(&filtered_nodes, &jobs_collection, &node_to_job_map);
@@ -152,8 +154,7 @@ fn main() -> Result<(), String> {
         return Ok(())
     } else {
 
-        // if necessary, filter out the nodes with or without gpu information 
-
+        // filtering out nodes by gpuinfo if necessary
         match gpu_filter {
             GpuFilter::Gpu => {
                 filtered_nodes.retain(|node| {
@@ -196,45 +197,22 @@ fn main() -> Result<(), String> {
     Ok(())
 }
 
-// taking into account preempt jobs that we may want to classify as idle for some purposes
-/// Builds a map where keys are node hostnames and values are a list of job IDs
-/// running on that node
-fn build_node_to_job_map(slurm_jobs: &SlurmJobs) -> HashMap<usize, Vec<u32>> {
-    let mut node_to_job_map: HashMap<usize, Vec<u32>> = HashMap::new();
 
-    for job in slurm_jobs.jobs.values() {
-        if job.job_state != JobState::Running || job.node_ids.is_empty() {
-            continue;
-        }
-        for &node_id in &job.node_ids {
-            node_to_job_map.entry(node_id).or_default().push(job.job_id);
-        }
-    }
-    node_to_job_map
-}
-
+/// Newtype for the ids of preempted nodes
 #[derive(Clone)]
 pub struct PreemptNodes(Vec<usize>);
 
-// function to crawl through the node to job map and change the status of a given node if the job/s
-// running on it are preempt
+/// Function to crawl through the node to job map and change the status of a given node if the
+/// job/s running on it are preempt.
+///
+/// If a preempt job is othe only one running on that node, we change its base state to Idle. If
+/// a preempt job is one of several running on the node, we can change it from Allocated to Mixed,
+/// assuming it was not already Mixed. 
 fn preempt_node(
     slurm_nodes: &mut SlurmNodes, 
     node_to_job_map: &HashMap<usize, Vec<u32>>, 
     slurm_jobs: &SlurmJobs
 ) -> PreemptNodes {
-    // iterate through the jobs, figure out which are preempt
-    // grabbing their ids, cross-reference to the ids of the nodes they're running on. This can be
-    // many to many
-    // if a preempt job is the only one running on that node, change its base state to Idle
-    // if a preempt job is one of several running on the node, we can change it from allocated to
-    // Mixed, assuming it was not already mixed
-    // 
-    // iterate over jobs first, then check in the mappings which nodes might be changed
-    // and then change those nodes accordingly
-
-    // do we also want to return those job ids, or the ids of those nodes which were reclassified?
-    // and maybe also how many cores? No, let's just stick to nodes for now
     let now: DateTime<Utc> = Utc::now();
 
     let mut preemptable_jobs: HashSet<u32> = HashSet::new();
@@ -243,6 +221,7 @@ fn preempt_node(
 // and compare it to the preemptable_time feature in the job
     for job in slurm_jobs.jobs.values() {
         if job.preemptable_time <= now && job.preemptable_time != chrono::DateTime::UNIX_EPOCH { 
+            // we ensure that the time is not just 0, the start of the Unix Epoch
             preemptable_jobs.insert(job.job_id);
         }
     }
@@ -250,6 +229,7 @@ fn preempt_node(
     let mut all_preempt = HashSet::new();
     let mut partially_preempt = HashSet::new();
 
+    // we iterate through the nodes and the jobs on them, and collect them into the preempt lists
     for (node_id, jobs_on_node) in node_to_job_map.iter() {
         if jobs_on_node.is_empty() {
             continue;
@@ -276,7 +256,7 @@ fn preempt_node(
     //
     // for nodes in the partially_preempt list, we want to turn allocated into mixed 
     // we leave mixed be, because if the jobs running on it were all preempt, the node would be in
-    // the othe category
+    // the other category
 
     let mut preempted_nodes: Vec<usize> = Vec::new();
 
@@ -289,7 +269,6 @@ fn preempt_node(
                 },
                 NodeState::Compound {base, flags} => {
                     match **base {
-                        // NodeState::Allocated | NodeState::Mixed => {
                         NodeState::Allocated | NodeState::Mixed => {
                             preempted_nodes.push(node.id);
                             node.state = NodeState::Compound { base: Box::new(NodeState::Idle), flags: flags.to_vec() }
@@ -365,7 +344,7 @@ struct Args {
     #[arg(help = "Prints debug-level logging steps to terminal")]
     debug: bool,
     #[arg(short, long)]
-    #[arg(help = "Prints the top-level summary report for each feature type")]
+    // #[arg(help = "Prints the top-level summary report for each feature type")]
     summary: bool,
     // for showing just the gpus
     #[arg(long)]

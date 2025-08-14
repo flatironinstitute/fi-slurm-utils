@@ -532,3 +532,20 @@ pub fn print_accounts(accounts: Vec<AccountJobUsage>) {
     // the report, and then print
 }
 
+/// Builds a map where keys are node hostnames and values are a list of job IDs
+/// running on that node
+pub fn build_node_to_job_map(slurm_jobs: &SlurmJobs) -> HashMap<usize, Vec<u32>> {
+    let mut node_to_job_map: HashMap<usize, Vec<u32>> = HashMap::new();
+
+    for job in slurm_jobs.jobs.values() {
+        if job.job_state != JobState::Running || job.node_ids.is_empty() {
+            continue;
+        }
+        for &node_id in &job.node_ids {
+            node_to_job_map.entry(node_id).or_default().push(job.job_id);
+        }
+    }
+    node_to_job_map
+}
+
+
