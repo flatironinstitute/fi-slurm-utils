@@ -195,7 +195,7 @@ pub fn build_tree_report(
 
                 if gpu {
                     current_level.stats.total_cpus += node.gpu_info.unwrap().total_gpus as u32;
-                    current_level.stats.alloc_cpus += node.gpu_info.unwrap().allocated_gpus;
+                    current_level.stats.alloc_cpus += node.gpu_info.unwrap().allocated_gpus as u32;
                 } else {
                     current_level.stats.total_cpus += node.cpus as u32;
                     current_level.stats.alloc_cpus += alloc_cpus_for_node;
