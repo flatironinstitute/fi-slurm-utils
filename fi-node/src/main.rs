@@ -178,6 +178,7 @@ fn main() -> Result<(), String> {
             args.names,
             preempted_nodes,
             args.preempt,
+            args.gpu && !args.all,
         );
         print_tree_report(
             &tree_report,
