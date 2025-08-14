@@ -6,7 +6,8 @@ use fi_slurm::utils::{SlurmConfig, initialize_slurm};
 use crate::limits::{leaderboard_feature, leaderboard, print_limits};
 
 
-
+/// The main function for the fi-limits CLI application
+/// Parses the inputs and manages the pipeline for the fi-limits and leaderboard utilities
 fn main() -> Result<(), String> {
 
     let args = Args::parse();
@@ -29,16 +30,16 @@ fn main() -> Result<(), String> {
         }
     }
 
-    let qos_name = if !args.user.is_empty() {
+    // getting the user name passed in, if it exists, or else passes in None,
+    // which will cause the print_limits function to get the username from OS
+    let user_name = if !args.user.is_empty() {
         args.user.first()
     } else {
         None
     };
 
-    // make this the default if the leaderboard is not in use
-    print_limits(qos_name);
+    print_limits(user_name);
     Ok(())
-
 }
 
 
@@ -46,6 +47,7 @@ fn main() -> Result<(), String> {
 #[command(version, about, long_about = "This command-line and terminal application was built by Lehman Garrison, Nicolas Posner, Dylan Simon, and Alex Chavkin at the Scientific Computing Core of the Flatiron Institute. By default, it displays the current resource usage and limits of the user and their center.")]
 struct Args {
     #[arg(short, long)]
+    #[arg(help = "Select a specific user by name to show their fi-limits")]
     user: Vec<String>,
     #[arg(short, long)]
     #[arg(num_args(0..))]
