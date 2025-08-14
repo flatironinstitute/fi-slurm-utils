@@ -301,7 +301,7 @@ fn preempt_node(
 /// A command-line utility to report the state of a Slurm cluster,
 /// showing a summary of nodes grouped by state and feature
 #[derive(Parser, Debug)]
-#[command(version, about, long_about = "This command-line and terminal application was built by Lehman Garrison, Nicolas Posner, Dylan Simon, and Alex Chavkin at the Scientific Computing Core of the Flatiron Institute. By default, it displays the availability of non-gpu nodes as a tree diagram, as queried from the locally running instance of Slurm. For support, contact nposner@flatironinstitute.org")]
+#[command(version, about, long_about = "This command-line and terminal application was built by Lehman Garrison, Nicolas Posner, Dylan Simon, and Alex Chavkin at the Scientific Computing Core of the Flatiron Institute. By default, it displays the availability of non-gpu nodes as a tree diagram, as queried from the locally running instance of Slurm. For support, contact nicolasposner@gmail.com")]
 struct Args {
     #[arg(short, long)]
     #[arg(help = "Shows only gpu nodes in the tree view")]

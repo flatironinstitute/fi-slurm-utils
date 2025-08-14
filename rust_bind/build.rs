@@ -7,7 +7,6 @@ fn main() {
     // Tell cargo to link against the 'slurm' library.
     // The `module load` command will have already put its location
     // in the linker's standard search path.
-    //println!("cargo:rustc-link-lib=slurm");
 
     // Tell cargo to rebuild if the wrapper header changes.
     println!("cargo:rerun-if-changed=wrapper.h");
