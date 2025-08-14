@@ -49,15 +49,15 @@ struct Args {
     #[arg(short, long)]
     #[arg(help = "Select a specific user by name to show their fi-limits")]
     user: Vec<String>,
-    #[arg(short, long)]
-    #[arg(num_args(0..))]
-    #[arg(help = "Select individual features to filter by. `icelake` would only show information for icelake nodes. \n For multiple features, separate them with spaces, such as `genoa gpu skylake`")]
-    filter: Vec<String>,
     #[arg(long)]
     #[arg(num_args(0..=1))]
     #[arg(default_missing_value = "20")]
     #[arg(help = "Display a leaderboard of current cluster use by user, according to node and core use. If no number is passed, it defaults to showing the top 20")]
     leaderboard: Option<usize>,
+    #[arg(short, long)]
+    #[arg(num_args(0..))]
+    #[arg(help = "For use with the leaderboard: select individual features to filter by. `icelake` would only show information for icelake nodes. \n For multiple features, separate them with spaces, such as `genoa gpu skylake`")]
+    filter: Vec<String>,
 }
 
 
