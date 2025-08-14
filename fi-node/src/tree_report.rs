@@ -133,18 +133,34 @@ pub fn build_tree_report(
 
         // Update Grand Total Stats
         root.stats.total_nodes += 1;
-        root.stats.total_cpus += node.cpus as u32;
-        root.stats.alloc_cpus += alloc_cpus_for_node;
+
+        if gpu {
+            root.stats.total_cpus += total_gpus;
+            root.stats.alloc_cpus += allocated_gpus;
+        } else {
+            root.stats.total_cpus += node.cpus as u32;
+            root.stats.alloc_cpus += alloc_cpus_for_node;
+        }
 
         if is_available && preempt {
             // we don't increment idle nodes or cpus in this case in this case
             // in order to keep idle nodes referring only to idle and not idle + preempt
             root.stats.idle_nodes += 1;
-            root.stats.idle_cpus += node.cpus as u32;
+
+            if gpu {
+                root.stats.idle_cpus = total_gpus;
+
+            } else {
+                root.stats.idle_cpus += node.cpus as u32;
+            }
 
             if preempted_node_ids.contains(&node.id) {
                 *root.stats.preempt_nodes.get_or_insert(0) += 1;
-                *root.stats.preempt_cpus.get_or_insert(0) += node.cpus as u32; // because unlike
+                if gpu {
+                    *root.stats.preempt_cpus.get_or_insert(0) += total_gpus; 
+                } else {
+                    *root.stats.preempt_cpus.get_or_insert(0) += node.cpus as u32; // because unlike
+                }
                 // the nodes, cpus don't get any kind of base state change
             }
         } else if is_available && !preempt {
