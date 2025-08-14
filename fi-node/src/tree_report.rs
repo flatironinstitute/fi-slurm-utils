@@ -29,8 +29,8 @@ pub struct ReportLine {
     pub node_names: Vec<String>,
 }
 
+/// A Newtype for TreeNode, representing the output of build_tree_report
 pub type TreeReportData = TreeNode;
-
 
 // Aggregation Logic
 
@@ -49,6 +49,8 @@ fn is_node_available(state: &NodeState) -> bool {
         _ => false,
     }
 }
+
+/// Helper function to determine if a node partly available for new work
 fn is_node_mixed(state: &NodeState) -> bool {
     match state {
         NodeState::Mixed => true,
@@ -64,8 +66,7 @@ fn is_node_mixed(state: &NodeState) -> bool {
     }
 }
 
-// a filter enum to decide whether we want to show only nodes with gpu, nodes without gpu, or show
-// both
+/// A filter enum to decide whether we want to show only nodes with gpu, nodes without gpu, or show both
 pub enum GpuFilter {
     Gpu,
     NotGpu,
@@ -73,6 +74,7 @@ pub enum GpuFilter {
 }
 
 /// Builds a hierarchical tree report from a flat list of Slurm nodes
+/// Strong candidate for refactor, currently very repetitive and confusing
 #[allow(clippy::too_many_arguments)]
 pub fn build_tree_report(
     nodes: &[&Node],
@@ -92,10 +94,12 @@ pub fn build_tree_report(
 
     if feature_filter.len() == 1 {root.single_filter = true};
 
+    // a custom list of uninformative or redundant features excluded from the default presentation
     let hidden_features: HashSet<&str> = [
         "rocky8", "rocky9", "sxm", "sxm2", "sxm4", "sxm5", "nvlink", "a100", "h100", "v100", "ib",
     ].iter().cloned().collect();
 
+    // the main loop, iterating over the nodes in order to construct the tree structure
     for &node in nodes {
         let alloc_cpus_for_node: u32 = if let Some(job_ids) = node_to_job_map.get(&node.id) {
             job_ids.iter().filter_map(|id| jobs.jobs.get(id)).map(|j| j.num_cpus / j.num_nodes.max(1)).sum()
@@ -198,7 +202,7 @@ pub fn build_tree_report(
         }
         
 
-        // we can modify this step here to include or exclude 
+        // we filter the features list to remove the undesired features unless told otherwise
         let features_for_tree: Vec<_> = if show_hidden_features {
             node.features.iter().collect()
         } else {
@@ -207,14 +211,14 @@ pub fn build_tree_report(
 
         // further refine with either gpu, not gpu, or both 
         
-        // --- Tree Building Logic ---
+        // tree building logic
         if feature_filter.is_empty() {
-            // --- Default Behavior: Build tree from the (potentially filtered) feature list ---
+            // by default, build tree from the (potentially filtered) feature list
             let mut current_level = &mut root;
             for feature in &features_for_tree {
                 current_level = current_level.children.entry(feature.to_string()).or_default();
                 current_level.name = feature.to_string();
-                // Add stats to this branch
+                // add stats to this branch
                 current_level.stats.total_nodes += 1;
 
                 if gpu {
@@ -279,14 +283,14 @@ pub fn build_tree_report(
                 }
             }
         } else {
-            // --- Filtered Behavior: Make filtered features the top level ---
+            // bring the filtered features to the top level
             for filter in feature_filter {
                 // IMPORTANT: The check to see if a node belongs under a filter
                 // must use the ORIGINAL, unfiltered features.
                 if node.features.contains(filter) {
                     let mut current_level = root.children.entry(filter.clone()).or_default();
                     current_level.name = filter.clone();
-                    // Add stats to this top-level branch
+                    // add stats to this top-level branch
                     current_level.stats.total_nodes += 1;
 
                     if gpu {
@@ -345,12 +349,12 @@ pub fn build_tree_report(
                         }
                     }
 
-                    // Build the sub-branch from the *remaining* features,
-                    // respecting the show_hidden_features flag.
+                    // build the sub-branch from the *remaining* features,
+                    // respecting the show_hidden_features flag
                     for feature in features_for_tree.iter().filter(|f| f.as_str() != filter) {
                         current_level = current_level.children.entry(feature.to_string()).or_default();
                         current_level.name = feature.to_string();
-                        // Add stats to the sub-branch
+                        // add stats to the sub-branch
                         current_level.stats.total_nodes += 1;
 
                         if gpu {
@@ -425,6 +429,7 @@ pub fn build_tree_report(
 
 // Display Logic
 
+/// Struct containing the widths of each column
 #[derive(Default)]
 struct ColumnWidths {
     max_idle_nodes: usize,
@@ -435,6 +440,7 @@ struct ColumnWidths {
     max_preempt_cpus_width: usize,
 }
 
+/// Helper function for calculating the widths of the columns
 fn calculate_column_widths(tree_node: &TreeNode) -> ColumnWidths {
     let mut widths = ColumnWidths {
         max_idle_nodes: tree_node.stats.idle_nodes.to_string().len(),
@@ -508,6 +514,7 @@ fn calculate_max_width(tree_node: &TreeNode, prefix_len: usize) -> usize {
         .max(current_width)
 }
 
+/// Prints the tree report
 pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names: bool, sort: bool, preempt: bool, gpu: bool) {
     // --- Define Headers ---
     const HEADER_FEATURE: &str = "FEATURE (Avail/Total)";
@@ -633,7 +640,7 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
         create_avail_bar(stats.idle_cpus, stats.total_cpus, bar_width, Color::Cyan, no_color)
     };
 
-    // Print Headers with left-alignment
+    // Print Headers with alignment
     println!(
         "{:<feature_w$} {:>nodes_w$}  {:^bar_w$}{:>cpus_w$}  {:^bar_w$}",
         HEADER_FEATURE.bold(),
