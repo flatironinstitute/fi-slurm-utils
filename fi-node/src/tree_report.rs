@@ -103,8 +103,13 @@ pub fn build_tree_report(
             0
         };
 
-        let total_gpus = node.gpu_info.clone().unwrap_or(0).total_gpus as u32;
-        let allocated_gpus = node.gpu_info.unwrap_or(0).allocated_gpus as u32;
+        let mut total_gpus: u32 = 0;
+        let mut allocated_gpus: u32 = 0;
+
+        if let Some(gpu_info) = node.gpu_info {
+            total_gpus = gpu_info.total_gpus as u32;
+            allocated_gpus = gpu_info.allocated_gpus as u32;
+        };
 
         let derived_state = if alloc_cpus_for_node > 0 && alloc_cpus_for_node < node.cpus as u32 {
             match &node.state {
