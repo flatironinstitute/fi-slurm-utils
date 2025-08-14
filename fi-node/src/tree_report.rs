@@ -627,7 +627,11 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
     let max_cores = stats.total_cpus;
 
     let node_bar = create_avail_bar(stats.idle_nodes, stats.total_nodes, bar_width, Color::Green, no_color);
-    let cpu_bar = create_avail_bar(stats.idle_cpus, stats.total_cpus, bar_width, Color::Cyan, no_color);
+    let cpu_bar = if gpu {
+        create_avail_bar(stats.idle_cpus, stats.total_cpus, bar_width, Color::Red, no_color)
+    } else {
+        create_avail_bar(stats.idle_cpus, stats.total_cpus, bar_width, Color::Cyan, no_color)
+    };
 
     // Print Headers with left-alignment
     println!(
@@ -691,6 +695,7 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
             show_node_names,
             sort,
             (max_nodes, max_cores),
+            gpu,
         );
     }
 }
@@ -706,7 +711,8 @@ fn print_node_recursive(
     col_widths: &ColumnWidths,
     show_node_names: bool,
     sort: bool,
-    max: (u32, u32)
+    max: (u32, u32),
+    gpu: bool,
 ) {
     let mut path_parts = vec![tree_node.name.as_str()];
     let mut current_node = tree_node;
@@ -775,7 +781,13 @@ fn print_node_recursive(
     let cpus_width_adjusted = cpus_final_width + cpu_text.len() - uncolored_cpu_text.len();
 
     let node_bar = create_avail_bar(stats.idle_nodes, max.0, bar_width, Color::Green, no_color);
-    let cpu_bar = create_avail_bar(stats.idle_cpus, max.1, bar_width, Color::Cyan, no_color);
+
+    let cpu_bar = if gpu {
+        create_avail_bar(stats.idle_cpus, max.1, bar_width, Color::Red, no_color)
+    } else {
+        create_avail_bar(stats.idle_cpus, max.1, bar_width, Color::Cyan, no_color)
+    };
+
     let node_names = &current_node.stats.node_names.clone();
 
     println!(
@@ -810,7 +822,8 @@ fn print_node_recursive(
             col_widths,
             show_node_names,
             sort,
-            (max.0, max.1)
+            (max.0, max.1),
+            gpu,
         );
     }
 }
