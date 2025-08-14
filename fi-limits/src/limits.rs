@@ -199,34 +199,35 @@ pub fn leaderboard_feature(top_n: usize, features: Vec<String>) {
     // keys are node host ids, values are job ids running on those nodes
     let node_to_job_map = build_node_to_job_map(&jobs_collection);
 
-    // now process this 
-    // goal: collect only the jobs where at least one of its allocated nodes has at least one of
-    // the stated features
-    // we can just go through the nodes, collect all the ids where this is the case, and then use
-    // this to filter the jobs
+    let features_set: HashSet<String> = HashSet::from_iter(features.iter().cloned());
 
+    let filtered_job_ids: Vec<u32> = nodes_collection.nodes.iter()
+        .filter(|node| node.features.iter().any(|item| features_set.contains(item)))
+        .filter_map(|node| node_to_job_map.get(&node.id))
+        .flatten().cloned().collect();
 
-    let filtered_nodes: Vec<&Node> = if features.len() == 1 {
-        let feature = features.first().unwrap();
-        nodes_collection.nodes.iter().filter(|node| {
-            node.features.contains(feature)
-        }).collect()
-    } else {
-        let features_set: HashSet<String> = HashSet::from_iter(features.iter().cloned());
+    ///
 
-        nodes_collection.nodes.iter().filter(|node| {
-            node.features.iter().any(|item| features_set.contains(item))
-        }).collect()
-    };
-
-    
-    let mut filtered_job_ids: Vec<u32> = Vec::new();
-
-    filtered_nodes.iter().for_each(|node| {
-        if let Some(jobs) = node_to_job_map.get(&node.id) {
-            filtered_job_ids.extend(jobs)
-        }
-    });
+    // let filtered_nodes: Vec<&Node> = if features.len() == 1 {
+    //     let feature = features.first().unwrap();
+    //     nodes_collection.nodes.iter().filter(|node| {
+    //         node.features.contains(feature)
+    //     }).collect()
+    // } else {
+    //
+    //     nodes_collection.nodes.iter().filter(|node| {
+    //         node.features.iter().any(|item| features_set.contains(item))
+    //     }).collect()
+    // };
+    //
+    //
+    // let mut filtered_job_ids: Vec<u32> = Vec::new();
+    //
+    // filtered_nodes.iter().for_each(|node| {
+    //     if let Some(jobs) = node_to_job_map.get(&node.id) {
+    //         filtered_job_ids.extend(jobs)
+    //     }
+    // });
     
     // final stretch, we filter those jobs whose ids are in here
     // is there a way to do this with fewer filtering steps?
