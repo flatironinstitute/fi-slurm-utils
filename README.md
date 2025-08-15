@@ -1,32 +1,14 @@
-This workspace contains the source code for a series of Rust-based utilities developed at the Flatiron Institute by **Lehman Garrison**, **Nicolas Posner**, **Dylan Simon**, and **Alex Chavkin**. We will begin this project by aiming at creating a node-visibility utility tentatively named `fi-node`, which duplicates and extends the functionality of `carriero/bin/featureInfo`. 
+This workspace contains the source code for a series of Rust-based command-line utilities developed at the Flatiron Institute by **Lehman Garrison**, **Nicolas Posner**, **Dylan Simon**, and **Alex Chavkin**. 
 
-This is a user-facing CLI tool fitting the following parameters:
+It includes:
+`fi-node`: A set of utilities for getting live diagnostics from a running Slurm cluster about node availability and usage.
+`fi-limits`: A set of utilities for getting information about individual and group resource use relative to their assigned resource limits.
 
-- Should provide visibility into availability of nodes by type (icelake, rome, genoa, a100, v100, h100, etc)
-- Provide easy readability and context to the user, with 
-	- Columns and unit headers
-	- Aligned columns
-	- Showing available rather than unavailable resources by default
-	- Hiding GPUs by default (if you're running a GPU job, you'll know it)
- - Stretch: expand CLI capacity to a TUI, with simple graphical representations of historical resource availability
+These utilities are built on top of custom Rust APIs for the Slurm C library, querying both the Slurm daemon and the Slurm Database daemon, as well as a small API for simple Prometheus queries. These are contained in the fi_slurm, fi_slurm_db, and fi_prometheus sub-crates.
 
-As possible, we can expand on this framework with other utilities, such as the tentatively named `fi-job-top` or `fisq`:
+These APIs, in turn, are built on top of a set of Rust-C bindings generated automatically at build time by the rust-bindgen crate.
+
+We hope to build on this to create new utilities, tentatively named `fi-job-top` or `fisq`:
 - `fi-job-top`, a TUI interface for resource usage on currently-running jobs
 - `fisq`, an `squeue` replacement, perhaps similar to `turm` but with integration with the other tools in our suite and better user ergonomics
-
-# Technical considerations
-
-We broadly have two approaches for constructing these tools: on the one hand, we can rely on the existing Slurm CLI tooling, such as `sinfo`, which reduces some of our power and flexibility and introduces more overhead for frequent system calls, but should be more resilient to breaking or undocumented changes in the underlying software. 
-
-On the other hand, we could interface with libslurm directly, binding using `rust-bindgen` to access the C representations from Rust directly. This is more powerful, but requires up-front work creating and verifying the integrity of the bindings, and leaves us at the mercy of subtle breaking changes in the underlying Slurm types or functions. 
-
-The current approach uses an automated `rust-bindgen` process to build bindings against the current version of Slurm. It has proven reliable and stable through the construction of `fi-node.` We will default to `clap` for CLI production and `ratatui` for TUI production.
-
-# Tasks
-- [x] Identify capabilities of the `carriero` featureInfo utility and map out its dependencies in libslurm (via PySlurm)
-- [x] Produce a `rust-bindgen` binding of necessary Slurm types
-- [x] Test the integrity of the `fi-node` bindings in a sequestered node
-- [x] Construct the 'business logic' in duplication of `carriero`
-- [ ] Obtain user feedback on the benefits and pain points of the new utilities and determine how best to integrate them into existing workflows
-- [ ] (Stretch) Develop a TUI representation of `fi-node`
 
