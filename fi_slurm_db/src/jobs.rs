@@ -1,16 +1,10 @@
-use std::{
-    ffi::CStr, 
-    ops::Deref, 
-};
-
-use chrono::{DateTime, Utc};
+use std::{ffi::CStr, ops::Deref};
 use rust_bind::bindings::{slurm_list_destroy, slurmdb_job_cond_t, slurmdb_job_rec_t, slurmdb_jobs_get, xlist};
-
+use chrono::{DateTime, Utc};
+use thiserror::Error;
 
 use crate::db::DbConn;
 use crate::utils::{vec_to_slurm_list, SlurmIterator};
-
-use thiserror::Error;
 
 
 #[derive(Error, Debug)]
@@ -31,18 +25,17 @@ pub enum JobsError {
     EmptyJobsListError,
 }
 
+/// A Rust-side wrapper object corresponding to the slurmdb_job_cond_t object
 pub struct JobsConfig {
     pub acct_list: Option<Vec<String>>,
     pub format_list: Option<Vec<String>>,
     pub qos_list: Option<Vec<String>>,
     pub usage_end: DateTime<Utc>,
     pub usage_start: DateTime<Utc>,
-
-    //...
-    // refer to slurmdb_job_cond_t in bindings for more fields
 }
 
 impl JobsConfig {
+    /// Convert a JobsConfig object into a slurmdb_job_cond_t object
     pub fn into_c_struct(self) -> slurmdb_job_cond_t {
 
         unsafe {
@@ -52,7 +45,7 @@ impl JobsConfig {
             c_struct.qos_list = vec_to_slurm_list(self.qos_list);
             c_struct.usage_end = self.usage_end.timestamp();
             c_struct.usage_end = self.usage_start.timestamp();
-            //...
+            //... add more fields as needed
 
             c_struct
         }
@@ -64,6 +57,8 @@ pub struct JobsQueryInfo {
     pub jobs: *mut slurmdb_job_cond_t,
 }
 
+/// Constructing a JobsQueryInfo Rust struct from a pointer to a pointer to a C slurmdb_job_cond_t
+/// struct
 impl JobsQueryInfo {
     pub fn new(config: JobsConfig) -> Self {
         // build zeroed C struct and heap-allocate so Slurm destroy frees heap
@@ -75,6 +70,9 @@ impl JobsQueryInfo {
 }
 
 impl Drop for JobsQueryInfo {
+    /// Correctly freeing a JobsQueryInfo by manually destroying all its fields with their
+    /// corresponding destructors, and then reclaiming the pointers from C and dropping them when
+    /// they fall out of scope
     fn drop(&mut self) {
         if !self.jobs.is_null() {
             unsafe {
@@ -133,6 +131,7 @@ impl Drop for SlurmJobsList {
 }
 
 #[derive(Debug)]
+/// A Rust-side struct corresponding to the slurmdb_job_rec_t struct
 pub struct SlurmJobs {
     pub job_id: u32,
     pub job_name: String,
@@ -142,24 +141,12 @@ pub struct SlurmJobs {
     pub alloc_nodes: u32,
     pub eligible: DateTime<Utc>,
     pub submit_time: DateTime<Utc>,
-
-
-    //...
-    // refer to slurmdb_job_rec_t in bindings
 }
 
-// might not have the relevant information, set on partition?
-// bc not seeing 'scc' or 'other' jobs in the output of sacctmgr ..., though cca does show up
-// maybe the associations are the wrong data structure?
-// maybe we need to look at partitions
-// start working on the TRES part, that should be the same, at least
-
 impl SlurmJobs {
+    /// Create a SlurmJobs Rust struct from a slurmdb_job_rec_t struct
     pub unsafe fn from_c_rec(rec: *const slurmdb_job_rec_t) -> Self {
         unsafe {
-            // guard against null name pointer
-
-
 
             let partition = if (*rec).partition.is_null() {
                 String::new()
@@ -173,19 +160,11 @@ impl SlurmJobs {
                 CStr::from_ptr((*rec).jobname).to_string_lossy().into_owned()
             };
 
-
-            //
             let node_names = if (*rec).nodes.is_null() {
                 String::from("foo")
             } else {
                 CStr::from_ptr((*rec).nodes).to_string_lossy().into_owned()
             };
-            //
-            // let max_tres_per_job = if (*rec).max_tres_pj.is_null() {
-            //     String::from("foo")
-            // } else {
-            //     CStr::from_ptr((*rec).max_tres_pj).to_string_lossy().into_owned()
-            // };
 
             Self {
                 job_id: (*rec).jobid,
@@ -194,13 +173,14 @@ impl SlurmJobs {
                 priority: (*rec).priority,
                 node_names,
                 alloc_nodes: (*rec).alloc_nodes,
-                eligible: DateTime::from_timestamp((*rec).eligible, 0).unwrap(), // have to convert this i64 to datetime
-                submit_time: DateTime::from_timestamp((*rec).submit, 0).unwrap(), // have to convert this i64 to datetime
+                eligible: DateTime::from_timestamp((*rec).eligible, 0).unwrap(), // i64 to datetime
+                submit_time: DateTime::from_timestamp((*rec).submit, 0).unwrap(), // i64 to datetime
             }
         }
     }
 }
 
+/// Process a SlurmJobsList into a vector of SlurmJobs, or else return an error
 pub fn process_jobs_list(jobs_list: SlurmJobsList) -> Result<Vec<SlurmJobs>, JobsError> {
 
     if jobs_list.ptr.is_null() {

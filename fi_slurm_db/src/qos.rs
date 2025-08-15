@@ -1,16 +1,9 @@
-use std::{
-    ffi::CStr, 
-    ops::Deref, 
-};
-
+use std::{ffi::CStr, ops::Deref};
 use rust_bind::bindings::{slurm_list_destroy, slurmdb_qos_cond_t, slurmdb_qos_get, slurmdb_qos_rec_t, xlist};
-
+use thiserror::Error;
 
 use crate::db::DbConn;
 use crate::utils::{vec_to_slurm_list, SlurmIterator};
-
-use thiserror::Error;
-
 
 #[derive(Error, Debug)]
 pub enum QosError {
@@ -30,22 +23,22 @@ pub enum QosError {
     EmptyQosListError,
 }
 
+/// A Rust-side object corresponding to the slurmdb_qos_cond_t object
 pub struct QosConfig {
     pub name_list: Option<Vec<String>>,
     pub format_list: Option<Vec<String>>,
     pub id_list: Option<Vec<String>>,
-    //...
-    // refer to slurmdb_qos_cond_t in bindings for more fields
 }
 
 impl QosConfig {
+    /// Converting a QosConfig object into a slurmdb_qos_cond_t object to be passed into Slurm
     pub fn into_c_struct(self) -> slurmdb_qos_cond_t {
         unsafe {
             let mut c_struct: slurmdb_qos_cond_t = std::mem::zeroed();
             c_struct.name_list = vec_to_slurm_list(self.name_list);
             c_struct.format_list = vec_to_slurm_list(self.format_list);
             c_struct.id_list = vec_to_slurm_list(self.id_list);
-            //...
+            //... add more fields as needed
 
             c_struct
         }
@@ -58,6 +51,7 @@ pub struct QosQueryInfo {
 }
 
 impl QosQueryInfo {
+    /// Constructing a QosQueryInfo wrapper object from a pointer to a pointer to a C struct
     pub fn new(config: QosConfig) -> Self {
         // build zeroed C struct and heap-allocate so Slurm destroy frees heap
         let c_struct: slurmdb_qos_cond_t = config.into_c_struct();
@@ -68,6 +62,10 @@ impl QosQueryInfo {
 }
 
 impl Drop for QosQueryInfo {
+    /// Safely destroy the Slurm-allocated lists in the QosQueryInfo struct
+    /// We free the individual lists with their destructor functions,
+    /// and then, by creating a Rust Box from the top-level pointer, we 
+    /// claim the memory from C, and Rust safely drops it at the end of scope
     fn drop(&mut self) {
         if !self.qos.is_null() {
             unsafe {
@@ -126,6 +124,7 @@ impl Drop for SlurmQosList {
 }
 
 #[derive(Debug)]
+/// A Rust object holding part of the information from a slurmdb_qos_rec_t object
 pub struct SlurmQos {
     pub name: String,
     pub priority: u32,
@@ -134,22 +133,11 @@ pub struct SlurmQos {
     pub max_tres_per_group: String,
     pub max_tres_per_account: String,
     pub max_tres_per_job: String,
-
-
-    //...
-    // refer to slurmdb_qos_rec_t in bindings
 }
 
 
-
-
-// might not have the relevant information, set on partition?
-// bc not seeing 'scc' or 'other' qos in the output of sacctmgr ..., though cca does show up
-// maybe the associations are the wrong data structure?
-// maybe we need to look at partitions
-// start working on the TRES part, that should be the same, at least
-
 impl SlurmQos {
+    /// Generate a SlurmQos object from a C slurmdb_qos_rec_t object
     pub unsafe fn from_c_rec(rec: *const slurmdb_qos_rec_t) -> Self {
         unsafe {
             // guard against null name pointer
@@ -196,19 +184,7 @@ impl SlurmQos {
     }
 }
 
-// // create a function that takes in a vec of slurmqos, goes inside, and gets the information for the
-// // gen and inter partitions, and uses the latter to build the limits on the former?
-// pub fn gen_inter_switch(qos: Vec<SlurmQos>) -> Vec<SlurmQos> {
-//     // hacky special case function
-//     let inter_limits: 
-//     qos.iter().map(|q| {
-//
-//     })
-//
-//     // add the adjusted gen to the top, don't add inter back
-//
-// }
-
+/// Process a SlurmQosList into a vector of SlurmQos objects, or else return an Error
 pub fn process_qos_list(qos_list: SlurmQosList) -> Result<Vec<SlurmQos>, QosError> {
 
     if qos_list.ptr.is_null() {

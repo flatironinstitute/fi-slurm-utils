@@ -1,0 +1,3 @@
+The fi_slurm_db directory contains a set of APIs for interacting with the Slurm Database daemon. It largely follows the same gAPI design guidelines as the fi_slurm API, with one exception: functions which would pass request data from Rust to C (namely, the assoc_cond or user_cond objects) must Box those values, and must ensure that neither Rust nor the ordinary C allocator attempt to deallocate them: otherwise, segfaults occur.
+
+The reason for this is that one of the components of these cond objects, the slurmlist, requires a custom free function to be written for it. We have handled this by manually freeing the individual fields of the affected structs in the Drop implementation, and providing an API for safely handling slurm lists and slurm iterators from Rust. 

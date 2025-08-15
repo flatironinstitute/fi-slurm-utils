@@ -43,7 +43,7 @@ pub unsafe fn vec_to_slurm_list(data: Option<Vec<String>>) -> *mut xlist {
     slurm_list
 }
 
-
+/// Helper function for quickly converting between ints and bools
 pub fn bool_to_int(b: bool) -> u16 {
     if b {
         1
@@ -52,11 +52,13 @@ pub fn bool_to_int(b: bool) -> u16 {
     }
 }
 
+/// A container struct for a pointer to a C list iterator
 pub struct SlurmIterator {
     pub ptr: *mut list_itr_t
 }
 
 impl SlurmIterator {
+    /// Create a new slurm list from a raw pointer
     pub unsafe fn new(list_ptr: *mut xlist) -> Self {
         if list_ptr.is_null() {
             return Self { ptr: std::ptr::null_mut() };
@@ -70,6 +72,7 @@ impl SlurmIterator {
 }
 
 impl Drop for SlurmIterator {
+    /// Safely destroy the slurm list iterator by freeing it with the C destructor
     fn drop(&mut self) {
         if !self.ptr.is_null() {
             unsafe {

@@ -1,11 +1,3 @@
-// prototyping the ability to grab database information
-
-// example, replicating sacctmgr show qos cca format=MaxTRESPU%20,GrpTRES%20
-//
-// first, get user name, likely from OS env
-// second, query for the user's associated accounts
-// third, for each of those accounts, 
-
 // API guidelines: for anything that would be passed from Rust to C, use Box to 
 // create the pointers and pass control to C, rather than trying to create the 
 // C structs locally and passing them in by value, since this creates
