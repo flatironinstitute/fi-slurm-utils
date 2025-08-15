@@ -1,15 +1,3 @@
-// API guidelines: for anything that would be passed from Rust to C, use Box to 
-// create the pointers and pass control to C, rather than trying to create the 
-// C structs locally and passing them in by value, since this creates
-// use after frees in interaction with manual Drop implementations
-
-// observe the AssocConfig struct and its implementations for a guide on how we want
-// this API to work: an into_c_struct method should take fn(self) -> c_struct, initializing zeroed
-// memory internally, populating it from the struct, and then allocating it onto the heap with
-// Box::into_raw(Box::new(c_struct)). These Config types should not have manual Drop
-// implementations: when we pass the memory to C, it becomes C's responsibility to free, don't 
-// tempt a double-free by adding one
-
 use std::{
     ffi::CStr, 
     ops::{Deref, DerefMut}, 
