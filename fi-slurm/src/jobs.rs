@@ -1,9 +1,7 @@
 use crate::parser::parse_tres_str;
 use crate::utils::{c_str_to_string, time_t_to_datetime};
 use chrono::{DateTime, Utc};
-use fi_slurm_bind::{
-    job_info, job_info_msg_t, slurm_free_job_info_msg, slurm_load_jobs, time_t,
-};
+use fi_slurm_bind::{job_info, job_info_msg_t, slurm_free_job_info_msg, slurm_load_jobs, time_t};
 use std::collections::HashMap;
 use std::ffi::CStr;
 

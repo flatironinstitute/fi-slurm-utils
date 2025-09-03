@@ -1,10 +1,11 @@
-use std::{collections::HashMap, ffi::CStr, fmt};
-use chrono::{DateTime, Utc};
-use crate::utils::{time_t_to_datetime, c_str_to_string};
-use crate::energy::AcctGatherEnergy; 
+use crate::energy::AcctGatherEnergy;
 use crate::states::NodeStateFlags;
+use crate::utils::{c_str_to_string, time_t_to_datetime};
+use chrono::{DateTime, Utc};
 use fi_slurm_bind::{
-    node_info, node_info_msg_t, node_info_t, slurm_free_node_info_msg, slurm_load_node, time_t};
+    node_info, node_info_msg_t, node_info_t, slurm_free_node_info_msg, slurm_load_node, time_t,
+};
+use std::{collections::HashMap, ffi::CStr, fmt};
 
 pub struct RawSlurmNodeInfo {
     ptr: *mut node_info_msg_t,
@@ -30,21 +31,19 @@ impl RawSlurmNodeInfo {
 
         let show_flags = 2; // only getting SHOW_DETAIL 
 
-        let return_code = unsafe {
-            slurm_load_node(
-                update_time, 
-                &mut node_info_msg_ptr, 
-                show_flags)
-        };
+        let return_code =
+            unsafe { slurm_load_node(update_time, &mut node_info_msg_ptr, show_flags) };
 
         if return_code != 0 || node_info_msg_ptr.is_null() {
             Err("Failed to load node information from Slurm".to_string())
         } else {
-            Ok(RawSlurmNodeInfo { ptr: node_info_msg_ptr})
+            Ok(RawSlurmNodeInfo {
+                ptr: node_info_msg_ptr,
+            })
         }
     }
 
-    pub fn as_slice(&self) -> &[node_info_t]{
+    pub fn as_slice(&self) -> &[node_info_t] {
         if self.ptr.is_null() {
             return &[];
         }
@@ -83,7 +82,6 @@ impl RawSlurmNodeInfo {
 
     // In your slurm_data.rs or equivalent file
 
-
     pub fn into_slurm_nodes(self) -> Result<SlurmNodes, String> {
         let raw_nodes_slice = self.as_slice();
 
@@ -113,12 +111,12 @@ impl RawSlurmNodeInfo {
 struct _NodeInfoMsg {
     last_update: time_t,
     record_count: u32,
-    node_array: *mut node_info
+    node_array: *mut node_info,
 }
 
 pub fn get_nodes() -> Result<SlurmNodes, String> {
     // We load the raw C data into memory,
-    // convert into safe, Rust-native structs, 
+    // convert into safe, Rust-native structs,
     // and then consume the wrapper to drop the original C memory
     RawSlurmNodeInfo::load(0)?.into_slurm_nodes()
 }
@@ -129,8 +127,8 @@ pub enum NodeState {
     Down,
     Error,
     Future,
-    Idle, 
-    Mixed, 
+    Idle,
+    Mixed,
     Unknown(String),
     Compound {
         base: Box<NodeState>,
@@ -141,7 +139,6 @@ pub enum NodeState {
 
 impl From<u32> for NodeState {
     fn from(state_num: u32) -> Self {
-
         const NODE_STATE_DOWN: u32 = 1;
         const NODE_STATE_IDLE: u32 = 2;
         const NODE_STATE_ALLOCATED: u32 = 3;
@@ -159,7 +156,7 @@ impl From<u32> for NodeState {
             NODE_STATE_ERROR => NodeState::Error,
             NODE_STATE_MIXED => NodeState::Mixed,
             NODE_STATE_FUTURE => NodeState::Future,
-            NODE_STATE_END=> NodeState::End,
+            NODE_STATE_END => NodeState::End,
             _ => NodeState::Unknown(format!("BASE({})", base_state_num)),
         };
 
@@ -180,7 +177,7 @@ impl From<u32> for NodeState {
                 debug_str
             })
             .collect();
-        
+
         if flags.is_empty() {
             // If no recognized flags are set, just return the base state
             base_state
@@ -220,23 +217,20 @@ pub struct GpuInfo {
 }
 
 /// Parses gres and gres_used strings to create an optional GpuInfo struct
-fn create_gpu_info(
-    gres_str_ptr: *const i8,
-    gres_used_ptr: *const i8,
-) -> Option<GpuInfo> {
+fn create_gpu_info(gres_str_ptr: *const i8, gres_used_ptr: *const i8) -> Option<GpuInfo> {
     /// A robust, local helper function to parse GRES strings
     fn parse_local_gres(raw_ptr: *const i8) -> HashMap<String, u64> {
         if raw_ptr.is_null() {
             return HashMap::new();
         }
         let gres_str = unsafe { CStr::from_ptr(raw_ptr) }.to_string_lossy();
-        
+
         gres_str
             .split(',')
             .filter_map(|entry| {
                 // First, strip off any parenthesized metadata like (IDX:...)
                 let main_part = entry.split('(').next().unwrap_or(entry).trim();
-                
+
                 // Now, split the remaining "name:count" part.
                 if let Some((key, count_str)) = main_part.rsplit_once(':') {
                     if let Ok(value) = count_str.parse::<u64>() {
@@ -262,7 +256,7 @@ fn create_gpu_info(
 
     let total_gpus = *configured_map.get(&gpu_key).unwrap_or(&0);
     let allocated_gpus = *allocated_map.get(&gpu_key).unwrap_or(&0);
-    
+
     // Only create a GpuInfo struct if there are actually GPUs configured
     if total_gpus > 0 {
         Some(GpuInfo {
@@ -274,7 +268,6 @@ fn create_gpu_info(
         None
     }
 }
-
 
 type NodeName = String;
 
@@ -305,7 +298,7 @@ pub struct Node {
     // Energy information
     _energy: Option<AcctGatherEnergy>,
 
-    // Slurm Features 
+    // Slurm Features
     pub features: Vec<String>,
     pub active_features: Vec<String>, // aka features_act
 
@@ -363,7 +356,6 @@ impl Node {
     /// The caller must ensure that the `raw_node` contains valid pointers
     /// for all string fields, as provided by a trusted Slurm API call
     pub fn from_raw_binding(id: usize, raw_node: &node_info_t) -> Result<Self, String> {
-
         // Helper to convert comma-separated C string to a Vec<String>
         let c_str_to_vec = |ptr: *const i8| -> Vec<String> {
             if ptr.is_null() {
@@ -377,7 +369,9 @@ impl Node {
         let energy = if raw_node.energy.is_null() {
             None
         } else {
-            Some(AcctGatherEnergy::from_raw_binding(unsafe {&*raw_node.energy})?)
+            Some(AcctGatherEnergy::from_raw_binding(unsafe {
+                &*raw_node.energy
+            })?)
         };
 
         // used as a sentinel value in C, replace when we have proper enums set up
@@ -388,15 +382,14 @@ impl Node {
             NodeState::from(raw_node.next_state)
         };
 
-
         Ok(Node {
             id,
             // Basic identification
-            name: unsafe {c_str_to_string(raw_node.name)},
+            name: unsafe { c_str_to_string(raw_node.name) },
             state: NodeState::from(raw_node.node_state), // Directly convert the u32 state
             next_state: next_state_val,
-            node_addr: unsafe {c_str_to_string(raw_node.node_addr)},
-            node_hostname: unsafe {c_str_to_string(raw_node.node_hostname)},
+            node_addr: unsafe { c_str_to_string(raw_node.node_addr) },
+            node_hostname: unsafe { c_str_to_string(raw_node.node_hostname) },
 
             // CPU Information
             cpus: raw_node.cpus,
@@ -409,7 +402,7 @@ impl Node {
 
             // Memory information (in MB)
             real_memory: raw_node.real_memory,
-            free_memory: raw_node.free_mem, 
+            free_memory: raw_node.free_mem,
             mem_spec_limit: raw_node.mem_spec_limit,
 
             _energy: energy,
@@ -418,12 +411,11 @@ impl Node {
             features: c_str_to_vec(raw_node.features),
             active_features: c_str_to_vec(raw_node.features_act),
 
-
             // Generic Resources (GRES)
             gpu_info: create_gpu_info(raw_node.gres, raw_node.gres_used),
-            gres: unsafe {c_str_to_string(raw_node.gres)}, // Keep the raw string for reference
-            gres_drain: unsafe {c_str_to_string(raw_node.gres_drain)},
-            gres_used: unsafe {c_str_to_string(raw_node.gres_used)}, // Keep the raw string for reference
+            gres: unsafe { c_str_to_string(raw_node.gres) }, // Keep the raw string for reference
+            gres_drain: unsafe { c_str_to_string(raw_node.gres_drain) },
+            gres_used: unsafe { c_str_to_string(raw_node.gres_used) }, // Keep the raw string for reference
             res_cores_per_gpu: raw_node.res_cores_per_gpu,
             gpu_spec: "TODO: Implement gpu_spec parsing".to_string(), // Placeholder
 
@@ -435,46 +427,44 @@ impl Node {
             resume_after: time_t_to_datetime(raw_node.resume_after),
 
             // Other
-            architecture: unsafe {c_str_to_string(raw_node.arch)},
-            operating_system: unsafe {c_str_to_string(raw_node.os)},
-            reason: unsafe {c_str_to_string(raw_node.reason)},
-            broadcast_address: unsafe {c_str_to_string(raw_node.bcast_address)},
+            architecture: unsafe { c_str_to_string(raw_node.arch) },
+            operating_system: unsafe { c_str_to_string(raw_node.os) },
+            reason: unsafe { c_str_to_string(raw_node.reason) },
+            broadcast_address: unsafe { c_str_to_string(raw_node.bcast_address) },
             boards: raw_node.boards,
-            cluster_name: unsafe {c_str_to_string(raw_node.cluster_name)},
-            extra: unsafe {c_str_to_string(raw_node.extra)},
-            comment: unsafe {c_str_to_string(raw_node.comment)},
-            instance_id: "TODO".to_string(),  // These fields may not have direct mappings
+            cluster_name: unsafe { c_str_to_string(raw_node.cluster_name) },
+            extra: unsafe { c_str_to_string(raw_node.extra) },
+            comment: unsafe { c_str_to_string(raw_node.comment) },
+            instance_id: "TODO".to_string(), // These fields may not have direct mappings
             instance_type: "TODO".to_string(),
-            mcs_label: unsafe {c_str_to_string(raw_node.mcs_label)},
-            os: unsafe {c_str_to_string(raw_node.os)}, // Duplicate of operating_system? Included for completeness.
+            mcs_label: unsafe { c_str_to_string(raw_node.mcs_label) },
+            os: unsafe { c_str_to_string(raw_node.os) }, // Duplicate of operating_system? Included for completeness.
             owner: raw_node.owner,
-            partitions: unsafe {c_str_to_string(raw_node.partitions)},
+            partitions: unsafe { c_str_to_string(raw_node.partitions) },
             port: raw_node.port,
             reason_uid: raw_node.reason_uid,
-            resv_name: unsafe {c_str_to_string(raw_node.resv_name)},
+            resv_name: unsafe { c_str_to_string(raw_node.resv_name) },
 
             // TODO: `select_nodeinfo` is a void pointer to plugin-specific data
             // Handling this requires knowing which select plugin is active and how
             // to interpret its data structure
             // For now, we will ignore it
             // select_nodeinfo: ...,
-            
             sockets: raw_node.sockets,
             threads: raw_node.threads,
             tmp_disk: raw_node.tmp_disk,
             weight: raw_node.weight,
             tres_fmt_str: "TODO: Parse TRES format string".to_string(), // Placeholder
-            version: unsafe {c_str_to_string(raw_node.version)},
+            version: unsafe { c_str_to_string(raw_node.version) },
         })
     }
 }
 
-
 #[derive(Debug, Clone)]
 pub struct SlurmNodes {
     // The primary data store: a contiguous vector of nodes.
-    pub nodes: Vec<Node>, 
+    pub nodes: Vec<Node>,
     // The lookup map: maps a node name to its index in the `nodes` vector.
-    pub name_to_id: HashMap<String, usize>, 
+    pub name_to_id: HashMap<String, usize>,
     pub last_update: DateTime<chrono::Utc>,
 }
