@@ -1,6 +1,6 @@
 use std::{ffi::CString, os::raw::c_void};
 
-use rust_bind::bindings::{
+use fi_slurm_bind::{
     list_itr_t, slurm_list_append, slurm_list_create, slurm_list_iterator_create,
     slurm_list_iterator_destroy, slurm_list_next, xlist,
 };

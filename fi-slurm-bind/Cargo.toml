@@ -1,5 +1,5 @@
 [package]
-name = "rust-bind"
+name = "fi-slurm-bind"
 version = "0.1.0"
 edition = "2021"
 

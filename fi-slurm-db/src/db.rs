@@ -1,4 +1,4 @@
-use rust_bind::bindings::{slurmdb_connection_close, slurmdb_connection_get};
+use fi_slurm_bind::{slurmdb_connection_close, slurmdb_connection_get};
 use std::os::raw::c_void;
 use thiserror::Error;
 

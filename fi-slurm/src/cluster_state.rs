@@ -1,4 +1,4 @@
-//use rust_bind::bindings::time_t;
+//use fi_slurm_bind::time_t;
 //
 //use crate::{jobs::{self, RawSlurmJobInfo}, nodes::{self, RawSlurmNodeInfo}};
 //

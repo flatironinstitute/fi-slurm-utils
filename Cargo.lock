@@ -530,7 +530,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "fi-node"
+name = "fi-nodes"
 version = "0.1.0"
 dependencies = [
  "chrono",
@@ -563,8 +563,20 @@ version = "0.1.0"
 dependencies = [
  "bitflags",
  "chrono",
+ "fi-slurm-bind",
  "regex",
- "rust-bind",
+]
+
+[[package]]
+name = "fi-slurm-bind"
+version = "0.1.0"
+dependencies = [
+ "bindgen",
+ "chrono",
+ "clap",
+ "libc",
+ "once_cell",
+ "regex",
 ]
 
 [[package]]
@@ -573,7 +585,7 @@ version = "0.1.0"
 dependencies = [
  "bitflags",
  "chrono",
- "rust-bind",
+ "fi-slurm-bind",
  "thiserror",
  "users",
 ]
@@ -1509,18 +1521,6 @@ dependencies = [
  "libc",
  "untrusted",
  "windows-sys 0.52.0",
-]
-
-[[package]]
-name = "rust-bind"
-version = "0.1.0"
-dependencies = [
- "bindgen",
- "chrono",
- "clap",
- "libc",
- "once_cell",
- "regex",
 ]
 
 [[package]]

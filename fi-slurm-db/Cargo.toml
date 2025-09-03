@@ -7,6 +7,6 @@ build = "build.rs"
 [dependencies]
 bitflags = "2.9.1"
 chrono = "0.4.41"
-rust-bind = {path = "../rust-bind"}
+fi-slurm-bind = {path = "../fi-slurm-bind"}
 thiserror = "2.0.12"
 users = "0.11.0"

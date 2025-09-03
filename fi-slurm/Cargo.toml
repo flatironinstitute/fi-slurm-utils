@@ -8,4 +8,4 @@ build = "build.rs"
 bitflags = "2.9.1"
 chrono = "0.4.41"
 regex = "1.11.1"
-rust-bind = {path = "../rust-bind"}
+fi-slurm-bind = {path = "../fi-slurm-bind"}
