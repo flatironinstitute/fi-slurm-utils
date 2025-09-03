@@ -329,11 +329,7 @@ impl SlurmJobs {
                     let temp: Vec<u32> = gres
                         .split(':')
                         .filter_map(|g| {
-                            if let Ok(count) = g.parse::<u32>() {
-                                Some(count)
-                            } else {
-                                None
-                            }
+                            g.parse::<u32>().ok()
                         })
                         .collect();
                     Some(temp)

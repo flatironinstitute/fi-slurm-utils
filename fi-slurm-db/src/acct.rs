@@ -495,7 +495,7 @@ pub fn get_tres_info(name: Option<String>) -> (String, Vec<Vec<TresInfo>>) {
     let tres_infos: Vec<Vec<TresInfo>> = qos_job_data
         .qos
         .iter()
-        .map(|q| q.iter().map(|p| TresInfo::new(p)).collect())
+        .map(|q| q.iter().map(TresInfo::new).collect())
         .collect();
 
     // do the special case here? After it has already been adjusted, we just go into each

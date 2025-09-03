@@ -157,8 +157,8 @@ fn create_gauge(
     };
 
     for (i, char) in text.chars().enumerate() {
-        if let Some(pos) = text_start_pos.checked_add(i) {
-            if pos < width {
+        if let Some(pos) = text_start_pos.checked_add(i)
+            && pos < width {
                 if pos < filled_len {
                     gauge_chars[pos] = char
                         .to_string()
@@ -173,7 +173,6 @@ fn create_gauge(
                         .to_string();
                 }
             }
-        }
     }
 
     gauge_chars.join("")

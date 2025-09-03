@@ -205,13 +205,11 @@ fn group_by(result: PrometheusResponse, metric: Grouping) -> HashMap<String, u64
     let metric_key = metric.to_string();
 
     for series in result.data.result {
-        if let Some(group) = series.metric.get(&metric_key) {
-            if let Some((_, value_str)) = series.value {
-                if let Ok(value) = value_str.parse::<u64>() {
+        if let Some(group) = series.metric.get(&metric_key)
+            && let Some((_, value_str)) = series.value
+                && let Ok(value) = value_str.parse::<u64>() {
                     data_dict.insert(group.clone(), value);
                 }
-            }
-        }
     }
     data_dict
 }
@@ -314,11 +312,10 @@ pub fn get_max_resource(
     } else {
         // Handle case where there is no grouping
         let mut total = 0;
-        if let Some(series) = result.data.result.first() {
-            if let Some((_, val_str)) = &series.value {
+        if let Some(series) = result.data.result.first()
+            && let Some((_, val_str)) = &series.value {
                 total = val_str.parse().unwrap_or(0);
             }
-        }
         let mut map = HashMap::new();
         map.insert("total".to_string(), vec![total]);
         Ok(map)

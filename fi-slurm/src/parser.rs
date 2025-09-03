@@ -69,8 +69,7 @@ pub fn parse_slurm_hostlist(hostlist_str: &str) -> Vec<String> {
                 if let Some((start_str, end_str)) = range_spec.split_once('-') {
                     // It's a range like "01-03"
                     if let (Ok(start), Ok(end)) = (start_str.parse::<u32>(), end_str.parse::<u32>())
-                    {
-                        if start <= end {
+                        && start <= end {
                             // Detect zero-padding width from the start of the range
                             let width = start_str.len();
                             for i in start..=end {
@@ -85,7 +84,6 @@ pub fn parse_slurm_hostlist(hostlist_str: &str) -> Vec<String> {
                             }
                         }
                         // Ignore invalid ranges where start > end
-                    }
                 } else {
                     // It's a single number like "07"
                     expanded_nodes.push(format!("{}{}{}", prefix, range_spec, suffix));

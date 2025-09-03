@@ -624,12 +624,10 @@ pub fn print_tree_report(
         } else {
             (cpus_data_width).max(HEADER_CPUS_PREEMPT.len())
         }
+    } else if gpu {
+        (cpus_data_width).max(HEADER_GPUS.len())
     } else {
-        if gpu {
-            (cpus_data_width).max(HEADER_GPUS.len())
-        } else {
-            (cpus_data_width).max(HEADER_CPUS.len())
-        }
+        (cpus_data_width).max(HEADER_CPUS.len())
     };
     let bar_final_width = (bar_width + 2).max(HEADER_NODE_AVAIL.len()); // +2 for "||"
 
@@ -774,12 +772,10 @@ pub fn print_tree_report(
             } else {
                 HEADER_CPUS_PREEMPT.bold()
             }
+        } else if gpu {
+            HEADER_GPUS.bold()
         } else {
-            if gpu {
-                HEADER_GPUS.bold()
-            } else {
-                HEADER_CPUS.bold()
-            }
+            HEADER_CPUS.bold()
         },
         HEADER_CPU_AVAIL.bold(),
         feature_w = max_feature_width,

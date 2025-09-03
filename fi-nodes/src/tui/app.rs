@@ -219,8 +219,8 @@ async fn run_app<B: Backend>(
     loop {
         terminal.draw(|f| ui(f, &app_state))?;
 
-        if data_fetch_count < 6 {
-            if let Ok(fetched_data) = rx.try_recv() {
+        if data_fetch_count < 6
+            && let Ok(fetched_data) = rx.try_recv() {
                 data_fetch_count += 1;
                 match fetched_data {
                     FetchedData::CpuByAccount(res) => cpu_by_account_data = Some(res),
@@ -231,10 +231,9 @@ async fn run_app<B: Backend>(
                     FetchedData::GpuCapacityByType(res) => gpu_by_type_capacity = Some(res),
                 }
             }
-        }
 
-        if event::poll(Duration::from_millis(100))? {
-            if let Event::Key(key) = event::read()? {
+        if event::poll(Duration::from_millis(100))?
+            && let Event::Key(key) = event::read()? {
                 if key.code == KeyCode::Char('q') {
                     if let AppState::Loaded(ref mut app) = app_state {
                         app.should_quit = true;
@@ -313,8 +312,8 @@ async fn run_app<B: Backend>(
 
                             // --- Confirm Button Keys ---
                             (KeyCode::Enter, ParameterFocus::Confirm) => {
-                                if let Ok(range) = state.range_input.parse::<i64>() {
-                                    if range > 0 {
+                                if let Ok(range) = state.range_input.parse::<i64>()
+                                    && range > 0 {
                                         let (tx_new, rx_new) = mpsc::channel(6);
                                         rx = rx_new;
                                         cpu_by_account_data = None;
@@ -331,7 +330,6 @@ async fn run_app<B: Backend>(
                                         spawn_custom_data_fetch(tx_new, range, state.selected_unit);
                                         app_state = AppState::Loading { tick: 0 };
                                     }
-                                }
                             }
                             // Ignore all other key presses
                             _ => {}
@@ -451,7 +449,6 @@ async fn run_app<B: Backend>(
                     _ => {} // No input for Loading or Error states.
                 }
             }
-        }
 
         // should we be able to quit out of a loading screen to go back to the main menu?
         // would it result in any other bugs to allow this?
@@ -478,11 +475,10 @@ async fn run_app<B: Backend>(
             }
         }
 
-        if let AppState::Loaded(app) = &app_state {
-            if app.should_quit {
+        if let AppState::Loaded(app) = &app_state
+            && app.should_quit {
                 return Ok(());
             }
-        }
     }
 }
 
