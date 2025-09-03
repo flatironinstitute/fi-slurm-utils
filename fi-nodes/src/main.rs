@@ -6,7 +6,7 @@ pub mod tui;
 use clap::Parser;
 use fi_slurm::nodes::{NodeState, SlurmNodes};
 use std::collections::{HashMap, HashSet};
-use fi_slurm::jobs::{enrich_jobs_with_node_ids, JobState, SlurmJobs, get_jobs, build_node_to_job_map};
+use fi_slurm::jobs::{enrich_jobs_with_node_ids, SlurmJobs, get_jobs, build_node_to_job_map};
 use fi_slurm::utils::{SlurmConfig, initialize_slurm};
 use fi_slurm::nodes::get_nodes;
 use fi_slurm::filter::{gather_all_features, filter_nodes_by_feature};
