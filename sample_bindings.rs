@@ -1,1 +1,0 @@
-./target/debug/build/rust_bind-c2eb4d5cd8286dee/out/bindings.rs
