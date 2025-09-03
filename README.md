@@ -4,19 +4,27 @@ This repo contains the source code for a set of Rust-based command-line utilitie
 
 fi-slurm-utils was developed at Flatiron Institute by [Nicolas Posner](https://github.com/nrposner), under the advisement of [Lehman Garrison](https://github.com/lgarrison), [Dylan Simon](https://github.com/dylex), and [Alex Chavkin](https://github.com/alexdotc).
 
-## Utilities
+<!-- TODO: screenshot of tree view here -->
 
-It includes:
-- `fi-nodes`: A CLI and TUI for querying availability of nodes, CPUs, and GPUs.
-- `fi-limits`: A CLI for displaying individual and group resource use relative to their assigned resource limits.
+## Overview
 
-These utilities are built on top of custom Rust APIs for the Slurm C library, querying both the Slurm daemon and the Slurm Database daemon, as well as a small API for simple Prometheus queries. These are contained in the fi_slurm, fi_slurm_db, and fi_prometheus sub-crates.
+The primary utilities are:
+- `fi-nodes`: a CLI and TUI for querying availability of nodes, CPUs, and GPUs.
+- `fi-limits`: a CLI for displaying individual and group resource use relative to their assigned resource limits.
 
-These APIs, in turn, are built on top of a set of Rust-C bindings generated automatically at build time by the rust-bindgen crate.
+These utilities are built on top of a set of Rust interfaces to Slurm's C APIs:
+- `fi-slurm`: a high-level Rust API (consisting of owning Rust types) to the `slurm.h` API.
+- `fi-slurm-db`: likewise, but for the `slurmdb.h` API.
 
-We hope to build on this to create new utilities, tentatively named `fi-job-top` or `fisq`:
-- `fi-job-top`, a TUI interface for resource usage on currently-running jobs
-- `fisq`, an `squeue` replacement, perhaps similar to `turm` but with integration with the other tools in our suite and better user ergonomics
+These APIs are built on a rust-bindgen package:
+- `fi-slurm-bind`: a low-level, automatically-generated interface to the `slurm.h` and `slurmdb.h` APIs
+
+The `fi-nodes` utility also has an optional interactive TUI (terminal user interface) that queries Prometheus:
+- `fi-prometheus`: an API to query Prometheus for time-series data about the Slurm cluster
+The TUI is under development, and its compilation can be enabled with the `"tui"` Cargo feature.
+
+We hope to use this foundation to build more utilities, including:
+- `fi-job-top`, a TUI interface for viewing node resource usage on currently-running jobs
 
 ## Building
 The main build complexity of fi-slurm-utils is in the fi-slurm-bind package, because it runs rust bindgen. bindgen requires libclang and the Slurm development headers. If libclang is not found, you may need to set `LIBCLANG_PATH`. The Slurm development headers are usually installed as part of the `slurm-devel` package. The fi_surm_bind crate links against `libslurm`, so this library is required at runtime.
@@ -24,6 +32,11 @@ The main build complexity of fi-slurm-utils is in the fi-slurm-bind package, bec
 With these dependencies installed, the build procedure is simply:
 ```console
 cargo build --release
+```
+
+To enable the `fi-nodes` TUI (brings in Prometheus dependencies):
+```console
+cargo build --release --features tui
 ```
 
 ## License

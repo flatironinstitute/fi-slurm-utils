@@ -1,9 +1,13 @@
 pub mod report;
 pub mod summary_report;
 pub mod tree_report;
+
+#[cfg(feature = "tui")]
 pub mod tui;
 
+#[cfg(feature = "tui")]
 use crate::tui::app::tui_execute;
+
 use clap::Parser;
 use fi_slurm::filter::{filter_nodes_by_feature, gather_all_features};
 use fi_slurm::jobs::{SlurmJobs, build_node_to_job_map, enrich_jobs_with_node_ids, get_jobs};
@@ -29,9 +33,12 @@ fn main() -> Result<(), String> {
     let args = Args::parse();
 
     // entry point for the prometheus TUI utility
-    if args.term {
-        let _ = tui_execute();
-        return Ok(());
+    #[cfg(feature = "tui")]
+    {
+        if args.term {
+            let _ = tui_execute();
+            return Ok(());
+        }
     }
 
     if args.exact && args.feature.is_empty() {
@@ -374,6 +381,7 @@ struct Args {
         long_help = "Primarily meant for internal use by SCC members in order to get detailed views of the overall state of the cluster and its individual nodes. It divides the nodes into top-level state, Idle, Mixed, Allocated, Down, or Unknown, along with compound state flags like DRAIN, RES, MAINT when present, and provides a count of nodes and the availability/utilization of their cores and gpus. Unlike the default tree report, the detailed report declares 'available' any cpu core or gpu which belongs to a node that is IDLE or which is unallocate on a MIXED node, regardless of compound state flags like DRAIN or MAINT."
     )]
     detailed: bool,
+    #[cfg(feature = "tui")]
     #[arg(short, long)]
     #[arg(help = "Displays historical cluster data in Terminal User Interface (TUI).")]
     #[arg(

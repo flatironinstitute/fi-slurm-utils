@@ -2,10 +2,15 @@
 resolver = "2"
 
 members = [
-    "fi-prometheus",
-    "fi-slurm-db",
-    "fi-slurm",
+    "fi-job-top",
     "fi-limits",
     "fi-nodes",
+    "fi-prometheus",
     "fi-slurm-bind",
+    "fi-slurm-db",
+    "fi-slurm",
+]
+default-members = [
+    "fi-limits",
+    "fi-nodes",
 ]
