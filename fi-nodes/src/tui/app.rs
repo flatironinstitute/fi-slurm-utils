@@ -220,139 +220,196 @@ async fn run_app<B: Backend>(
         terminal.draw(|f| ui(f, &app_state))?;
 
         if data_fetch_count < 6
-            && let Ok(fetched_data) = rx.try_recv() {
-                data_fetch_count += 1;
-                match fetched_data {
-                    FetchedData::CpuByAccount(res) => cpu_by_account_data = Some(res),
-                    FetchedData::CpuByNode(res) => cpu_by_node_data = Some(res),
-                    FetchedData::GpuByType(res) => gpu_by_type_data = Some(res),
-                    FetchedData::CpuCapacityByAccount(res) => cpu_by_account_capacity = Some(res),
-                    FetchedData::CpuCapacityByNode(res) => cpu_by_node_capacity = Some(res),
-                    FetchedData::GpuCapacityByType(res) => gpu_by_type_capacity = Some(res),
+            && let Ok(fetched_data) = rx.try_recv()
+        {
+            data_fetch_count += 1;
+            match fetched_data {
+                FetchedData::CpuByAccount(res) => cpu_by_account_data = Some(res),
+                FetchedData::CpuByNode(res) => cpu_by_node_data = Some(res),
+                FetchedData::GpuByType(res) => gpu_by_type_data = Some(res),
+                FetchedData::CpuCapacityByAccount(res) => cpu_by_account_capacity = Some(res),
+                FetchedData::CpuCapacityByNode(res) => cpu_by_node_capacity = Some(res),
+                FetchedData::GpuCapacityByType(res) => gpu_by_type_capacity = Some(res),
+            }
+        }
+
+        if event::poll(Duration::from_millis(100))?
+            && let Event::Key(key) = event::read()?
+        {
+            if key.code == KeyCode::Char('q') {
+                if let AppState::Loaded(ref mut app) = app_state {
+                    app.should_quit = true;
+                } else {
+                    return Ok(());
                 }
             }
 
-        if event::poll(Duration::from_millis(100))?
-            && let Event::Key(key) = event::read()? {
-                if key.code == KeyCode::Char('q') {
-                    if let AppState::Loaded(ref mut app) = app_state {
-                        app.should_quit = true;
-                    } else {
-                        return Ok(());
+            match &mut app_state {
+                AppState::MainMenu { selected } => match key.code {
+                    KeyCode::Up
+                    | KeyCode::PageUp
+                    | KeyCode::Down
+                    | KeyCode::PageDown
+                    | KeyCode::Char('k')
+                    | KeyCode::Char('j') => *selected = selected.toggle(),
+                    KeyCode::Enter => match selected {
+                        MainMenuSelection::Default => {
+                            if data_fetch_count == 6 {
+                                app_state = build_loaded_app(
+                                    &mut cpu_by_account_data,
+                                    &mut cpu_by_node_data,
+                                    &mut gpu_by_type_data,
+                                    &mut cpu_by_account_capacity,
+                                    &mut cpu_by_node_capacity,
+                                    &mut gpu_by_type_capacity,
+                                    current_query_range,
+                                    current_query_time_scale,
+                                );
+                            } else {
+                                app_state = AppState::Loading { tick: 0 };
+                            }
+                        }
+                        MainMenuSelection::Custom => {
+                            app_state =
+                                AppState::ParameterSelection(ParameterSelectionState::default());
+                        }
+                    },
+                    _ => {}
+                },
+                AppState::ParameterSelection(state) => {
+                    match (key.code, state.focused_widget) {
+                        // --- Global Keys for this state ---
+                        (KeyCode::Tab, _) => state.focused_widget = state.focused_widget.next(),
+
+                        // local navigation keys
+                        (KeyCode::Enter, ParameterFocus::Range) => {
+                            state.focused_widget = state.focused_widget.next()
+                        }
+                        (KeyCode::Enter, ParameterFocus::Unit) => {
+                            state.focused_widget = state.focused_widget.next()
+                        }
+
+                        // --- Range Input Keys ---
+                        (KeyCode::Char(c), ParameterFocus::Range) if c.is_ascii_digit() => {
+                            state.range_input.push(c);
+                        }
+                        (KeyCode::Backspace, ParameterFocus::Range) => {
+                            state.range_input.pop();
+                        }
+
+                        // --- Unit Selector Keys ---
+                        (KeyCode::Left, ParameterFocus::Unit) => {
+                            state.selected_unit = state.selected_unit.prev();
+                        }
+                        (KeyCode::Char('h'), ParameterFocus::Unit) => {
+                            state.selected_unit = state.selected_unit.prev();
+                        }
+                        (KeyCode::Right, ParameterFocus::Unit) => {
+                            state.selected_unit = state.selected_unit.next();
+                        }
+                        (KeyCode::Char('l'), ParameterFocus::Unit) => {
+                            state.selected_unit = state.selected_unit.next();
+                        }
+
+                        // --- Confirm Button Keys ---
+                        (KeyCode::Enter, ParameterFocus::Confirm) => {
+                            if let Ok(range) = state.range_input.parse::<i64>()
+                                && range > 0
+                            {
+                                let (tx_new, rx_new) = mpsc::channel(6);
+                                rx = rx_new;
+                                cpu_by_account_data = None;
+                                cpu_by_node_data = None;
+                                gpu_by_type_data = None;
+                                cpu_by_account_capacity = None;
+                                cpu_by_node_capacity = None;
+                                gpu_by_type_capacity = None;
+                                data_fetch_count = 0;
+
+                                current_query_range = range;
+                                current_query_time_scale = state.selected_unit;
+
+                                spawn_custom_data_fetch(tx_new, range, state.selected_unit);
+                                app_state = AppState::Loading { tick: 0 };
+                            }
+                        }
+                        // Ignore all other key presses
+                        _ => {}
                     }
                 }
 
-                match &mut app_state {
-                    AppState::MainMenu { selected } => match key.code {
-                        KeyCode::Up
-                        | KeyCode::PageUp
-                        | KeyCode::Down
-                        | KeyCode::PageDown
-                        | KeyCode::Char('k')
-                        | KeyCode::Char('j') => *selected = selected.toggle(),
-                        KeyCode::Enter => match selected {
-                            MainMenuSelection::Default => {
-                                if data_fetch_count == 6 {
-                                    app_state = build_loaded_app(
-                                        &mut cpu_by_account_data,
-                                        &mut cpu_by_node_data,
-                                        &mut gpu_by_type_data,
-                                        &mut cpu_by_account_capacity,
-                                        &mut cpu_by_node_capacity,
-                                        &mut gpu_by_type_capacity,
-                                        current_query_range,
-                                        current_query_time_scale,
-                                    );
-                                } else {
-                                    app_state = AppState::Loading { tick: 0 };
+                // MODIFIED: Event handler is now a state machine based on scroll_mode.
+                AppState::Loaded(app) => {
+                    match app.scroll_mode {
+                        ScrollMode::Page => match key.code {
+                            KeyCode::Char('1') => app.current_view = AppView::CpuByAccount,
+                            KeyCode::Char('2') => app.current_view = AppView::CpuByNode,
+                            KeyCode::Char('3') => app.current_view = AppView::GpuByType,
+                            KeyCode::Right | KeyCode::Char('l') | KeyCode::Tab => app.next_view(),
+                            KeyCode::Left | KeyCode::Char('h') => app.prev_view(),
+                            KeyCode::Up | KeyCode::PageUp | KeyCode::Char('k') => {
+                                app.scroll_offset = app.scroll_offset.saturating_sub(1)
+                            }
+                            KeyCode::Down | KeyCode::PageDown | KeyCode::Char('j') => {
+                                let terminal_size = terminal.size()?;
+                                // compute how many chart-rows fit: subtract tabs (3 lines) and footer (1 line)
+                                let chartable_height = terminal_size.height.saturating_sub(3 + 1);
+                                let num_cols =
+                                    (terminal_size.width / MINIMUM_CHART_WIDTH).max(1) as usize;
+                                let num_charts = match app.current_view {
+                                    AppView::CpuByAccount => app.cpu_by_account.source_data.len(),
+                                    AppView::CpuByNode => app.cpu_by_node.source_data.len(),
+                                    AppView::GpuByType => app.gpu_by_type.source_data.len(),
+                                };
+                                let total_rows = num_charts.div_ceil(num_cols);
+                                let num_visible_rows = (chartable_height / CHART_HEIGHT) as usize;
+                                let max_scroll_offset = total_rows.saturating_sub(num_visible_rows);
+                                if app.scroll_offset < max_scroll_offset {
+                                    app.scroll_offset = app.scroll_offset.saturating_add(1);
                                 }
                             }
-                            MainMenuSelection::Custom => {
-                                app_state = AppState::ParameterSelection(
-                                    ParameterSelectionState::default(),
-                                );
-                            }
-                        },
-                        _ => {}
-                    },
-                    AppState::ParameterSelection(state) => {
-                        match (key.code, state.focused_widget) {
-                            // --- Global Keys for this state ---
-                            (KeyCode::Tab, _) => state.focused_widget = state.focused_widget.next(),
-
-                            // local navigation keys
-                            (KeyCode::Enter, ParameterFocus::Range) => {
-                                state.focused_widget = state.focused_widget.next()
-                            }
-                            (KeyCode::Enter, ParameterFocus::Unit) => {
-                                state.focused_widget = state.focused_widget.next()
-                            }
-
-                            // --- Range Input Keys ---
-                            (KeyCode::Char(c), ParameterFocus::Range) if c.is_ascii_digit() => {
-                                state.range_input.push(c);
-                            }
-                            (KeyCode::Backspace, ParameterFocus::Range) => {
-                                state.range_input.pop();
-                            }
-
-                            // --- Unit Selector Keys ---
-                            (KeyCode::Left, ParameterFocus::Unit) => {
-                                state.selected_unit = state.selected_unit.prev();
-                            }
-                            (KeyCode::Char('h'), ParameterFocus::Unit) => {
-                                state.selected_unit = state.selected_unit.prev();
-                            }
-                            (KeyCode::Right, ParameterFocus::Unit) => {
-                                state.selected_unit = state.selected_unit.next();
-                            }
-                            (KeyCode::Char('l'), ParameterFocus::Unit) => {
-                                state.selected_unit = state.selected_unit.next();
-                            }
-
-                            // --- Confirm Button Keys ---
-                            (KeyCode::Enter, ParameterFocus::Confirm) => {
-                                if let Ok(range) = state.range_input.parse::<i64>()
-                                    && range > 0 {
-                                        let (tx_new, rx_new) = mpsc::channel(6);
-                                        rx = rx_new;
-                                        cpu_by_account_data = None;
-                                        cpu_by_node_data = None;
-                                        gpu_by_type_data = None;
-                                        cpu_by_account_capacity = None;
-                                        cpu_by_node_capacity = None;
-                                        gpu_by_type_capacity = None;
-                                        data_fetch_count = 0;
-
-                                        current_query_range = range;
-                                        current_query_time_scale = state.selected_unit;
-
-                                        spawn_custom_data_fetch(tx_new, range, state.selected_unit);
-                                        app_state = AppState::Loading { tick: 0 };
-                                    }
-                            }
-                            // Ignore all other key presses
+                            KeyCode::Enter => app.scroll_mode = ScrollMode::Chart,
+                            KeyCode::Char('a') => app.display_mode = app.display_mode.toggle(),
                             _ => {}
-                        }
-                    }
+                        },
+                        ScrollMode::Chart => {
+                            let current_chart_data = match app.current_view {
+                                AppView::CpuByAccount => &mut app.cpu_by_account,
+                                AppView::CpuByNode => &mut app.cpu_by_node,
+                                AppView::GpuByType => &mut app.gpu_by_type,
+                            };
+                            match key.code {
+                                KeyCode::Right | KeyCode::Char('l') => {
+                                    let max_points = current_chart_data
+                                        .source_data
+                                        .values()
+                                        .map(|v| v.len())
+                                        .max()
+                                        .unwrap_or(0);
 
-                    // MODIFIED: Event handler is now a state machine based on scroll_mode.
-                    AppState::Loaded(app) => {
-                        match app.scroll_mode {
-                            ScrollMode::Page => match key.code {
-                                KeyCode::Char('1') => app.current_view = AppView::CpuByAccount,
-                                KeyCode::Char('2') => app.current_view = AppView::CpuByNode,
-                                KeyCode::Char('3') => app.current_view = AppView::GpuByType,
-                                KeyCode::Right | KeyCode::Char('l') | KeyCode::Tab => {
-                                    app.next_view()
+                                    let max_h_scroll =
+                                        max_points.saturating_sub(MAX_BARS_PER_CHART);
+
+                                    if current_chart_data.horizontal_scroll_offset < max_h_scroll {
+                                        current_chart_data.horizontal_scroll_offset =
+                                            current_chart_data
+                                                .horizontal_scroll_offset
+                                                .saturating_add(1);
+                                    }
                                 }
-                                KeyCode::Left | KeyCode::Char('h') => app.prev_view(),
+                                KeyCode::Left | KeyCode::Char('h') => {
+                                    current_chart_data.horizontal_scroll_offset =
+                                        current_chart_data
+                                            .horizontal_scroll_offset
+                                            .saturating_sub(1);
+                                }
+                                KeyCode::Esc => app.scroll_mode = ScrollMode::Page,
+
                                 KeyCode::Up | KeyCode::PageUp | KeyCode::Char('k') => {
                                     app.scroll_offset = app.scroll_offset.saturating_sub(1)
                                 }
                                 KeyCode::Down | KeyCode::PageDown | KeyCode::Char('j') => {
                                     let terminal_size = terminal.size()?;
-                                    // compute how many chart-rows fit: subtract tabs (3 lines) and footer (1 line)
                                     let chartable_height =
                                         terminal_size.height.saturating_sub(3 + 1);
                                     let num_cols =
@@ -373,82 +430,15 @@ async fn run_app<B: Backend>(
                                         app.scroll_offset = app.scroll_offset.saturating_add(1);
                                     }
                                 }
-                                KeyCode::Enter => app.scroll_mode = ScrollMode::Chart,
                                 KeyCode::Char('a') => app.display_mode = app.display_mode.toggle(),
                                 _ => {}
-                            },
-                            ScrollMode::Chart => {
-                                let current_chart_data = match app.current_view {
-                                    AppView::CpuByAccount => &mut app.cpu_by_account,
-                                    AppView::CpuByNode => &mut app.cpu_by_node,
-                                    AppView::GpuByType => &mut app.gpu_by_type,
-                                };
-                                match key.code {
-                                    KeyCode::Right | KeyCode::Char('l') => {
-                                        let max_points = current_chart_data
-                                            .source_data
-                                            .values()
-                                            .map(|v| v.len())
-                                            .max()
-                                            .unwrap_or(0);
-
-                                        let max_h_scroll =
-                                            max_points.saturating_sub(MAX_BARS_PER_CHART);
-
-                                        if current_chart_data.horizontal_scroll_offset
-                                            < max_h_scroll
-                                        {
-                                            current_chart_data.horizontal_scroll_offset =
-                                                current_chart_data
-                                                    .horizontal_scroll_offset
-                                                    .saturating_add(1);
-                                        }
-                                    }
-                                    KeyCode::Left | KeyCode::Char('h') => {
-                                        current_chart_data.horizontal_scroll_offset =
-                                            current_chart_data
-                                                .horizontal_scroll_offset
-                                                .saturating_sub(1);
-                                    }
-                                    KeyCode::Esc => app.scroll_mode = ScrollMode::Page,
-
-                                    KeyCode::Up | KeyCode::PageUp | KeyCode::Char('k') => {
-                                        app.scroll_offset = app.scroll_offset.saturating_sub(1)
-                                    }
-                                    KeyCode::Down | KeyCode::PageDown | KeyCode::Char('j') => {
-                                        let terminal_size = terminal.size()?;
-                                        let chartable_height =
-                                            terminal_size.height.saturating_sub(3 + 1);
-                                        let num_cols = (terminal_size.width / MINIMUM_CHART_WIDTH)
-                                            .max(1)
-                                            as usize;
-                                        let num_charts = match app.current_view {
-                                            AppView::CpuByAccount => {
-                                                app.cpu_by_account.source_data.len()
-                                            }
-                                            AppView::CpuByNode => app.cpu_by_node.source_data.len(),
-                                            AppView::GpuByType => app.gpu_by_type.source_data.len(),
-                                        };
-                                        let total_rows = num_charts.div_ceil(num_cols);
-                                        let num_visible_rows =
-                                            (chartable_height / CHART_HEIGHT) as usize;
-                                        let max_scroll_offset =
-                                            total_rows.saturating_sub(num_visible_rows);
-                                        if app.scroll_offset < max_scroll_offset {
-                                            app.scroll_offset = app.scroll_offset.saturating_add(1);
-                                        }
-                                    }
-                                    KeyCode::Char('a') => {
-                                        app.display_mode = app.display_mode.toggle()
-                                    }
-                                    _ => {}
-                                }
                             }
                         }
                     }
-                    _ => {} // No input for Loading or Error states.
                 }
+                _ => {} // No input for Loading or Error states.
             }
+        }
 
         // should we be able to quit out of a loading screen to go back to the main menu?
         // would it result in any other bugs to allow this?
@@ -476,9 +466,10 @@ async fn run_app<B: Backend>(
         }
 
         if let AppState::Loaded(app) = &app_state
-            && app.should_quit {
-                return Ok(());
-            }
+            && app.should_quit
+        {
+            return Ok(());
+        }
     }
 }
 

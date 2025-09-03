@@ -11,7 +11,7 @@ use std::collections::HashSet;
 /// * `all_nodes` - A reference to the complete, unfiltered `SlurmNodes` collection.
 /// * `feature_filter` - A slice of strings representing the features to filter by.
 /// * `exact_match` - A boolean to control matching behavior. If true, an exact match
-///                   is required. If false, substring matching is used.
+///   is required. If false, substring matching is used.
 ///
 /// # Returns
 ///

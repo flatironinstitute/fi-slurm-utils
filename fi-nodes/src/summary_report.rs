@@ -158,21 +158,22 @@ fn create_gauge(
 
     for (i, char) in text.chars().enumerate() {
         if let Some(pos) = text_start_pos.checked_add(i)
-            && pos < width {
-                if pos < filled_len {
-                    gauge_chars[pos] = char
-                        .to_string()
-                        .black()
-                        .on_color(if no_color { Color::White } else { bar_color })
-                        .to_string();
-                } else {
-                    gauge_chars[pos] = char
-                        .to_string()
-                        .white()
-                        .on_truecolor(empty_color.0, empty_color.1, empty_color.2)
-                        .to_string();
-                }
+            && pos < width
+        {
+            if pos < filled_len {
+                gauge_chars[pos] = char
+                    .to_string()
+                    .black()
+                    .on_color(if no_color { Color::White } else { bar_color })
+                    .to_string();
+            } else {
+                gauge_chars[pos] = char
+                    .to_string()
+                    .white()
+                    .on_truecolor(empty_color.0, empty_color.1, empty_color.2)
+                    .to_string();
             }
+        }
     }
 
     gauge_chars.join("")

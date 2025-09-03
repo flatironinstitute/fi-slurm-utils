@@ -12,6 +12,7 @@ fn main() {
     // Run bindgen
     let bindings = bindgen::Builder::default()
         .header("wrapper.h")
+        .wrap_unsafe_ops(true)
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         .generate()
         .expect("Unable to generate bindings");

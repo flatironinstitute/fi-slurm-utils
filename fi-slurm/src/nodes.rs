@@ -169,9 +169,10 @@ impl From<u32> for NodeState {
                 let debug_str = format!("{:?}", flag);
                 // Extract just the name, e.g., "DRAIN"
                 if let Some(start) = debug_str.find('(')
-                    && let Some(end) = debug_str.rfind(')') {
-                        return debug_str[start + 1..end].to_string();
-                    }
+                    && let Some(end) = debug_str.rfind(')')
+                {
+                    return debug_str[start + 1..end].to_string();
+                }
                 // Fallback for simple flags that might not have parentheses
                 debug_str
             })

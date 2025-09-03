@@ -147,6 +147,10 @@ pub struct SlurmJobs {
 
 impl SlurmJobs {
     /// Create a SlurmJobs Rust struct from a slurmdb_job_rec_t struct
+    /// # Safety
+    /// This function is unsafe because it dereferences a raw pointer from C.
+    /// The caller must ensure that the pointer is valid and points to a properly initialized
+    /// slurmdb_job_rec_t struct.
     pub unsafe fn from_c_rec(rec: *const slurmdb_job_rec_t) -> Self {
         unsafe {
             let partition = if (*rec).partition.is_null() {

@@ -141,6 +141,10 @@ pub struct SlurmQos {
 
 impl SlurmQos {
     /// Generate a SlurmQos object from a C slurmdb_qos_rec_t object
+    /// # Safety
+    /// This function is unsafe because it dereferences a raw pointer from C.
+    /// The caller must ensure that the pointer is valid and points to a properly initialized
+    /// slurmdb_qos_rec_t struct.
     pub unsafe fn from_c_rec(rec: *const slurmdb_qos_rec_t) -> Self {
         unsafe {
             // guard against null name pointer

@@ -328,9 +328,7 @@ impl SlurmJobs {
                 if let Some(gres) = &job.gres_total {
                     let temp: Vec<u32> = gres
                         .split(':')
-                        .filter_map(|g| {
-                            g.parse::<u32>().ok()
-                        })
+                        .filter_map(|g| g.parse::<u32>().ok())
                         .collect();
                     Some(temp)
                 } else {

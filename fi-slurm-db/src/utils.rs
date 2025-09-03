@@ -18,6 +18,13 @@ extern "C" fn free_rust_string(ptr: *mut c_void) {
     }
 }
 
+/// Converts an optional Vec<String> into a Slurm-compatible C list
+/// If the input is None, returns a null pointer.
+/// If the input is Some(vec), creates a Slurm list containing the strings
+/// # Safety
+/// This function is unsafe because it interacts with raw pointers and C memory management.
+/// The caller must ensure that the returned pointer is eventually freed using Slurm's
+/// `slurm_list_destroy` function to avoid memory leaks.
 pub unsafe fn vec_to_slurm_list(data: Option<Vec<String>>) -> *mut xlist {
     // If the Option is None, we return a null pointer, which Slurm ignores
     let Some(vec) = data else {
@@ -54,6 +61,12 @@ pub struct SlurmIterator {
 
 impl SlurmIterator {
     /// Create a new slurm list from a raw pointer
+    /// # Safety
+    /// This function is unsafe because it takes a raw pointer to a C list.
+    /// The caller must ensure that the pointer is valid and points to a properly initialized
+    /// Slurm list. If the pointer is null, the iterator will also be null.
+    /// The caller is responsible for ensuring that the list outlives the iterator.
+    /// The iterator must be dropped to free its resources.///
     pub unsafe fn new(list_ptr: *mut xlist) -> Self {
         if list_ptr.is_null() {
             return Self {
