@@ -9,5 +9,3 @@ members = [
     "fi-nodes",
     "fi-slurm-bind",
 ]
-
-license = "Apache-2.0"

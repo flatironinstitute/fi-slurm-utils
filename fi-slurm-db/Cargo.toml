@@ -3,6 +3,7 @@ name = "fi-slurm-db"
 version = "0.1.0"
 edition = "2024"
 build = "build.rs"
+license = "Apache-2.0"
 
 [dependencies]
 bitflags = "2.9.1"
