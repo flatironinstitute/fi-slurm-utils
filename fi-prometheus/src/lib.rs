@@ -72,7 +72,7 @@ impl std::fmt::Display for PrometheusTimeScale {
         match self {
             PrometheusTimeScale::Minutes => write!(f, "1m"),
             PrometheusTimeScale::Hours => write!(f, "1h"),
-            PrometheusTimeScale::Days => write!(f, "1d"), 
+            PrometheusTimeScale::Days => write!(f, "1d"),
             PrometheusTimeScale::Weeks => write!(f, "1w"),
             PrometheusTimeScale::Years => write!(f, "1y"),
         }
@@ -86,7 +86,7 @@ impl PrometheusTimeScale {
             Self::Hours => Self::Days,
             Self::Days => Self::Weeks,
             Self::Weeks => Self::Years,
-            Self::Years=> Self::Minutes, // Wraps around
+            Self::Years => Self::Minutes, // Wraps around
         }
     }
 
@@ -106,18 +106,16 @@ struct TimeRangeReturn {
     start_time: DateTime<Utc>,
 }
 
-fn get_time_range(
-    increments: i64,
-    step: &PrometheusTimeScale,
-) -> TimeRangeReturn {
-
+fn get_time_range(increments: i64, step: &PrometheusTimeScale) -> TimeRangeReturn {
     let now = Utc::now();
 
     let start_time = match step {
-        PrometheusTimeScale::Minutes => {now - Duration::minutes(increments)},
-        PrometheusTimeScale::Hours => {now - Duration::hours(increments)},
+        PrometheusTimeScale::Minutes => now - Duration::minutes(increments),
+        PrometheusTimeScale::Hours => now - Duration::hours(increments),
         PrometheusTimeScale::Days => now.checked_sub_days(Days::new(increments as u64)).unwrap(),
-        PrometheusTimeScale::Weeks => now.checked_sub_days(Days::new(increments as u64 * 7)).unwrap(),
+        PrometheusTimeScale::Weeks => now
+            .checked_sub_days(Days::new(increments as u64 * 7))
+            .unwrap(),
         // PrometheusTimeScale::Months => now.checked_sub_months(Months::new(increments as u32)).unwrap(),
         PrometheusTimeScale::Years => {
             let current_year = now.year();
@@ -125,7 +123,7 @@ fn get_time_range(
         }
     };
 
-    TimeRangeReturn {now, start_time}
+    TimeRangeReturn { now, start_time }
 }
 
 // Structs for Deserializing Prometheus JSON Response
@@ -153,17 +151,13 @@ struct PrometheusResult {
 }
 
 fn usage_query(grouping: Grouping, resource: Resource) -> String {
-    format!(
-        "sum by({grouping}) (slurm_job_{resource}{{state=\"running\",job=\"slurm\"}})")
+    format!("sum by({grouping}) (slurm_job_{resource}{{state=\"running\",job=\"slurm\"}})")
 }
 
 fn capacity_query(grouping: Option<Grouping>, resource: Resource) -> String {
-    let by_clause =
-        grouping.map_or_else(String::new, |g| format!("by({g})"));
-    format!(
-        "sum {by_clause} (slurm_node_{resource}{{state!=\"drain\",state!=\"down\"}})")
+    let by_clause = grouping.map_or_else(String::new, |g| format!("by({g})"));
+    format!("sum {by_clause} (slurm_node_{resource}{{state!=\"drain\",state!=\"down\"}})")
 }
-
 
 /// The core function for querying the Prometheus API
 fn query(
@@ -275,7 +269,6 @@ fn range_group_by(
     filled
 }
 
-
 // --- Public API Functions ---
 
 pub fn get_usage_by(
@@ -293,7 +286,9 @@ pub fn get_usage_by(
     let result = query(&usage_query, &cluster, start_time, Some(now), Some(step))?;
 
     // Fill missing data points with zeros
-    Ok(range_group_by(result, grouping, start_time, step, increments))
+    Ok(range_group_by(
+        result, grouping, start_time, step, increments,
+    ))
 }
 
 pub fn get_max_resource(
@@ -306,13 +301,13 @@ pub fn get_max_resource(
     let time_return = get_time_range(increments, &step);
     let now = time_return.now;
     let start_time = time_return.start_time;
-    
+
     let cap_query = capacity_query(grouping, resource); // Assuming Cpus
     let result = query(&cap_query, &cluster, start_time, Some(now), Some(step))?;
 
     // if days is none, then instantaneous regular groupby
     // otherwise range groupby
-    
+
     if let Some(g) = grouping {
         // For grouped capacity, fill missing data points
         Ok(range_group_by(result, g, start_time, step, increments))

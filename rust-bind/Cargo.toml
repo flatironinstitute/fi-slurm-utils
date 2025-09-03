@@ -1,5 +1,5 @@
 [package]
-name = "rust_bind"
+name = "rust-bind"
 version = "0.1.0"
 edition = "2021"
 

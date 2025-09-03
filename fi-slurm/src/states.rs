@@ -6,7 +6,7 @@ use rust_bind::bindings;
 bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct NodeStateFlags: u32 {
-        const EXTERNAL = bindings::bind_node_state_flags_EXTERNAL;
+        const NET = bindings::bind_node_state_flags_NET;
         const RES = bindings::bind_node_state_flags_RES;
         const UNDRAIN = bindings::bind_node_state_flags_UNDRAIN;
         const CLOUD = bindings::bind_node_state_flags_CLOUD;

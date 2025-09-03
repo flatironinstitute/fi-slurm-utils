@@ -1,6 +1,6 @@
+use crate::utils::time_t_to_datetime;
 use chrono::{DateTime, Utc};
 use rust_bind::bindings::acct_gather_energy_t;
-use crate::utils::time_t_to_datetime;
 
 #[derive(Clone, Debug)]
 #[allow(dead_code)]
@@ -22,10 +22,7 @@ impl AcctGatherEnergy {
     /// # Safety
     ///
     /// The caller must ensure that `raw_energy` is a valid, non-null pointer
-    pub fn from_raw_binding(
-        raw_energy: &acct_gather_energy_t,
-    ) -> Result<Self, String> {
-
+    pub fn from_raw_binding(raw_energy: &acct_gather_energy_t) -> Result<Self, String> {
         Ok(AcctGatherEnergy {
             average_watts: raw_energy.ave_watts,
             base_consumed_energy: raw_energy.base_consumed_energy,

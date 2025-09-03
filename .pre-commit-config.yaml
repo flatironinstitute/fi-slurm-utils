@@ -1,0 +1,8 @@
+repos:
+-   repo: https://github.com/FeryET/pre-commit-rust
+    rev: v1.1.1
+    hooks:
+        - id: fmt
+          files: \.rs$
+        - id: cargo-check
+        - id: clippy

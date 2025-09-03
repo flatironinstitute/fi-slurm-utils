@@ -68,7 +68,8 @@ pub fn parse_slurm_hostlist(hostlist_str: &str) -> Vec<String> {
             for range_spec in range_list.split(',') {
                 if let Some((start_str, end_str)) = range_spec.split_once('-') {
                     // It's a range like "01-03"
-                    if let (Ok(start), Ok(end)) = (start_str.parse::<u32>(), end_str.parse::<u32>()) {
+                    if let (Ok(start), Ok(end)) = (start_str.parse::<u32>(), end_str.parse::<u32>())
+                    {
                         if start <= end {
                             // Detect zero-padding width from the start of the range
                             let width = start_str.len();
@@ -100,8 +101,6 @@ pub fn parse_slurm_hostlist(hostlist_str: &str) -> Vec<String> {
     expanded_nodes
 }
 
-
-
 /// Compresses a vector of hostnames into a compact Slurm hostlist string.
 /// This is the reverse operation of `parse_slurm_hostlist`.
 pub fn compress_hostlist(nodes: &[String]) -> String {
@@ -129,7 +128,10 @@ pub fn compress_hostlist(nodes: &[String]) -> String {
 
             if let Ok(number) = number_str.parse::<u32>() {
                 let padding = number_str.len();
-                groups.entry((prefix, suffix)).or_default().push((number, padding));
+                groups
+                    .entry((prefix, suffix))
+                    .or_default()
+                    .push((number, padding));
             } else {
                 standalone_nodes.push(node_name.clone());
             }
@@ -181,7 +183,11 @@ pub fn compress_hostlist(nodes: &[String]) -> String {
             } else {
                 // Finalize the previous range
                 if current_start_num == current_end_num {
-                    ranges.push(format!("{:0width$}", current_start_num, width = current_padding));
+                    ranges.push(format!(
+                        "{:0width$}",
+                        current_start_num,
+                        width = current_padding
+                    ));
                 } else {
                     ranges.push(format!(
                         "{:0width$}-{:0width$}",
@@ -198,7 +204,11 @@ pub fn compress_hostlist(nodes: &[String]) -> String {
         }
         // Add the very last range
         if current_start_num == current_end_num {
-            ranges.push(format!("{:0width$}", current_start_num, width = current_padding));
+            ranges.push(format!(
+                "{:0width$}",
+                current_start_num,
+                width = current_padding
+            ));
         } else {
             ranges.push(format!(
                 "{:0width$}-{:0width$}",
@@ -218,8 +228,6 @@ pub fn compress_hostlist(nodes: &[String]) -> String {
     compressed_parts.sort();
     compressed_parts.join(",")
 }
-
-
 
 /// Parses a comma-separated TRES string (e.g., "cpu=4,mem=8G,gres/gpu=1")
 /// from a job's resource allocation into a HashMap.
@@ -253,12 +261,12 @@ pub unsafe fn parse_tres_str(tres_ptr: *const i8) -> HashMap<String, u64> {
             // Split each part by the '=' to get the key and value.
             if let Some((key, value_str)) = pair.split_once('=') {
                 // find where the numeric part ends and the unit part begins, if it exists
-                let numeric_end = value_str.
-                    find(|c: char| !c.is_ascii_digit()).
-                    unwrap_or(value_str.len());
+                let numeric_end = value_str
+                    .find(|c: char| !c.is_ascii_digit())
+                    .unwrap_or(value_str.len());
 
                 let (numeric_part, unit_part) = value_str.split_at(numeric_end);
-                
+
                 if let Ok(base_value) = numeric_part.parse::<u64>() {
                     // if there is a string suffix, we try to parse that as a memory size indicator
                     // and multiply the count in order to produce byte counts
@@ -288,7 +296,10 @@ mod tests {
 
     #[test]
     fn test_simple_list() {
-        assert_eq!(parse_slurm_hostlist("n01,n02,n03"), vec!["n01", "n02", "n03"]);
+        assert_eq!(
+            parse_slurm_hostlist("n01,n02,n03"),
+            vec!["n01", "n02", "n03"]
+        );
     }
 
     #[test]
@@ -304,28 +315,40 @@ mod tests {
     #[test]
     fn test_padded_range() {
         assert_eq!(parse_slurm_hostlist("n[01-03]"), vec!["n01", "n02", "n03"]);
-        assert_eq!(parse_slurm_hostlist("gpu[007-009]"), vec!["gpu007", "gpu008", "gpu009"]);
+        assert_eq!(
+            parse_slurm_hostlist("gpu[007-009]"),
+            vec!["gpu007", "gpu008", "gpu009"]
+        );
     }
 
     #[test]
     #[should_panic]
     fn test_mixed_padded_range() {
         assert_eq!(parse_slurm_hostlist("n[01-03]"), vec!["n01", "n02", "n03"]);
-        assert_eq!(parse_slurm_hostlist("gpu[07-009]"), vec!["gpu07", "gpu008", "gpu009"]);
+        assert_eq!(
+            parse_slurm_hostlist("gpu[07-009]"),
+            vec!["gpu07", "gpu008", "gpu009"]
+        );
         // in with multiple levels of padded range, the padding level of the first argument is used as default
     }
 
     #[test]
     fn test_mixed_padded_range_joined() {
-        assert_eq!(parse_slurm_hostlist("n[001-003],gpu[07-09]"), vec!["n001", "n002", "n003", "gpu07", "gpu08", "gpu09"]);
+        assert_eq!(
+            parse_slurm_hostlist("n[001-003],gpu[07-09]"),
+            vec!["n001", "n002", "n003", "gpu07", "gpu08", "gpu09"]
+        );
         // in with multiple levels of padded range, the padding level of the first argument is used as default
     }
 
     #[test]
     fn test_mixed_padded_range_spaced() {
-        assert_eq!(parse_slurm_hostlist("n[001-003], gpu[07-09]"), vec!["n001", "n002", "n003", "gpu07", "gpu08", "gpu09"]);
+        assert_eq!(
+            parse_slurm_hostlist("n[001-003], gpu[07-09]"),
+            vec!["n001", "n002", "n003", "gpu07", "gpu08", "gpu09"]
+        );
     }
-    
+
     #[test]
     fn test_mixed_ranges() {
         assert_eq!(
@@ -333,7 +356,7 @@ mod tests {
             vec!["c1", "c3", "c4", "c5", "c10"]
         );
     }
-    
+
     #[test]
     fn test_prefix_and_suffix() {
         assert_eq!(
@@ -350,7 +373,6 @@ mod tests {
         );
     }
 
-
     #[test]
     fn test_compress_simple_consecutive() {
         let nodes = vec!["n01".to_string(), "n02".to_string(), "n03".to_string()];
@@ -366,8 +388,12 @@ mod tests {
     #[test]
     fn test_compress_multiple_groups() {
         let nodes = vec![
-            "n001".to_string(), "n002".to_string(), "n003".to_string(),
-            "gpu07".to_string(), "gpu08".to_string(), "gpu09".to_string(),
+            "n001".to_string(),
+            "n002".to_string(),
+            "n003".to_string(),
+            "gpu07".to_string(),
+            "gpu08".to_string(),
+            "gpu09".to_string(),
         ];
         // Note: The output is sorted alphabetically by group for consistency.
         assert_eq!(compress_hostlist(&nodes), "gpu[07-09],n[001-003]");
@@ -375,7 +401,13 @@ mod tests {
 
     #[test]
     fn test_compress_non_consecutive() {
-        let nodes = vec!["c1".to_string(), "c3".to_string(), "c4".to_string(), "c5".to_string(), "c10".to_string()];
+        let nodes = vec![
+            "c1".to_string(),
+            "c3".to_string(),
+            "c4".to_string(),
+            "c5".to_string(),
+            "c10".to_string(),
+        ];
         assert_eq!(compress_hostlist(&nodes), "c[1,3-5,10]");
     }
 
@@ -387,18 +419,25 @@ mod tests {
 
     #[test]
     fn test_compress_prefix_and_suffix() {
-        let nodes = vec!["node-08-ib".to_string(), "node-09-ib".to_string(), "node-10-ib".to_string()];
+        let nodes = vec![
+            "node-08-ib".to_string(),
+            "node-09-ib".to_string(),
+            "node-10-ib".to_string(),
+        ];
         assert_eq!(compress_hostlist(&nodes), "node-[08-10]-ib");
     }
 
     #[test]
     fn test_compress_mixed_padding() {
-        let nodes = vec!["n1".to_string(), "n2".to_string(), "n03".to_string(), "n04".to_string()];
+        let nodes = vec![
+            "n1".to_string(),
+            "n2".to_string(),
+            "n03".to_string(),
+            "n04".to_string(),
+        ];
         // The change in padding forces a new range.
         assert_eq!(compress_hostlist(&nodes), "n[1-2,03-04]");
     }
-
-
 
     #[test]
     fn test_simple_tres_string() {
@@ -407,7 +446,10 @@ mod tests {
         let result_map = unsafe { parse_tres_str(c_string.as_ptr()) };
 
         assert_eq!(result_map.get("cpu"), Some(&512));
-        assert_eq!(result_map.get("mem"), Some(4000 * 1024 * 1024 * 1024).as_ref());
+        assert_eq!(
+            result_map.get("mem"),
+            Some(4000 * 1024 * 1024 * 1024).as_ref()
+        );
         assert_eq!(result_map.get("node"), Some(&4));
         assert_eq!(result_map.get("billing"), Some(&512));
     }
@@ -428,7 +470,10 @@ mod tests {
         let c_string = CString::new(input_str).unwrap();
         let result_map = unsafe { parse_tres_str(c_string.as_ptr()) };
 
-        assert_eq!(result_map.get("mem"), Some(192 * 1024 * 1024 * 1024).as_ref());
+        assert_eq!(
+            result_map.get("mem"),
+            Some(192 * 1024 * 1024 * 1024).as_ref()
+        );
         assert_eq!(result_map.get("gres/gpu"), Some(&8));
         assert_eq!(result_map.get("gres/gpu:h100_pcie"), Some(&8));
         assert_eq!(result_map.get("cpu"), Some(&32));
@@ -440,7 +485,10 @@ mod tests {
         let c_string = CString::new(input_str).unwrap();
         let result_map = unsafe { parse_tres_str(c_string.as_ptr()) };
 
-        assert_eq!(result_map.get("mem"), Some(180 * 1024 * 1024 * 1024 * 1024).as_ref());
+        assert_eq!(
+            result_map.get("mem"),
+            Some(180 * 1024 * 1024 * 1024 * 1024).as_ref()
+        );
         assert_eq!(result_map.get("gres/gpu"), Some(&1));
         assert_eq!(result_map.get("gres/gpu:a100-sxm4-40gb"), None); // Ensure it doesn't exist
     }

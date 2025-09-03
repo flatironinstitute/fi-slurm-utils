@@ -1,10 +1,9 @@
-use std::{
-    ffi::CString, 
-    os::raw::c_void
+use std::{ffi::CString, os::raw::c_void};
+
+use rust_bind::bindings::{
+    list_itr_t, slurm_list_append, slurm_list_create, slurm_list_iterator_create,
+    slurm_list_iterator_destroy, slurm_list_next, xlist,
 };
-
-use rust_bind::bindings::{list_itr_t, slurm_list_append, slurm_list_create, slurm_list_iterator_create, slurm_list_iterator_destroy, slurm_list_next, xlist};
-
 
 /// A custom destructor function that can be passed to C
 /// It takes a raw pointer to a CString and correctly frees it using Rust's allocator
@@ -45,29 +44,25 @@ pub unsafe fn vec_to_slurm_list(data: Option<Vec<String>>) -> *mut xlist {
 
 /// Helper function for quickly converting between ints and bools
 pub fn bool_to_int(b: bool) -> u16 {
-    if b {
-        1
-    } else {
-        0
-    }
+    if b { 1 } else { 0 }
 }
 
 /// A container struct for a pointer to a C list iterator
 pub struct SlurmIterator {
-    pub ptr: *mut list_itr_t
+    pub ptr: *mut list_itr_t,
 }
 
 impl SlurmIterator {
     /// Create a new slurm list from a raw pointer
     pub unsafe fn new(list_ptr: *mut xlist) -> Self {
         if list_ptr.is_null() {
-            return Self { ptr: std::ptr::null_mut() };
+            return Self {
+                ptr: std::ptr::null_mut(),
+            };
         }
         let iter_ptr = unsafe { slurm_list_iterator_create(list_ptr) };
 
-        Self {
-            ptr: iter_ptr
-        }
+        Self { ptr: iter_ptr }
     }
 }
 
@@ -79,7 +74,6 @@ impl Drop for SlurmIterator {
                 slurm_list_iterator_destroy(self.ptr);
             }
             self.ptr = std::ptr::null_mut();
-
         }
     }
 }
@@ -89,8 +83,8 @@ impl Iterator for SlurmIterator {
 
     fn next(&mut self) -> Option<Self::Item> {
         // encapsulating an unsafe C-style loop
-        if self.ptr.is_null() { 
-            return None 
+        if self.ptr.is_null() {
+            return None;
         };
         unsafe {
             let node_ptr = slurm_list_next(self.ptr);
@@ -105,4 +99,3 @@ impl Iterator for SlurmIterator {
         }
     }
 }
-

@@ -1,9 +1,11 @@
+use crate::parser::parse_tres_str;
+use crate::utils::{c_str_to_string, time_t_to_datetime};
 use chrono::{DateTime, Utc};
+use rust_bind::bindings::{
+    job_info, job_info_msg_t, slurm_free_job_info_msg, slurm_load_jobs, time_t,
+};
 use std::collections::HashMap;
 use std::ffi::CStr;
-use rust_bind::bindings::{job_info, job_info_msg_t, slurm_free_job_info_msg, slurm_load_jobs, time_t};
-use crate::parser::parse_tres_str; 
-use crate::utils::{c_str_to_string, time_t_to_datetime};
 
 /// We use this struct to manage the C-allocated memory,
 /// automatically dropping it when it goes out of memory
@@ -28,20 +30,21 @@ impl RawSlurmJobInfo {
     /// Loads all job information from the Slurm controller.
     ///
     /// This is the only function that directly calls the unsafe `slurm_load_jobs`
-    /// FFI function. On success, it returns an instance of the safe RAII wrapper, 
+    /// FFI function. On success, it returns an instance of the safe RAII wrapper,
     /// to be consumed by the .into_slurm_info() method
     pub fn load(update_time: time_t) -> Result<Self, String> {
         let mut job_info_msg_ptr: *mut job_info_msg_t = std::ptr::null_mut();
 
         let show_flags = 2; // just using the SHOW_DETAIL flag
 
-        let return_code = unsafe {
-            slurm_load_jobs(update_time, &mut job_info_msg_ptr, show_flags)
-        };
+        let return_code =
+            unsafe { slurm_load_jobs(update_time, &mut job_info_msg_ptr, show_flags) };
 
         if return_code == 0 && !job_info_msg_ptr.is_null() {
             // Success: wrap the raw pointer in our safe struct and return it.
-            Ok(Self { ptr: job_info_msg_ptr })
+            Ok(Self {
+                ptr: job_info_msg_ptr,
+            })
         } else {
             // Failure: return an error. No struct is created, no memory is leaked
             Err("Failed to load job information from Slurm".to_string())
@@ -63,7 +66,7 @@ impl RawSlurmJobInfo {
             std::slice::from_raw_parts(msg.job_array, msg.record_count as usize)
         }
     }
-    
+
     //pub fn into_message(self) -> JobInfoMsg {
     //    if self.ptr.is_null() {
     //        return 0 // create a more expressive return type, or error handling
@@ -96,12 +99,15 @@ impl RawSlurmJobInfo {
                 map.insert(safe_job.job_id, safe_job);
                 Ok::<HashMap<u32, Job>, String>(map)
             })?;
-            
+
         let (last_update, last_backfill) = unsafe {
             let msg = &*self.ptr;
-            (time_t_to_datetime(msg.last_update), time_t_to_datetime(msg.last_backfill))
+            (
+                time_t_to_datetime(msg.last_update),
+                time_t_to_datetime(msg.last_backfill),
+            )
         };
-        
+
         Ok(SlurmJobs {
             jobs: jobs_map,
             last_update,
@@ -117,17 +123,16 @@ impl RawSlurmJobInfo {
 /// all unsafe FFI calls, data conversion, and memory management internally
 pub fn get_jobs() -> Result<SlurmJobs, String> {
     // We load the raw C data into memory,
-    // convert into safe, Rust-native structs, 
+    // convert into safe, Rust-native structs,
     // and then consume the wrapper to drop the original C memory
     RawSlurmJobInfo::load(0)?.into_slurm_jobs()
 }
-
 
 struct _JobInfoMsg {
     last_backfill: time_t,
     last_update: time_t,
     record_count: u32,
-    job_array: *mut job_info
+    job_array: *mut job_info,
 }
 
 /// Represents the state of a Slurm job in a type-safe way
@@ -194,7 +199,7 @@ type JobId = u32;
 /// We may expand these fields as we go in order to enable more features
 #[derive(Debug, Clone)]
 pub struct Job {
-    // Core Identification 
+    // Core Identification
     pub job_id: JobId,
     pub array_job_id: u32,
     pub array_task_id: u32,
@@ -205,7 +210,7 @@ pub struct Job {
     pub partition: String,
     pub account: String,
 
-    // State and Time 
+    // State and Time
     pub job_state: JobState,
     pub state_description: String,
     pub submit_time: DateTime<Utc>,
@@ -214,7 +219,7 @@ pub struct Job {
     pub time_limit_minutes: u32,
     pub preemptable_time: DateTime<Utc>,
 
-    // Resource Allocation 
+    // Resource Allocation
     pub num_nodes: u32,
     pub num_cpus: u32,
     pub num_tasks: u32,
@@ -223,7 +228,7 @@ pub struct Job {
     pub allocated_gres: HashMap<String, u64>,
     pub gres_total: Option<String>,
 
-    // Other Information 
+    // Other Information
     pub work_dir: String,
     pub command: String,
     pub exit_code: u32,
@@ -232,19 +237,18 @@ pub struct Job {
 impl Job {
     /// Creates a safe, owned Rust `Job` from a raw C `job_info` struct
     pub fn from_raw_binding(raw_job: &job_info) -> Result<Self, String> {
-
         Ok(Job {
             job_id: raw_job.job_id,
             array_job_id: raw_job.array_job_id,
             array_task_id: raw_job.array_task_id,
-            name: unsafe {c_str_to_string(raw_job.name)},
+            name: unsafe { c_str_to_string(raw_job.name) },
             user_id: raw_job.user_id,
-            user_name: unsafe {c_str_to_string(raw_job.user_name)},
+            user_name: unsafe { c_str_to_string(raw_job.user_name) },
             group_id: raw_job.group_id,
-            partition: unsafe {c_str_to_string(raw_job.partition)},
-            account: unsafe {c_str_to_string(raw_job.account)},
+            partition: unsafe { c_str_to_string(raw_job.partition) },
+            account: unsafe { c_str_to_string(raw_job.account) },
             job_state: JobState::from(raw_job.job_state),
-            state_description: unsafe {c_str_to_string(raw_job.state_desc)},
+            state_description: unsafe { c_str_to_string(raw_job.state_desc) },
             submit_time: time_t_to_datetime(raw_job.submit_time),
             start_time: time_t_to_datetime(raw_job.start_time),
             end_time: time_t_to_datetime(raw_job.end_time),
@@ -253,15 +257,21 @@ impl Job {
             num_nodes: raw_job.num_nodes,
             num_cpus: raw_job.num_cpus,
             num_tasks: raw_job.num_tasks,
-            raw_hostlist: unsafe {c_str_to_string(raw_job.nodes)},
+            raw_hostlist: unsafe { c_str_to_string(raw_job.nodes) },
             node_ids: Vec::new(),
-            allocated_gres: unsafe {parse_tres_str(raw_job.tres_alloc_str)},
-            gres_total: if !raw_job.gres_total.is_null() { 
-                Some(unsafe { CStr::from_ptr(raw_job.gres_total) }.to_string_lossy().to_string())
-            } else { None },
-            // like the tres are 
-            work_dir: unsafe {c_str_to_string(raw_job.work_dir)},
-            command: unsafe {c_str_to_string(raw_job.command)},
+            allocated_gres: unsafe { parse_tres_str(raw_job.tres_alloc_str) },
+            gres_total: if !raw_job.gres_total.is_null() {
+                Some(
+                    unsafe { CStr::from_ptr(raw_job.gres_total) }
+                        .to_string_lossy()
+                        .to_string(),
+                )
+            } else {
+                None
+            },
+            // like the tres are
+            work_dir: unsafe { c_str_to_string(raw_job.work_dir) },
+            command: unsafe { c_str_to_string(raw_job.command) },
             exit_code: raw_job.exit_code,
         })
     }
@@ -289,14 +299,12 @@ impl SlurmJobs {
     pub fn filter_by(mut self, method: FilterMethod) -> Self {
         // go through the hashmap of jobs and figure out which ones either meet the user id
         // or the user name, just pass those back out, no need to change the other fields.
-        self.jobs.retain(|_, job| { 
-            match &method { 
-                FilterMethod::JobIds(ids) => ids.contains(&job.job_id),
-                FilterMethod::UserId(id) => *id == job.user_id,
-                FilterMethod::UserName(name) => *name == job.user_name,
-                FilterMethod::Partition(partition) => *partition == job.partition,
-                FilterMethod::Account(account) => *account == job.account,
-            }
+        self.jobs.retain(|_, job| match &method {
+            FilterMethod::JobIds(ids) => ids.contains(&job.job_id),
+            FilterMethod::UserId(id) => *id == job.user_id,
+            FilterMethod::UserName(name) => *name == job.user_name,
+            FilterMethod::Partition(partition) => *partition == job.partition,
+            FilterMethod::Account(account) => *account == job.account,
         });
 
         Self {
@@ -315,29 +323,38 @@ impl SlurmJobs {
         (node_use, core_use)
     }
     pub fn get_gres_total(&self) -> u32 {
-        let gres_totals: Vec<Vec<u32>> = self.jobs.iter().filter_map(|(_, job)| {
-            if let Some(gres) = &job.gres_total {
-                let temp: Vec<u32> = gres.split(':').filter_map(|g| {
-                    if let Ok(count) = g.parse::<u32>() {
-                        Some(count)
-                    } else {
-                        None
-                    }
-                }).collect();
-                Some(temp)
-            } else {
-                None
-            }
-        }).collect();
+        let gres_totals: Vec<Vec<u32>> = self
+            .jobs
+            .iter()
+            .filter_map(|(_, job)| {
+                if let Some(gres) = &job.gres_total {
+                    let temp: Vec<u32> = gres
+                        .split(':')
+                        .filter_map(|g| {
+                            if let Ok(count) = g.parse::<u32>() {
+                                Some(count)
+                            } else {
+                                None
+                            }
+                        })
+                        .collect();
+                    Some(temp)
+                } else {
+                    None
+                }
+            })
+            .collect();
 
         // have to parse them out, to get the number after the last :
-        
+
         gres_totals.iter().flatten().sum()
     }
     pub fn get_gres_strings(&self) -> Vec<String> {
-        let gres: Vec<String> = self.jobs.values().map(|job| {
-            job.gres_total.clone().unwrap_or("".to_string())
-        }).collect();
+        let gres: Vec<String> = self
+            .jobs
+            .values()
+            .map(|job| job.gres_total.clone().unwrap_or("".to_string()))
+            .collect();
 
         gres
     }
@@ -376,10 +393,10 @@ pub fn enrich_jobs_with_node_ids(
 #[derive(Clone)]
 pub struct AccountJobUsage {
     pub account: String,
-    pub nodes: u32, 
-    pub cores: u32, 
-    pub gpus: u32, 
-    pub max_nodes: u32, 
+    pub nodes: u32,
+    pub cores: u32,
+    pub gpus: u32,
+    pub max_nodes: u32,
     pub max_cores: u32,
     pub max_gpus: u32,
 }
@@ -387,52 +404,51 @@ pub struct AccountJobUsage {
 impl AccountJobUsage {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        account: &str, 
-        nodes: u32, 
-        cores: u32, 
-        gpus: u32, 
-        max_nodes: u32, 
+        account: &str,
+        nodes: u32,
+        cores: u32,
+        gpus: u32,
+        max_nodes: u32,
         max_cores: u32,
         max_gpus: u32,
-    ) -> Self { 
+    ) -> Self {
         Self {
             account: account.to_string(),
-            nodes, 
-            cores, 
-            gpus, 
-            max_nodes, 
+            nodes,
+            cores,
+            gpus,
+            max_nodes,
             max_cores,
             max_gpus,
         }
     }
     // pub fn print_user(&self, padding: usize) {
-    //     println!("{} {} {}/{} {}/{} {}/{}", 
-    //         self.account, 
-    //         " ".repeat(padding), 
-    //         self.user_cores, 
+    //     println!("{} {} {}/{} {}/{} {}/{}",
+    //         self.account,
+    //         " ".repeat(padding),
+    //         self.user_cores,
     //         self.user_max_cores,
-    //         self.user_nodes, 
-    //         self.user_max_nodes, 
-    //         self.user_gres, 
-    //         self.user_max_gres, 
+    //         self.user_nodes,
+    //         self.user_max_nodes,
+    //         self.user_gres,
+    //         self.user_max_gres,
     //     )
     // }
     // pub fn print_center(&self, padding: usize) {
-    //     println!("{} {} {}/{} {}/{} {}/{}", 
-    //         self.account, 
-    //         " ".repeat(padding), 
-    //         self.center_cores, 
+    //     println!("{} {} {}/{} {}/{} {}/{}",
+    //         self.account,
+    //         " ".repeat(padding),
+    //         self.center_cores,
     //         self.group_max_cores,
-    //         self.center_nodes, 
-    //         self.group_max_nodes, 
-    //         self.center_gres, 
-    //         self.group_max_gres, 
+    //         self.center_nodes,
+    //         self.group_max_nodes,
+    //         self.center_gres,
+    //         self.group_max_gres,
     //     )
     // }
 }
 
 // to print a vector of account job usage in a sensible way
-
 
 #[derive(Clone, Copy, Default)]
 struct MaxAcctUsage {
@@ -445,7 +461,6 @@ struct MaxAcctUsage {
     max_gpu_length: usize,
 }
 
-
 fn zero_to_dash(x: u32) -> String {
     if x == 0 {
         "-".to_string()
@@ -455,18 +470,27 @@ fn zero_to_dash(x: u32) -> String {
 }
 
 pub fn print_accounts(accounts: Vec<AccountJobUsage>) {
-    let max: &MaxAcctUsage = &accounts.iter().fold(MaxAcctUsage::default(), |mut accumulator, acc| {
-        accumulator.name_length = accumulator.name_length.max(acc.account.len());
-        accumulator.core_length = accumulator.core_length.max(acc.cores.to_string().len());
-        accumulator.max_core_length = accumulator.max_core_length.max(acc.max_cores.to_string().len());
-        accumulator.node_length = accumulator.node_length.max(acc.nodes.to_string().len());
-        accumulator.max_node_length = accumulator.max_node_length.max(acc.max_nodes.to_string().len());
-        accumulator.gpu_length = accumulator.gpu_length.max(acc.gpus.to_string().len());
-        accumulator.max_gpu_length = accumulator.max_gpu_length.max(acc.max_gpus.to_string().len());
+    let max: &MaxAcctUsage =
+        &accounts
+            .iter()
+            .fold(MaxAcctUsage::default(), |mut accumulator, acc| {
+                accumulator.name_length = accumulator.name_length.max(acc.account.len());
+                accumulator.core_length = accumulator.core_length.max(acc.cores.to_string().len());
+                accumulator.max_core_length = accumulator
+                    .max_core_length
+                    .max(acc.max_cores.to_string().len());
+                accumulator.node_length = accumulator.node_length.max(acc.nodes.to_string().len());
+                accumulator.max_node_length = accumulator
+                    .max_node_length
+                    .max(acc.max_nodes.to_string().len());
+                accumulator.gpu_length = accumulator.gpu_length.max(acc.gpus.to_string().len());
+                accumulator.max_gpu_length = accumulator
+                    .max_gpu_length
+                    .max(acc.max_gpus.to_string().len());
 
-        accumulator
-    });
-    
+                accumulator
+            });
+
     let max_name_length = max.name_length;
     let max_core_length = max.core_length;
     let max_max_core_length = max.max_core_length;
@@ -509,21 +533,27 @@ pub fn print_accounts(accounts: Vec<AccountJobUsage>) {
 
     for acc in accounts {
         // First, create the "value/max" string for each column for this specific account
-        let cores_str = format!("{:>max_core_length$}/{:>max_max_core_length$}", acc.cores, zero_to_dash(acc.max_cores));
-        let nodes_str = format!("{:>max_node_length$}/{:>max_max_node_length$}", acc.nodes, zero_to_dash(acc.max_nodes));
-        let gpus_str = format!("{:>max_gpu_length$}/{:>max_max_gpu_length$}", acc.gpus, zero_to_dash(acc.max_gpus));
+        let cores_str = format!(
+            "{:>max_core_length$}/{:>max_max_core_length$}",
+            acc.cores,
+            zero_to_dash(acc.max_cores)
+        );
+        let nodes_str = format!(
+            "{:>max_node_length$}/{:>max_max_node_length$}",
+            acc.nodes,
+            zero_to_dash(acc.max_nodes)
+        );
+        let gpus_str = format!(
+            "{:>max_gpu_length$}/{:>max_max_gpu_length$}",
+            acc.gpus,
+            zero_to_dash(acc.max_gpus)
+        );
 
         // Now, format the full line, left-aligning each data string within the final column width.
         // This ensures the start of each data string aligns perfectly with the start of its header.
         let data_line = format!(
             "{:<max_name_length$}{}{:<final_cores_width$}{}{:<final_nodes_width$}{}{:<final_gpus_width$}",
-            acc.account,
-            padding,
-            cores_str,
-            padding,
-            nodes_str,
-            padding,
-            gpus_str,
+            acc.account, padding, cores_str, padding, nodes_str, padding, gpus_str,
         );
         println!("{}", data_line);
     }
@@ -547,5 +577,3 @@ pub fn build_node_to_job_map(slurm_jobs: &SlurmJobs) -> HashMap<usize, Vec<u32>>
     }
     node_to_job_map
 }
-
-

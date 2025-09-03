@@ -1,10 +1,12 @@
-use std::os::raw::c_void;
 use rust_bind::bindings::{slurmdb_connection_close, slurmdb_connection_get};
+use std::os::raw::c_void;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum DbConnError {
-    #[error("Could not establish connection to SlurmDB. Please ensure that SlurmDB is present and slurm_init has been run.")]
+    #[error(
+        "Could not establish connection to SlurmDB. Please ensure that SlurmDB is present and slurm_init has been run."
+    )]
     DbConnectionError,
 }
 
@@ -20,17 +22,17 @@ impl DbConn {
             let ptr = slurmdb_connection_get(persist_flags);
 
             if !ptr.is_null() {
-                Ok(Self {
-                    ptr
-                })
+                Ok(Self { ptr })
             } else {
                 Err(DbConnError::DbConnectionError)
             }
         }
     }
-    
+
     /// Get a raw pointer to the SlurmDB connection
-    pub fn as_mut_ptr(&mut self) -> *mut c_void { self.ptr }
+    pub fn as_mut_ptr(&mut self) -> *mut c_void {
+        self.ptr
+    }
 }
 
 impl Drop for DbConn {

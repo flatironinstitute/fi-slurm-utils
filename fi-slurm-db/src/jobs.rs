@@ -1,11 +1,12 @@
-use std::{ffi::CStr, ops::Deref};
-use rust_bind::bindings::{slurm_list_destroy, slurmdb_job_cond_t, slurmdb_job_rec_t, slurmdb_jobs_get, xlist};
 use chrono::{DateTime, Utc};
+use rust_bind::bindings::{
+    slurm_list_destroy, slurmdb_job_cond_t, slurmdb_job_rec_t, slurmdb_jobs_get, xlist,
+};
+use std::{ffi::CStr, ops::Deref};
 use thiserror::Error;
 
 use crate::db::DbConn;
-use crate::utils::{vec_to_slurm_list, SlurmIterator};
-
+use crate::utils::{SlurmIterator, vec_to_slurm_list};
 
 #[derive(Error, Debug)]
 pub enum JobsError {
@@ -19,7 +20,9 @@ pub enum JobsError {
     JobsListNull,
     #[error("Pointer to user_list is null")]
     UserListNull,
-    #[error("Database connection failed. Please ensure that SlurmDB is present and slurm_init has been run")]
+    #[error(
+        "Database connection failed. Please ensure that SlurmDB is present and slurm_init has been run"
+    )]
     DbConnError,
     #[error("List of jobs successfully retrieved but empty")]
     EmptyJobsListError,
@@ -37,7 +40,6 @@ pub struct JobsConfig {
 impl JobsConfig {
     /// Convert a JobsConfig object into a slurmdb_job_cond_t object
     pub fn into_c_struct(self) -> slurmdb_job_cond_t {
-
         unsafe {
             let mut c_struct: slurmdb_job_cond_t = std::mem::zeroed();
             c_struct.acct_list = vec_to_slurm_list(self.acct_list);
@@ -147,17 +149,20 @@ impl SlurmJobs {
     /// Create a SlurmJobs Rust struct from a slurmdb_job_rec_t struct
     pub unsafe fn from_c_rec(rec: *const slurmdb_job_rec_t) -> Self {
         unsafe {
-
             let partition = if (*rec).partition.is_null() {
                 String::new()
             } else {
-                CStr::from_ptr((*rec).partition).to_string_lossy().into_owned()
+                CStr::from_ptr((*rec).partition)
+                    .to_string_lossy()
+                    .into_owned()
             };
 
             let job_name = if (*rec).jobname.is_null() {
                 String::from("foo")
             } else {
-                CStr::from_ptr((*rec).jobname).to_string_lossy().into_owned()
+                CStr::from_ptr((*rec).jobname)
+                    .to_string_lossy()
+                    .into_owned()
             };
 
             let node_names = if (*rec).nodes.is_null() {
@@ -182,18 +187,19 @@ impl SlurmJobs {
 
 /// Process a SlurmJobsList into a vector of SlurmJobs, or else return an error
 pub fn process_jobs_list(jobs_list: SlurmJobsList) -> Result<Vec<SlurmJobs>, JobsError> {
-
     if jobs_list.ptr.is_null() {
-        return Err(JobsError::JobsListNull)
+        return Err(JobsError::JobsListNull);
     }
 
     let iterator = unsafe { SlurmIterator::new(jobs_list.ptr) };
 
-    let results: Vec<SlurmJobs> = iterator.map(|node_ptr| {
-        // not even an unsafe cast!
-        let jobs_rec_ptr = node_ptr as *const slurmdb_job_rec_t;
-        unsafe { SlurmJobs::from_c_rec(jobs_rec_ptr) }
-    }).collect();
+    let results: Vec<SlurmJobs> = iterator
+        .map(|node_ptr| {
+            // not even an unsafe cast!
+            let jobs_rec_ptr = node_ptr as *const slurmdb_job_rec_t;
+            unsafe { SlurmJobs::from_c_rec(jobs_rec_ptr) }
+        })
+        .collect();
 
     if !results.is_empty() {
         Ok(results)
@@ -201,5 +207,3 @@ pub fn process_jobs_list(jobs_list: SlurmJobsList) -> Result<Vec<SlurmJobs>, Job
         Err(JobsError::EmptyJobsListError)
     }
 }
-
-

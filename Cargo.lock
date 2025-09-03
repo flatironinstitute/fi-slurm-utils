@@ -520,17 +520,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "37909eebbb50d72f9059c3b6d82c0463f2ff062c9e95845c43a6c9c0355411be"
 
 [[package]]
-name = "fi_limits"
+name = "fi-limits"
 version = "0.1.0"
 dependencies = [
  "clap",
- "fi_slurm",
- "fi_slurm_db",
+ "fi-slurm",
+ "fi-slurm-db",
  "users",
 ]
 
 [[package]]
-name = "fi_node"
+name = "fi-node"
 version = "0.1.0"
 dependencies = [
  "chrono",
@@ -538,9 +538,9 @@ dependencies = [
  "color-eyre",
  "colored",
  "crossterm 0.29.0",
- "fi_prometheus",
- "fi_slurm",
- "fi_slurm_db",
+ "fi-prometheus",
+ "fi-slurm",
+ "fi-slurm-db",
  "ratatui",
  "thiserror",
  "tokio",
@@ -548,7 +548,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "fi_prometheus"
+name = "fi-prometheus"
 version = "0.1.0"
 dependencies = [
  "chrono",
@@ -558,22 +558,22 @@ dependencies = [
 ]
 
 [[package]]
-name = "fi_slurm"
+name = "fi-slurm"
 version = "0.1.0"
 dependencies = [
  "bitflags",
  "chrono",
  "regex",
- "rust_bind",
+ "rust-bind",
 ]
 
 [[package]]
-name = "fi_slurm_db"
+name = "fi-slurm-db"
 version = "0.1.0"
 dependencies = [
  "bitflags",
  "chrono",
- "rust_bind",
+ "rust-bind",
  "thiserror",
  "users",
 ]
@@ -1512,7 +1512,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "rust_bind"
+name = "rust-bind"
 version = "0.1.0"
 dependencies = [
  "bindgen",

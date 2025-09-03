@@ -3,11 +3,11 @@
 #include <slurm/slurmdb.h>
 
 enum bind_node_state_flags {
-    EXTERNAL = (1 << 4),
+    NET = (1 << 4),
     RES = NODE_STATE_RES,
     UNDRAIN = NODE_STATE_UNDRAIN,
     CLOUD = NODE_STATE_CLOUD,
-    RESUME = (1 << 8),
+    RESUME = NODE_RESUME,
     DRAIN = NODE_STATE_DRAIN,
     COMPLETING = NODE_STATE_COMPLETING,
     NO_RESPOND = NODE_STATE_NO_RESPOND,

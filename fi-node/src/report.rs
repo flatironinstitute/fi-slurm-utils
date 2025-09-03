@@ -1,8 +1,8 @@
-use fi_slurm::nodes::{NodeState, Node};
+use colored::*;
 use fi_slurm::jobs::SlurmJobs;
+use fi_slurm::nodes::{Node, NodeState};
 use fi_slurm::utils::count_blocks;
 use std::collections::HashMap;
-use colored::*;
 
 /// Represents the aggregated statistics for a single line in the final report
 ///
@@ -40,7 +40,6 @@ pub struct ReportGroup {
 /// Using a HashMap makes it easy to add stats to the correct group as we
 /// iterate through all the nodes
 pub type ReportData = HashMap<NodeState, ReportGroup>;
-
 
 /// Builds the final report by aggregating data from all nodes
 ///
@@ -98,7 +97,10 @@ pub fn build_report(
         // slurm does not mark nodes as mixed by default, so we have to do it
         let derived_state = if alloc_cpus_for_node > 0 && alloc_cpus_for_node < node.cpus as u32 {
             match &node.state {
-                NodeState::Compound { flags, .. } => NodeState::Compound { base: Box::new(NodeState::Mixed), flags: flags.to_vec()},
+                NodeState::Compound { flags, .. } => NodeState::Compound {
+                    base: Box::new(NodeState::Mixed),
+                    flags: flags.to_vec(),
+                },
                 _ => NodeState::Mixed,
             }
         } else {
@@ -113,7 +115,9 @@ pub fn build_report(
         group.summary.node_count += 1;
         group.summary.total_cpus += node.cpus as u32;
         group.summary.alloc_cpus += alloc_cpus_for_node;
-        if show_node_names { group.summary.node_names.push(node.name.clone()); }
+        if show_node_names {
+            group.summary.node_names.push(node.name.clone());
+        }
         if let Some(gpu) = &node.gpu_info {
             group.summary.total_gpus += gpu.total_gpus;
             group.summary.alloc_gpus += gpu.allocated_gpus;
@@ -144,11 +148,10 @@ pub fn build_report(
             // if we're in allocated mode, idle counts are not needed
             (0, 0)
         };
-        
+
         // add the calculated idle resources to the summary totals
         group.summary.idle_cpus += idle_cpus_for_node;
         group.summary.idle_gpus += idle_gpus_for_node;
-
 
         // update subgroups (gpu or feature)
         if let Some(gpu) = &node.gpu_info {
@@ -157,32 +160,35 @@ pub fn build_report(
             } else {
                 gpu.name.clone()
             };
-            
+
             let subgroup_line = group.subgroups.entry(subgroup_key).or_default();
-            
+
             subgroup_line.node_count += 1;
             subgroup_line.total_cpus += node.cpus as u32;
             subgroup_line.alloc_cpus += alloc_cpus_for_node;
             subgroup_line.total_gpus += gpu.total_gpus;
             subgroup_line.alloc_gpus += gpu.allocated_gpus;
-            if show_node_names { subgroup_line.node_names.push(node.name.clone()); }
-            
+            if show_node_names {
+                subgroup_line.node_names.push(node.name.clone());
+            }
+
             // add this node's idle contribution to the subgroup
             subgroup_line.idle_cpus += idle_cpus_for_node;
             subgroup_line.idle_gpus += idle_gpus_for_node;
-
         } else if let Some(feature) = node.features.first() {
             let subgroup_line = group.subgroups.entry(feature.clone()).or_default();
-            
+
             subgroup_line.node_count += 1;
             subgroup_line.total_cpus += node.cpus as u32;
             subgroup_line.alloc_cpus += alloc_cpus_for_node;
-            if show_node_names { subgroup_line.node_names.push(node.name.clone()); }
+            if show_node_names {
+                subgroup_line.node_names.push(node.name.clone());
+            }
 
             // add this node's idle contribution to the subgroup
             subgroup_line.idle_cpus += idle_cpus_for_node;
         }
-    };
+    }
     report_data
 }
 
@@ -228,24 +234,38 @@ pub fn get_report_widths(report_data: &ReportData, allocated: bool) -> (ReportWi
     };
 
     // now, fold over the data to see if any individual line needs more space
-    let final_widths = report_data.iter().fold(
-        initial_widths,
-        |mut acc_widths, (state, group)| {
+    let final_widths = report_data
+        .iter()
+        .fold(initial_widths, |mut acc_widths, (state, group)| {
             acc_widths.state_width = acc_widths.state_width.max(state.to_string().len());
 
             let mut check_line = |line: &ReportLine| {
-                acc_widths.count_width = acc_widths.count_width.max(line.node_count.to_string().len());
-                
+                acc_widths.count_width = acc_widths
+                    .count_width
+                    .max(line.node_count.to_string().len());
+
                 if allocated {
-                    acc_widths.alloc_or_idle_cpu_width = acc_widths.alloc_or_idle_cpu_width.max(line.alloc_cpus.to_string().len());
-                    acc_widths.alloc_or_idle_gpu_width = acc_widths.alloc_or_idle_gpu_width.max(line.alloc_gpus.to_string().len());
+                    acc_widths.alloc_or_idle_cpu_width = acc_widths
+                        .alloc_or_idle_cpu_width
+                        .max(line.alloc_cpus.to_string().len());
+                    acc_widths.alloc_or_idle_gpu_width = acc_widths
+                        .alloc_or_idle_gpu_width
+                        .max(line.alloc_gpus.to_string().len());
                 } else {
-                    acc_widths.alloc_or_idle_cpu_width = acc_widths.alloc_or_idle_cpu_width.max(line.idle_cpus.to_string().len());
-                    acc_widths.alloc_or_idle_gpu_width = acc_widths.alloc_or_idle_gpu_width.max(line.idle_gpus.to_string().len());
+                    acc_widths.alloc_or_idle_cpu_width = acc_widths
+                        .alloc_or_idle_cpu_width
+                        .max(line.idle_cpus.to_string().len());
+                    acc_widths.alloc_or_idle_gpu_width = acc_widths
+                        .alloc_or_idle_gpu_width
+                        .max(line.idle_gpus.to_string().len());
                 }
-                
-                acc_widths.total_cpu_width = acc_widths.total_cpu_width.max(line.total_cpus.to_string().len());
-                acc_widths.total_gpu_width = acc_widths.total_gpu_width.max(line.total_gpus.to_string().len());
+
+                acc_widths.total_cpu_width = acc_widths
+                    .total_cpu_width
+                    .max(line.total_cpus.to_string().len());
+                acc_widths.total_gpu_width = acc_widths
+                    .total_gpu_width
+                    .max(line.total_gpus.to_string().len());
             };
 
             check_line(&group.summary);
@@ -255,8 +275,7 @@ pub fn get_report_widths(report_data: &ReportData, allocated: bool) -> (ReportWi
                 check_line(subgroup_line);
             }
             acc_widths
-        },
-    );
+        });
 
     (final_widths, total_line)
 }
@@ -273,7 +292,7 @@ impl StateComponent {
         let colored_text = if no_color {
             name.normal()
         } else if let Some(s) = state {
-             match s {
+            match s {
                 NodeState::Compound { base, flags } => {
                     let base_str = base.to_string();
                     let flags_str = format!("+{}", flags.join("+").to_uppercase());
@@ -287,21 +306,22 @@ impl StateComponent {
                     };
                     format!("{}{}", colored_base, flags_str).normal()
                 }
-                _ => {
-                    match s {
-                        NodeState::Idle => name.green(),
-                        NodeState::Mixed => name.blue(),
-                        NodeState::Allocated => name.yellow(),
-                        NodeState::Down => name.red(),
-                        NodeState::Error => name.magenta(),
-                        _ => name.dimmed(),
-                    }
-                }
+                _ => match s {
+                    NodeState::Idle => name.green(),
+                    NodeState::Mixed => name.blue(),
+                    NodeState::Allocated => name.yellow(),
+                    NodeState::Down => name.red(),
+                    NodeState::Error => name.magenta(),
+                    _ => name.dimmed(),
+                },
             }
         } else {
             name.normal() // Make TOTAL bold
         };
-        Self { colored_text, padding }
+        Self {
+            colored_text,
+            padding,
+        }
     }
 }
 
@@ -311,7 +331,9 @@ struct CountComponent {
 }
 impl CountComponent {
     fn new(count: u32, width: usize) -> Self {
-        Self { text: format!("{:>width$}", count, width = width) }
+        Self {
+            text: format!("{:>width$}", count, width = width),
+        }
     }
 }
 
@@ -321,7 +343,11 @@ struct CPUComponent {
 }
 impl CPUComponent {
     fn new(line: &ReportLine, widths: &ReportWidths, allocated: bool) -> Self {
-        let val = if allocated { line.alloc_cpus } else { line.idle_cpus };
+        let val = if allocated {
+            line.alloc_cpus
+        } else {
+            line.idle_cpus
+        };
         let text = format!(
             "{:>alloc_w$}/{:>total_w$}",
             val,
@@ -338,12 +364,18 @@ struct GPUComponent {
     text: String,
 }
 impl GPUComponent {
-     fn new(line: &ReportLine, widths: &ReportWidths, allocated: bool) -> Self {
+    fn new(line: &ReportLine, widths: &ReportWidths, allocated: bool) -> Self {
         if line.total_gpus == 0 {
             let total_width = widths.alloc_or_idle_gpu_width + widths.total_gpu_width + 3;
-            return Self { text: format!("{:^width$}", "-", width = total_width-2) };
+            return Self {
+                text: format!("{:^width$}", "-", width = total_width - 2),
+            };
         }
-        let val = if allocated { line.alloc_gpus } else { line.idle_gpus };
+        let val = if allocated {
+            line.alloc_gpus
+        } else {
+            line.idle_gpus
+        };
         let text = format!(
             "{:>alloc_w$}/{:>total_w$}",
             val,
@@ -356,7 +388,12 @@ impl GPUComponent {
 }
 
 /// Formats and prints the aggregated report data to the console
-pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: bool, allocated: bool) {
+pub fn print_report(
+    report_data: &ReportData,
+    no_color: bool,
+    show_node_names: bool,
+    allocated: bool,
+) {
     let padding: usize = 3;
     let padding_str = " ".repeat(padding);
 
@@ -375,14 +412,34 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
 
     // set the order in which flags should appear
     let flag_order: HashMap<&str, usize> = [
-        ("EXTERNAL", 0), ("RES", 1), ("UNDRAIN", 2), ("CLOUD", 3),
-        ("RESUME", 4), ("DRAIN", 5), ("COMPLETING", 6), ("NO_RESPOND", 7),
-        ("POWERED_DOWN", 8), ("FAIL", 9), ("POWERING_UP", 10), ("MAINT", 11),
-        ("REBOOT_REQUESTED", 12), ("REBOOT_CANCEL", 13), ("POWERING_DOWN", 14),
-        ("DYNAMIC_FUTURE", 15), ("REBOOT_ISSUED", 16), ("PLANNED", 17),
-        ("INVALID_REG", 18), ("POWER_DOWN", 19), ("POWER_UP", 20),
-        ("POWER_DRAIN", 21), ("DYNAMIC_NORM", 22), ("BLOCKED", 23)
-    ].iter().cloned().collect();
+        ("EXTERNAL", 0),
+        ("RES", 1),
+        ("UNDRAIN", 2),
+        ("CLOUD", 3),
+        ("RESUME", 4),
+        ("DRAIN", 5),
+        ("COMPLETING", 6),
+        ("NO_RESPOND", 7),
+        ("POWERED_DOWN", 8),
+        ("FAIL", 9),
+        ("POWERING_UP", 10),
+        ("MAINT", 11),
+        ("REBOOT_REQUESTED", 12),
+        ("REBOOT_CANCEL", 13),
+        ("POWERING_DOWN", 14),
+        ("DYNAMIC_FUTURE", 15),
+        ("REBOOT_ISSUED", 16),
+        ("PLANNED", 17),
+        ("INVALID_REG", 18),
+        ("POWER_DOWN", 19),
+        ("POWER_UP", 20),
+        ("POWER_DRAIN", 21),
+        ("DYNAMIC_NORM", 22),
+        ("BLOCKED", 23),
+    ]
+    .iter()
+    .cloned()
+    .collect();
 
     // sorts the states for presentation order
     let mut sorted_states: Vec<&NodeState> = report_data.keys().collect();
@@ -406,17 +463,25 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
         to_key(a).cmp(&to_key(b))
     });
 
-    // print headers 
-    
-    let state_header = if allocated {"STATE (Alloc/Total)"} else {"STATE (Idle/Total)"};
-    
+    // print headers
+
+    let state_header = if allocated {
+        "STATE (Alloc/Total)"
+    } else {
+        "STATE (Idle/Total)"
+    };
+
     // calculate the exact width of the data part of each column
     let count_data_width = report_widths.count_width;
     let cpu_data_width = report_widths.alloc_or_idle_cpu_width + report_widths.total_cpu_width;
     let gpu_data_width = report_widths.alloc_or_idle_gpu_width + report_widths.total_gpu_width;
 
     // format each header to be aligned within its data column's width
-    let state_header_formatted = format!("{:<width$}", state_header.bold(), width = report_widths.state_width);
+    let state_header_formatted = format!(
+        "{:<width$}",
+        state_header.bold(),
+        width = report_widths.state_width
+    );
     let count_header_formatted = format!("{:>width$}", "COUNT".bold(), width = count_data_width);
     let cpu_header_formatted = format!("{:>width$}", "CPU".bold(), width = cpu_data_width);
     let gpu_header_formatted = format!("{:>width$}", "GPU".bold(), width = gpu_data_width);
@@ -427,42 +492,64 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
     print!("{}{}", cpu_header_formatted, padding_str);
     println!("{}", gpu_header_formatted); // No padding at the end of the line
 
-    let total_width = report_widths.state_width + padding_str.len() + count_data_width + padding_str.len() + cpu_data_width + padding_str.len() + gpu_data_width;
+    let total_width = report_widths.state_width
+        + padding_str.len()
+        + count_data_width
+        + padding_str.len()
+        + cpu_data_width
+        + padding_str.len()
+        + gpu_data_width;
     println!("{}", "-".repeat(total_width + padding));
 
     // print report body
     for state in sorted_states {
         if let Some(group) = report_data.get(state) {
-            let state_comp = StateComponent::new(state.to_string(), report_widths.state_width, no_color, Some(state));
-            let count_comp = CountComponent::new(group.summary.node_count, report_widths.count_width);
+            let state_comp = StateComponent::new(
+                state.to_string(),
+                report_widths.state_width,
+                no_color,
+                Some(state),
+            );
+            let count_comp =
+                CountComponent::new(group.summary.node_count, report_widths.count_width);
             let cpu_comp = CPUComponent::new(&group.summary, &report_widths, allocated);
             let gpu_comp = GPUComponent::new(&group.summary, &report_widths, allocated);
             let node_names = &group.summary.node_names.clone();
 
-        println!(
-            "{}{}{}{}{}{}{}{}   {}",
-            state_comp.colored_text,
-            state_comp.padding,
-            padding_str,
-            count_comp.text,
-            padding_str,
-            cpu_comp.text,
-            padding_str,
-            gpu_comp.text,
-            if show_node_names {fi_slurm::parser::compress_hostlist(node_names)} else {"".to_string()}
-        );
+            println!(
+                "{}{}{}{}{}{}{}{}   {}",
+                state_comp.colored_text,
+                state_comp.padding,
+                padding_str,
+                count_comp.text,
+                padding_str,
+                cpu_comp.text,
+                padding_str,
+                gpu_comp.text,
+                if show_node_names {
+                    fi_slurm::parser::compress_hostlist(node_names)
+                } else {
+                    "".to_string()
+                }
+            );
 
             let mut sorted_subgroups: Vec<&String> = group.subgroups.keys().collect();
             sorted_subgroups.sort();
 
             for subgroup_name in sorted_subgroups {
                 if let Some(line) = group.subgroups.get(subgroup_name) {
-                    let state_comp = StateComponent::new(format!("  {}", subgroup_name), report_widths.state_width, no_color, None);
-                    let count_comp = CountComponent::new(line.node_count, report_widths.count_width);
+                    let state_comp = StateComponent::new(
+                        format!("  {}", subgroup_name),
+                        report_widths.state_width,
+                        no_color,
+                        None,
+                    );
+                    let count_comp =
+                        CountComponent::new(line.node_count, report_widths.count_width);
                     let cpu_comp = CPUComponent::new(line, &report_widths, allocated);
                     let gpu_comp = GPUComponent::new(line, &report_widths, allocated);
                     let node_names = &line.node_names.clone();
-                    
+
                     println!(
                         "{}{}{}{}{}{}{}{}   {}",
                         state_comp.colored_text,
@@ -473,16 +560,25 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
                         cpu_comp.text,
                         padding_str,
                         gpu_comp.text,
-                        if show_node_names {fi_slurm::parser::compress_hostlist(node_names)} else {"".to_string()}
+                        if show_node_names {
+                            fi_slurm::parser::compress_hostlist(node_names)
+                        } else {
+                            "".to_string()
+                        }
                     );
                 }
             }
         }
     }
-    
+
     // print the total line
     println!("{}", "-".repeat(total_width));
-    let state_comp = StateComponent::new("TOTAL".to_string(), report_widths.state_width, no_color, None);
+    let state_comp = StateComponent::new(
+        "TOTAL".to_string(),
+        report_widths.state_width,
+        no_color,
+        None,
+    );
     let count_comp = CountComponent::new(total_line.node_count, report_widths.count_width);
     let cpu_comp = CPUComponent::new(&total_line, &report_widths, allocated);
     let gpu_comp = GPUComponent::new(&total_line, &report_widths, allocated);
@@ -499,7 +595,12 @@ pub fn print_report(report_data: &ReportData, no_color: bool, show_node_names: b
     print_utilization_bars(report_data, &total_line, allocated, no_color);
 }
 
-fn print_utilization_bars(report_data: &ReportData, total_line: &ReportLine, allocated: bool, no_color: bool) {
+fn print_utilization_bars(
+    report_data: &ReportData,
+    total_line: &ReportLine,
+    allocated: bool,
+    no_color: bool,
+) {
     println!(); // blank line for spacing
     if allocated {
         // --- Utilization ---
@@ -554,7 +655,10 @@ fn is_node_available(state: &NodeState) -> bool {
                 // Node is idle, but check for disqualifying flags
                 !flags.iter().any(|flag| {
                     let flag_str = flag.as_str();
-                    flag_str == "MAINT" || flag_str == "DOWN" || flag_str == "DRAIN" || flag_str == "INVALID_REG"
+                    flag_str == "MAINT"
+                        || flag_str == "DOWN"
+                        || flag_str == "DRAIN"
+                        || flag_str == "INVALID_REG"
                 })
             } else {
                 false
@@ -600,7 +704,7 @@ fn get_available_gpus(report_data: &ReportData) -> u64 {
 enum BarColor {
     Red,
     Green,
-    Cyan
+    Cyan,
 }
 
 impl BarColor {
@@ -608,12 +712,19 @@ impl BarColor {
         match self {
             BarColor::Cyan => text.cyan(),
             BarColor::Red => text.red(),
-            BarColor::Green => text.green()
+            BarColor::Green => text.green(),
         }
     }
 }
 
-fn print_utilization(utilization_percent: f64, bar_width: usize, bar_color: BarColor, name: &str, no_color: bool, allocated: bool) {
+fn print_utilization(
+    utilization_percent: f64,
+    bar_width: usize,
+    bar_color: BarColor,
+    name: &str,
+    no_color: bool,
+    allocated: bool,
+) {
     // Call count_blocks to get the components of the bar
     let (full, empty, partial_opt) = count_blocks(bar_width, utilization_percent / 100.0);
 
@@ -627,8 +738,16 @@ fn print_utilization(utilization_percent: f64, bar_width: usize, bar_color: BarC
     let empty_bar = " ".repeat(empty);
 
     // Apply color to the filled parts of the bar
-    let colored_full = if no_color { full_bar.white() } else { bar_color.apply_color(&full_bar) };
-    let colored_partial = if no_color { partial_bar.white() } else { bar_color.apply_color(&partial_bar) };
+    let colored_full = if no_color {
+        full_bar.white()
+    } else {
+        bar_color.apply_color(&full_bar)
+    };
+    let colored_partial = if no_color {
+        partial_bar.white()
+    } else {
+        bar_color.apply_color(&partial_bar)
+    };
 
     // Print the assembled bar
     if allocated {
@@ -651,4 +770,3 @@ fn print_utilization(utilization_percent: f64, bar_width: usize, bar_color: BarC
         );
     }
 }
-

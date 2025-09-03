@@ -1,26 +1,26 @@
 use crate::tui::{
     interface::{
         get_cpu_by_account_data_async, get_cpu_by_node_data_async,
-        get_gpu_by_type_data_async, get_cpu_capacity_by_account_async,
-        get_cpu_capacity_by_node_async, get_gpu_capacity_by_type_async,
+        get_cpu_capacity_by_account_async, get_cpu_capacity_by_node_async,
+        get_gpu_by_type_data_async, get_gpu_capacity_by_type_async,
     },
-    ui::ui
+    ui::ui,
 };
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-};
-use ratatui::{
-    backend::{Backend, CrosstermBackend},
-    Terminal,
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use fi_prometheus::PrometheusTimeScale;
+use ratatui::{
+    Terminal,
+    backend::{Backend, CrosstermBackend},
+};
 use std::collections::HashMap;
 use std::io;
-use tokio::sync::mpsc;
 use std::time::Duration;
 use thiserror::Error;
+use tokio::sync::mpsc;
 
 // --- Layout Constants ---
 pub const MINIMUM_CHART_WIDTH: u16 = 65;
@@ -154,7 +154,6 @@ pub struct ParameterSelectionState {
     pub focused_widget: ParameterFocus,
 }
 
-
 // MODIFIED: The AppState enum now includes all application states.
 #[allow(clippy::large_enum_variant)]
 //#[derive(Debug, Clone)]
@@ -199,11 +198,12 @@ async fn run_app<B: Backend>(
     terminal: &mut Terminal<B>,
     mut rx: mpsc::Receiver<FetchedData>,
 ) -> io::Result<()> {
-
     const LOADING_TIMEOUT_TICKS: usize = 200;
     // Start the app in the MainMenu state.
-    let mut app_state = AppState::MainMenu { selected: MainMenuSelection::Default };
-    
+    let mut app_state = AppState::MainMenu {
+        selected: MainMenuSelection::Default,
+    };
+
     let mut cpu_by_account_data: Option<Result<UsageData, AppError>> = None;
     let mut cpu_by_node_data: Option<Result<UsageData, AppError>> = None;
     let mut gpu_by_type_data: Option<Result<UsageData, AppError>> = None;
@@ -244,39 +244,51 @@ async fn run_app<B: Backend>(
                 }
 
                 match &mut app_state {
-                    AppState::MainMenu { selected } => {
-                        match key.code {
-                            KeyCode::Up | KeyCode::PageUp | KeyCode::Down | KeyCode::PageDown | KeyCode::Char('k') | KeyCode::Char('j')=> *selected = selected.toggle(),
-                            KeyCode::Enter => {
-                                match selected {
-                                    MainMenuSelection::Default => {
-                                        if data_fetch_count == 6 {
-                                            app_state = build_loaded_app(
-                                                &mut cpu_by_account_data, &mut cpu_by_node_data, &mut gpu_by_type_data,
-                                                &mut cpu_by_account_capacity, &mut cpu_by_node_capacity, &mut gpu_by_type_capacity,
-                                                current_query_range, current_query_time_scale
-                                            );
-                                        } else {
-                                            app_state = AppState::Loading { tick: 0 };
-                                        }
-                                    },
-                                    MainMenuSelection::Custom => {
-                                        app_state = AppState::ParameterSelection(ParameterSelectionState::default());
-                                    }
+                    AppState::MainMenu { selected } => match key.code {
+                        KeyCode::Up
+                        | KeyCode::PageUp
+                        | KeyCode::Down
+                        | KeyCode::PageDown
+                        | KeyCode::Char('k')
+                        | KeyCode::Char('j') => *selected = selected.toggle(),
+                        KeyCode::Enter => match selected {
+                            MainMenuSelection::Default => {
+                                if data_fetch_count == 6 {
+                                    app_state = build_loaded_app(
+                                        &mut cpu_by_account_data,
+                                        &mut cpu_by_node_data,
+                                        &mut gpu_by_type_data,
+                                        &mut cpu_by_account_capacity,
+                                        &mut cpu_by_node_capacity,
+                                        &mut gpu_by_type_capacity,
+                                        current_query_range,
+                                        current_query_time_scale,
+                                    );
+                                } else {
+                                    app_state = AppState::Loading { tick: 0 };
                                 }
-                            },
-                            _ => {}
-                        }
-                    }
+                            }
+                            MainMenuSelection::Custom => {
+                                app_state = AppState::ParameterSelection(
+                                    ParameterSelectionState::default(),
+                                );
+                            }
+                        },
+                        _ => {}
+                    },
                     AppState::ParameterSelection(state) => {
                         match (key.code, state.focused_widget) {
                             // --- Global Keys for this state ---
                             (KeyCode::Tab, _) => state.focused_widget = state.focused_widget.next(),
-                            
+
                             // local navigation keys
-                            (KeyCode::Enter, ParameterFocus::Range) => state.focused_widget = state.focused_widget.next(),
-                            (KeyCode::Enter, ParameterFocus::Unit) => state.focused_widget = state.focused_widget.next(),
-                        
+                            (KeyCode::Enter, ParameterFocus::Range) => {
+                                state.focused_widget = state.focused_widget.next()
+                            }
+                            (KeyCode::Enter, ParameterFocus::Unit) => {
+                                state.focused_widget = state.focused_widget.next()
+                            }
+
                             // --- Range Input Keys ---
                             (KeyCode::Char(c), ParameterFocus::Range) if c.is_ascii_digit() => {
                                 state.range_input.push(c);
@@ -333,26 +345,36 @@ async fn run_app<B: Backend>(
                                 KeyCode::Char('1') => app.current_view = AppView::CpuByAccount,
                                 KeyCode::Char('2') => app.current_view = AppView::CpuByNode,
                                 KeyCode::Char('3') => app.current_view = AppView::GpuByType,
-                                KeyCode::Right | KeyCode::Char('l') | KeyCode::Tab => app.next_view(),
+                                KeyCode::Right | KeyCode::Char('l') | KeyCode::Tab => {
+                                    app.next_view()
+                                }
                                 KeyCode::Left | KeyCode::Char('h') => app.prev_view(),
-                                KeyCode::Up | KeyCode::PageUp | KeyCode::Char('k') => app.scroll_offset = app.scroll_offset.saturating_sub(1),
+                                KeyCode::Up | KeyCode::PageUp | KeyCode::Char('k') => {
+                                    app.scroll_offset = app.scroll_offset.saturating_sub(1)
+                                }
                                 KeyCode::Down | KeyCode::PageDown | KeyCode::Char('j') => {
                                     let terminal_size = terminal.size()?;
                                     // compute how many chart-rows fit: subtract tabs (3 lines) and footer (1 line)
-                                    let chartable_height = terminal_size.height.saturating_sub(3 + 1);
-                                    let num_cols = (terminal_size.width / MINIMUM_CHART_WIDTH).max(1) as usize;
+                                    let chartable_height =
+                                        terminal_size.height.saturating_sub(3 + 1);
+                                    let num_cols =
+                                        (terminal_size.width / MINIMUM_CHART_WIDTH).max(1) as usize;
                                     let num_charts = match app.current_view {
-                                        AppView::CpuByAccount => app.cpu_by_account.source_data.len(),
+                                        AppView::CpuByAccount => {
+                                            app.cpu_by_account.source_data.len()
+                                        }
                                         AppView::CpuByNode => app.cpu_by_node.source_data.len(),
                                         AppView::GpuByType => app.gpu_by_type.source_data.len(),
                                     };
                                     let total_rows = num_charts.div_ceil(num_cols);
-                                    let num_visible_rows = (chartable_height / CHART_HEIGHT) as usize;
-                                    let max_scroll_offset = total_rows.saturating_sub(num_visible_rows);
+                                    let num_visible_rows =
+                                        (chartable_height / CHART_HEIGHT) as usize;
+                                    let max_scroll_offset =
+                                        total_rows.saturating_sub(num_visible_rows);
                                     if app.scroll_offset < max_scroll_offset {
                                         app.scroll_offset = app.scroll_offset.saturating_add(1);
                                     }
-                                },
+                                }
                                 KeyCode::Enter => app.scroll_mode = ScrollMode::Chart,
                                 KeyCode::Char('a') => app.display_mode = app.display_mode.toggle(),
                                 _ => {}
@@ -365,42 +387,62 @@ async fn run_app<B: Backend>(
                                 };
                                 match key.code {
                                     KeyCode::Right | KeyCode::Char('l') => {
-                                        let max_points = current_chart_data.source_data.values()
+                                        let max_points = current_chart_data
+                                            .source_data
+                                            .values()
                                             .map(|v| v.len())
                                             .max()
                                             .unwrap_or(0);
-                                        
-                                        let max_h_scroll = max_points.saturating_sub(MAX_BARS_PER_CHART);
 
-                                        if current_chart_data.horizontal_scroll_offset < max_h_scroll {
-                                            current_chart_data.horizontal_scroll_offset = current_chart_data
-                                                .horizontal_scroll_offset.saturating_add(1);
+                                        let max_h_scroll =
+                                            max_points.saturating_sub(MAX_BARS_PER_CHART);
+
+                                        if current_chart_data.horizontal_scroll_offset
+                                            < max_h_scroll
+                                        {
+                                            current_chart_data.horizontal_scroll_offset =
+                                                current_chart_data
+                                                    .horizontal_scroll_offset
+                                                    .saturating_add(1);
                                         }
-                                    },
+                                    }
                                     KeyCode::Left | KeyCode::Char('h') => {
-                                        current_chart_data.horizontal_scroll_offset = current_chart_data
-                                            .horizontal_scroll_offset.saturating_sub(1);
-                                    },
+                                        current_chart_data.horizontal_scroll_offset =
+                                            current_chart_data
+                                                .horizontal_scroll_offset
+                                                .saturating_sub(1);
+                                    }
                                     KeyCode::Esc => app.scroll_mode = ScrollMode::Page,
 
-                                    KeyCode::Up | KeyCode::PageUp | KeyCode::Char('k') => app.scroll_offset = app.scroll_offset.saturating_sub(1),
+                                    KeyCode::Up | KeyCode::PageUp | KeyCode::Char('k') => {
+                                        app.scroll_offset = app.scroll_offset.saturating_sub(1)
+                                    }
                                     KeyCode::Down | KeyCode::PageDown | KeyCode::Char('j') => {
                                         let terminal_size = terminal.size()?;
-                                        let chartable_height = terminal_size.height.saturating_sub(3 + 1);
-                                        let num_cols = (terminal_size.width / MINIMUM_CHART_WIDTH).max(1) as usize;
+                                        let chartable_height =
+                                            terminal_size.height.saturating_sub(3 + 1);
+                                        let num_cols = (terminal_size.width / MINIMUM_CHART_WIDTH)
+                                            .max(1)
+                                            as usize;
                                         let num_charts = match app.current_view {
-                                            AppView::CpuByAccount => app.cpu_by_account.source_data.len(),
+                                            AppView::CpuByAccount => {
+                                                app.cpu_by_account.source_data.len()
+                                            }
                                             AppView::CpuByNode => app.cpu_by_node.source_data.len(),
                                             AppView::GpuByType => app.gpu_by_type.source_data.len(),
                                         };
                                         let total_rows = num_charts.div_ceil(num_cols);
-                                        let num_visible_rows = (chartable_height / CHART_HEIGHT) as usize;
-                                        let max_scroll_offset = total_rows.saturating_sub(num_visible_rows);
+                                        let num_visible_rows =
+                                            (chartable_height / CHART_HEIGHT) as usize;
+                                        let max_scroll_offset =
+                                            total_rows.saturating_sub(num_visible_rows);
                                         if app.scroll_offset < max_scroll_offset {
                                             app.scroll_offset = app.scroll_offset.saturating_add(1);
                                         }
-                                    },
-                                    KeyCode::Char('a') => app.display_mode = app.display_mode.toggle(),
+                                    }
+                                    KeyCode::Char('a') => {
+                                        app.display_mode = app.display_mode.toggle()
+                                    }
                                     _ => {}
                                 }
                             }
@@ -424,9 +466,14 @@ async fn run_app<B: Backend>(
 
             if data_fetch_count == 6 {
                 app_state = build_loaded_app(
-                    &mut cpu_by_account_data, &mut cpu_by_node_data, &mut gpu_by_type_data,
-                    &mut cpu_by_account_capacity, &mut cpu_by_node_capacity, &mut gpu_by_type_capacity,
-                    current_query_range, current_query_time_scale
+                    &mut cpu_by_account_data,
+                    &mut cpu_by_node_data,
+                    &mut gpu_by_type_data,
+                    &mut cpu_by_account_capacity,
+                    &mut cpu_by_node_capacity,
+                    &mut gpu_by_type_capacity,
+                    current_query_range,
+                    current_query_time_scale,
                 );
             }
         }
@@ -438,8 +485,6 @@ async fn run_app<B: Backend>(
         }
     }
 }
-
-
 
 #[allow(clippy::too_many_arguments)]
 fn build_loaded_app(
@@ -453,12 +498,24 @@ fn build_loaded_app(
     query_time_scale: PrometheusTimeScale,
 ) -> AppState {
     let error_checks = [
-        cpu_by_account_data.as_ref().and_then(|r| r.as_ref().err().cloned()),
-        cpu_by_node_data.as_ref().and_then(|r| r.as_ref().err().cloned()),
-        gpu_by_type_data.as_ref().and_then(|r| r.as_ref().err().cloned()),
-        cpu_by_account_capacity.as_ref().and_then(|r| r.as_ref().err().cloned()),
-        cpu_by_node_capacity.as_ref().and_then(|r| r.as_ref().err().cloned()),
-        gpu_by_type_capacity.as_ref().and_then(|r| r.as_ref().err().cloned()),
+        cpu_by_account_data
+            .as_ref()
+            .and_then(|r| r.as_ref().err().cloned()),
+        cpu_by_node_data
+            .as_ref()
+            .and_then(|r| r.as_ref().err().cloned()),
+        gpu_by_type_data
+            .as_ref()
+            .and_then(|r| r.as_ref().err().cloned()),
+        cpu_by_account_capacity
+            .as_ref()
+            .and_then(|r| r.as_ref().err().cloned()),
+        cpu_by_node_capacity
+            .as_ref()
+            .and_then(|r| r.as_ref().err().cloned()),
+        gpu_by_type_capacity
+            .as_ref()
+            .and_then(|r| r.as_ref().err().cloned()),
     ];
 
     if let Some(err_opt) = error_checks.iter().flatten().next() {
@@ -468,23 +525,50 @@ fn build_loaded_app(
     let final_cpu_by_account = {
         let usage = cpu_by_account_data.take().unwrap().unwrap();
         let capacity = cpu_by_account_capacity.take().unwrap().unwrap();
-        let max_points = usage.source_data.values().map(|v| v.len()).max().unwrap_or(0);
+        let max_points = usage
+            .source_data
+            .values()
+            .map(|v| v.len())
+            .max()
+            .unwrap_or(0);
         let initial_offset = max_points.saturating_sub(MAX_BARS_PER_CHART);
-        ChartData { source_data: usage.source_data, capacity_data: capacity.capacities, horizontal_scroll_offset: initial_offset }
+        ChartData {
+            source_data: usage.source_data,
+            capacity_data: capacity.capacities,
+            horizontal_scroll_offset: initial_offset,
+        }
     };
     let final_cpu_by_node = {
         let usage = cpu_by_node_data.take().unwrap().unwrap();
         let capacity = cpu_by_node_capacity.take().unwrap().unwrap();
-        let max_points = usage.source_data.values().map(|v| v.len()).max().unwrap_or(0);
+        let max_points = usage
+            .source_data
+            .values()
+            .map(|v| v.len())
+            .max()
+            .unwrap_or(0);
         let initial_offset = max_points.saturating_sub(MAX_BARS_PER_CHART);
-        ChartData { source_data: usage.source_data, capacity_data: capacity.capacities, horizontal_scroll_offset: initial_offset }
+        ChartData {
+            source_data: usage.source_data,
+            capacity_data: capacity.capacities,
+            horizontal_scroll_offset: initial_offset,
+        }
     };
     let final_gpu_by_type = {
         let usage = gpu_by_type_data.take().unwrap().unwrap();
         let capacity = gpu_by_type_capacity.take().unwrap().unwrap();
-        let max_points = usage.source_data.values().map(|v| v.len()).max().unwrap_or(0);
+        let max_points = usage
+            .source_data
+            .values()
+            .map(|v| v.len())
+            .max()
+            .unwrap_or(0);
         let initial_offset = max_points.saturating_sub(MAX_BARS_PER_CHART);
-        ChartData { source_data: usage.source_data, capacity_data: capacity.capacities, horizontal_scroll_offset: initial_offset}
+        ChartData {
+            source_data: usage.source_data,
+            capacity_data: capacity.capacities,
+            horizontal_scroll_offset: initial_offset,
+        }
     };
 
     let app = App {

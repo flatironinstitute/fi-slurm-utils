@@ -1,6 +1,6 @@
-use fi_slurm::nodes::{NodeState, Node};
-use fi_slurm::jobs::SlurmJobs;
 use colored::{Color, Colorize};
+use fi_slurm::jobs::SlurmJobs;
+use fi_slurm::nodes::{Node, NodeState};
 use std::collections::HashMap;
 
 /// Holds the aggregated statistics for a single feature across the entire cluster
@@ -19,7 +19,6 @@ pub struct FeatureSummary {
 /// The final data structure that holds the summary report
 /// It's a map from a feature name (e.g., "genoa", "h100") to its aggregated stats
 pub type SummaryReportData = HashMap<String, FeatureSummary>;
-
 
 // --- Aggregation Logic ---
 
@@ -75,7 +74,7 @@ pub fn build_summary_report(
             summary.total_nodes += 1;
             summary.total_cpus += node.cpus as u32;
 
-            // update idle nodes and cpus only if the node is not MAINT, RES, or another 
+            // update idle nodes and cpus only if the node is not MAINT, RES, or another
             // disqualifying state
             let is_available = is_node_available(&node.state);
             if is_available {
@@ -103,7 +102,7 @@ fn is_node_available(state: &NodeState) -> bool {
                 false
             }
         }
-        _ => false
+        _ => false,
     }
 }
 
@@ -114,14 +113,21 @@ enum GaugeText {
 }
 
 /// Creates a string representing a gauge with text overlaid
-fn create_gauge(current: u32, total: u32, width: usize, bar_color: Color, text_format: GaugeText, no_color: bool) -> String {
+fn create_gauge(
+    current: u32,
+    total: u32,
+    width: usize,
+    bar_color: Color,
+    text_format: GaugeText,
+    no_color: bool,
+) -> String {
     if total == 0 {
         return format!("{:^width$}", "-");
     }
 
     let percentage = current as f64 / total as f64;
     let filled_len = (width as f64 * percentage).round() as usize;
-    
+
     // Format the text based on the requested format
     let text = match text_format {
         GaugeText::Proportion => format!("{}/{}", current, total),
@@ -132,24 +138,39 @@ fn create_gauge(current: u32, total: u32, width: usize, bar_color: Color, text_f
 
     let mut gauge_chars: Vec<String> = Vec::with_capacity(width);
     for _ in 0..filled_len {
-        gauge_chars.push(" ".on_color(
-            if no_color {Color::White} else {bar_color}).to_string());
-
+        gauge_chars.push(
+            " ".on_color(if no_color { Color::White } else { bar_color })
+                .to_string(),
+        );
     }
     for _ in filled_len..width {
-        gauge_chars.push(" ".on_truecolor(empty_color.0, empty_color.1, empty_color.2).to_string());
+        gauge_chars.push(
+            " ".on_truecolor(empty_color.0, empty_color.1, empty_color.2)
+                .to_string(),
+        );
     }
 
-    let text_start_pos = if text.len() >= width { 0 } else { (width - text.len()) / 2 };
-    
+    let text_start_pos = if text.len() >= width {
+        0
+    } else {
+        (width - text.len()) / 2
+    };
+
     for (i, char) in text.chars().enumerate() {
         if let Some(pos) = text_start_pos.checked_add(i) {
             if pos < width {
                 if pos < filled_len {
-                    gauge_chars[pos] = char.to_string().black().on_color(
-                         if no_color {Color::White} else {bar_color}).to_string();
+                    gauge_chars[pos] = char
+                        .to_string()
+                        .black()
+                        .on_color(if no_color { Color::White } else { bar_color })
+                        .to_string();
                 } else {
-                    gauge_chars[pos] = char.to_string().white().on_truecolor(empty_color.0, empty_color.1, empty_color.2).to_string();
+                    gauge_chars[pos] = char
+                        .to_string()
+                        .white()
+                        .on_truecolor(empty_color.0, empty_color.1, empty_color.2)
+                        .to_string();
                 }
             }
         }
@@ -158,16 +179,15 @@ fn create_gauge(current: u32, total: u32, width: usize, bar_color: Color, text_f
     gauge_chars.join("")
 }
 
-
 /// Formats and prints the feature summary report to the console
 pub fn print_summary_report(summary_data: &SummaryReportData, no_color: bool) {
-    // Pass 1: Pre-calculate column widths 
+    // Pass 1: Pre-calculate column widths
     let mut max_feature_width = "FEATURE".len();
     for feature_name in summary_data.keys() {
         max_feature_width = max_feature_width.max(feature_name.len());
     }
     max_feature_width += 2;
-    
+
     let gauge_width = 15;
 
     // Sort features for consistent output
@@ -189,8 +209,22 @@ pub fn print_summary_report(summary_data: &SummaryReportData, no_color: bool) {
     }
 
     // Use GaugeText::Percentage for the final TOTAL row
-    let node_gauge = create_gauge(idle_nodes, total_nodes, gauge_width, Color::Green, GaugeText::Percentage, no_color);
-    let cpu_gauge = create_gauge(idle_cpus, total_cpus, gauge_width, Color::Cyan, GaugeText::Percentage, no_color);
+    let node_gauge = create_gauge(
+        idle_nodes,
+        total_nodes,
+        gauge_width,
+        Color::Green,
+        GaugeText::Percentage,
+        no_color,
+    );
+    let cpu_gauge = create_gauge(
+        idle_cpus,
+        total_cpus,
+        gauge_width,
+        Color::Cyan,
+        GaugeText::Percentage,
+        no_color,
+    );
 
     // Print Headers
     println!(
@@ -208,10 +242,22 @@ pub fn print_summary_report(summary_data: &SummaryReportData, no_color: bool) {
     for feature_name in sorted_features {
         if let Some(summary) = summary_data.get(feature_name) {
             // Use GaugeText::Proportion for individual feature rows
-            let node_gauge = create_gauge(summary.idle_nodes, summary.total_nodes, gauge_width, 
-                Color::Green, GaugeText::Proportion, no_color);
-            let cpu_gauge = create_gauge(summary.idle_cpus, summary.total_cpus, gauge_width, 
-                Color::Cyan, GaugeText::Proportion, no_color);
+            let node_gauge = create_gauge(
+                summary.idle_nodes,
+                summary.total_nodes,
+                gauge_width,
+                Color::Green,
+                GaugeText::Proportion,
+                no_color,
+            );
+            let cpu_gauge = create_gauge(
+                summary.idle_cpus,
+                summary.total_cpus,
+                gauge_width,
+                Color::Cyan,
+                GaugeText::Proportion,
+                no_color,
+            );
             println!(
                 "{:<width$} {} {}",
                 feature_name,

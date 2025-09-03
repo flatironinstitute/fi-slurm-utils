@@ -1,5 +1,5 @@
 [package]
-name = "fi_prometheus"
+name = "fi-prometheus"
 version = "0.1.0"
 edition = "2024"
 

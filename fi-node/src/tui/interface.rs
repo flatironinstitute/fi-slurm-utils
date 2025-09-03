@@ -1,7 +1,9 @@
 use crate::tui::app::{AppError, CapacityData, FetchedData, UsageData};
-use fi_prometheus::{get_max_resource, get_usage_by, Cluster, Grouping, Resource, PrometheusTimeScale};
-use tokio::sync::mpsc;
+use fi_prometheus::{
+    Cluster, Grouping, PrometheusTimeScale, Resource, get_max_resource, get_usage_by,
+};
 use std::time::Duration;
+use tokio::sync::mpsc;
 
 // --- Prometheus Interface ---
 
@@ -65,10 +67,8 @@ fn prometheus_data_request(
             )
             .map_err(|e| AppError::DataFetch(e.to_string()))?;
 
-            Ok(PrometheusDataResult::Usage(UsageData {
-                source_data: data,
-            }))
-        },
+            Ok(PrometheusDataResult::Usage(UsageData { source_data: data }))
+        }
 
         PrometheusDataType::Capacity => {
             let data = get_max_resource(
@@ -83,20 +83,21 @@ fn prometheus_data_request(
             Ok(PrometheusDataResult::Capacity(CapacityData {
                 capacities: data,
             }))
-        },
+        }
     }
 }
 
 // --- CPU by Account ---
 
-
-pub fn get_cpu_by_account_data(range: i64, time_scale: PrometheusTimeScale) -> Result<UsageData, AppError> {
-
-    let request = PrometheusRequest::new( 
-        Cluster::Rusty, 
-        Some(Grouping::Account), 
-        Resource::Cpus, 
-        range, 
+pub fn get_cpu_by_account_data(
+    range: i64,
+    time_scale: PrometheusTimeScale,
+) -> Result<UsageData, AppError> {
+    let request = PrometheusRequest::new(
+        Cluster::Rusty,
+        Some(Grouping::Account),
+        Resource::Cpus,
+        range,
         time_scale,
     );
 
@@ -104,16 +105,20 @@ pub fn get_cpu_by_account_data(range: i64, time_scale: PrometheusTimeScale) -> R
 
     match result {
         PrometheusDataResult::Usage(usage_data) => Ok(usage_data),
-        PrometheusDataResult::Capacity(_) => {
-            Err(AppError::DataFetch("Unexpected data type returned. Expected Usage.".to_string()))
-        }
+        PrometheusDataResult::Capacity(_) => Err(AppError::DataFetch(
+            "Unexpected data type returned. Expected Usage.".to_string(),
+        )),
     }
 }
 
-pub async fn get_cpu_by_account_data_async(tx: mpsc::Sender<FetchedData>, range: i64, time_scale: PrometheusTimeScale) {
+pub async fn get_cpu_by_account_data_async(
+    tx: mpsc::Sender<FetchedData>,
+    range: i64,
+    time_scale: PrometheusTimeScale,
+) {
     let task = tokio::task::spawn_blocking(move || get_cpu_by_account_data(range, time_scale));
     let result = tokio::time::timeout(TASK_TIMEOUT, task).await;
-    
+
     let data_to_send = match result {
         Ok(Ok(data_res)) => FetchedData::CpuByAccount(data_res),
         Ok(Err(e)) => FetchedData::CpuByAccount(Err(AppError::TaskJoin(e.to_string()))),
@@ -122,30 +127,36 @@ pub async fn get_cpu_by_account_data_async(tx: mpsc::Sender<FetchedData>, range:
     if tx.send(data_to_send).await.is_err() {}
 }
 
-pub fn get_cpu_capacity_by_account(range: i64, time_scale: PrometheusTimeScale) -> Result<CapacityData, AppError> {
-
-    let request = PrometheusRequest::new( 
-        Cluster::Rusty, 
-        Some(Grouping::Account), 
-        Resource::Cpus, 
-        range, 
-        time_scale
+pub fn get_cpu_capacity_by_account(
+    range: i64,
+    time_scale: PrometheusTimeScale,
+) -> Result<CapacityData, AppError> {
+    let request = PrometheusRequest::new(
+        Cluster::Rusty,
+        Some(Grouping::Account),
+        Resource::Cpus,
+        range,
+        time_scale,
     );
 
     let result = prometheus_data_request(request, PrometheusDataType::Capacity)?;
 
     match result {
         PrometheusDataResult::Capacity(capacity_data) => Ok(capacity_data),
-        PrometheusDataResult::Usage(_) => {
-            Err(AppError::DataFetch("Unexpected data type returned. Expected Capacity.".to_string()))
-        }
+        PrometheusDataResult::Usage(_) => Err(AppError::DataFetch(
+            "Unexpected data type returned. Expected Capacity.".to_string(),
+        )),
     }
 }
 
-pub async fn get_cpu_capacity_by_account_async(tx: mpsc::Sender<FetchedData>, range: i64, time_scale: PrometheusTimeScale) {
+pub async fn get_cpu_capacity_by_account_async(
+    tx: mpsc::Sender<FetchedData>,
+    range: i64,
+    time_scale: PrometheusTimeScale,
+) {
     let task = tokio::task::spawn_blocking(move || get_cpu_capacity_by_account(range, time_scale));
     let result = tokio::time::timeout(TASK_TIMEOUT, task).await;
-    
+
     let data_to_send = match result {
         Ok(Ok(data_res)) => FetchedData::CpuCapacityByAccount(data_res),
         Ok(Err(e)) => FetchedData::CpuCapacityByAccount(Err(AppError::TaskJoin(e.to_string()))),
@@ -156,13 +167,15 @@ pub async fn get_cpu_capacity_by_account_async(tx: mpsc::Sender<FetchedData>, ra
 
 // --- CPU by Node ---
 
-pub fn get_cpu_by_node_data(range: i64, time_scale: PrometheusTimeScale) -> Result<UsageData, AppError> {
-
-    let request = PrometheusRequest::new( 
-        Cluster::Rusty, 
-        Some(Grouping::Nodes), 
-        Resource::Cpus, 
-        range, 
+pub fn get_cpu_by_node_data(
+    range: i64,
+    time_scale: PrometheusTimeScale,
+) -> Result<UsageData, AppError> {
+    let request = PrometheusRequest::new(
+        Cluster::Rusty,
+        Some(Grouping::Nodes),
+        Resource::Cpus,
+        range,
         time_scale,
     );
 
@@ -170,16 +183,20 @@ pub fn get_cpu_by_node_data(range: i64, time_scale: PrometheusTimeScale) -> Resu
 
     match result {
         PrometheusDataResult::Usage(usage_data) => Ok(usage_data),
-        PrometheusDataResult::Capacity(_) => {
-            Err(AppError::DataFetch("Unexpected data type returned. Expected Usage.".to_string()))
-        }
+        PrometheusDataResult::Capacity(_) => Err(AppError::DataFetch(
+            "Unexpected data type returned. Expected Usage.".to_string(),
+        )),
     }
 }
 
-pub async fn get_cpu_by_node_data_async(tx: mpsc::Sender<FetchedData>, range: i64, time_scale: PrometheusTimeScale) {
+pub async fn get_cpu_by_node_data_async(
+    tx: mpsc::Sender<FetchedData>,
+    range: i64,
+    time_scale: PrometheusTimeScale,
+) {
     let task = tokio::task::spawn_blocking(move || get_cpu_by_node_data(range, time_scale));
     let result = tokio::time::timeout(TASK_TIMEOUT, task).await;
-    
+
     let data_to_send = match result {
         Ok(Ok(data_res)) => FetchedData::CpuByNode(data_res),
         Ok(Err(e)) => FetchedData::CpuByNode(Err(AppError::TaskJoin(e.to_string()))),
@@ -188,13 +205,15 @@ pub async fn get_cpu_by_node_data_async(tx: mpsc::Sender<FetchedData>, range: i6
     if tx.send(data_to_send).await.is_err() {}
 }
 
-pub fn get_cpu_capacity_by_node(range: i64, time_scale: PrometheusTimeScale) -> Result<CapacityData, AppError> {
-
-    let request = PrometheusRequest::new( 
-        Cluster::Rusty, 
-        Some(Grouping::Nodes), 
-        Resource::Cpus, 
-        range, 
+pub fn get_cpu_capacity_by_node(
+    range: i64,
+    time_scale: PrometheusTimeScale,
+) -> Result<CapacityData, AppError> {
+    let request = PrometheusRequest::new(
+        Cluster::Rusty,
+        Some(Grouping::Nodes),
+        Resource::Cpus,
+        range,
         time_scale,
     );
 
@@ -202,16 +221,20 @@ pub fn get_cpu_capacity_by_node(range: i64, time_scale: PrometheusTimeScale) -> 
 
     match result {
         PrometheusDataResult::Capacity(capacity_data) => Ok(capacity_data),
-        PrometheusDataResult::Usage(_) => {
-            Err(AppError::DataFetch("Unexpected data type returned. Expected Capacity.".to_string()))
-        }
+        PrometheusDataResult::Usage(_) => Err(AppError::DataFetch(
+            "Unexpected data type returned. Expected Capacity.".to_string(),
+        )),
     }
 }
 
-pub async fn get_cpu_capacity_by_node_async(tx: mpsc::Sender<FetchedData>, range: i64, time_scale: PrometheusTimeScale) {
+pub async fn get_cpu_capacity_by_node_async(
+    tx: mpsc::Sender<FetchedData>,
+    range: i64,
+    time_scale: PrometheusTimeScale,
+) {
     let task = tokio::task::spawn_blocking(move || get_cpu_capacity_by_node(range, time_scale));
     let result = tokio::time::timeout(TASK_TIMEOUT, task).await;
-    
+
     let data_to_send = match result {
         Ok(Ok(data_res)) => FetchedData::CpuCapacityByNode(data_res),
         Ok(Err(e)) => FetchedData::CpuCapacityByNode(Err(AppError::TaskJoin(e.to_string()))),
@@ -222,13 +245,15 @@ pub async fn get_cpu_capacity_by_node_async(tx: mpsc::Sender<FetchedData>, range
 
 // --- GPU by Type ---
 
-pub fn get_gpu_by_type_data(range: i64, time_scale: PrometheusTimeScale) -> Result<UsageData, AppError> {
-
-    let request = PrometheusRequest::new( 
-        Cluster::Rusty, 
-        Some(Grouping::GpuType), 
-        Resource::Gpus, 
-        range, 
+pub fn get_gpu_by_type_data(
+    range: i64,
+    time_scale: PrometheusTimeScale,
+) -> Result<UsageData, AppError> {
+    let request = PrometheusRequest::new(
+        Cluster::Rusty,
+        Some(Grouping::GpuType),
+        Resource::Gpus,
+        range,
         time_scale,
     );
 
@@ -236,16 +261,20 @@ pub fn get_gpu_by_type_data(range: i64, time_scale: PrometheusTimeScale) -> Resu
 
     match result {
         PrometheusDataResult::Usage(usage_data) => Ok(usage_data),
-        PrometheusDataResult::Capacity(_) => {
-            Err(AppError::DataFetch("Unexpected data type returned. Expected Usage.".to_string()))
-        }
+        PrometheusDataResult::Capacity(_) => Err(AppError::DataFetch(
+            "Unexpected data type returned. Expected Usage.".to_string(),
+        )),
     }
 }
 
-pub async fn get_gpu_by_type_data_async(tx: mpsc::Sender<FetchedData>, range: i64, time_scale: PrometheusTimeScale) {
+pub async fn get_gpu_by_type_data_async(
+    tx: mpsc::Sender<FetchedData>,
+    range: i64,
+    time_scale: PrometheusTimeScale,
+) {
     let task = tokio::task::spawn_blocking(move || get_gpu_by_type_data(range, time_scale));
     let result = tokio::time::timeout(TASK_TIMEOUT, task).await;
-    
+
     let data_to_send = match result {
         Ok(Ok(data_res)) => FetchedData::GpuByType(data_res),
         Ok(Err(e)) => FetchedData::GpuByType(Err(AppError::TaskJoin(e.to_string()))),
@@ -254,13 +283,15 @@ pub async fn get_gpu_by_type_data_async(tx: mpsc::Sender<FetchedData>, range: i6
     if tx.send(data_to_send).await.is_err() {}
 }
 
-pub fn get_gpu_capacity_by_type(range: i64, time_scale: PrometheusTimeScale) -> Result<CapacityData, AppError> {
-
-    let request = PrometheusRequest::new( 
-        Cluster::Rusty, 
-        Some(Grouping::GpuType), 
-        Resource::Gpus, 
-        range, 
+pub fn get_gpu_capacity_by_type(
+    range: i64,
+    time_scale: PrometheusTimeScale,
+) -> Result<CapacityData, AppError> {
+    let request = PrometheusRequest::new(
+        Cluster::Rusty,
+        Some(Grouping::GpuType),
+        Resource::Gpus,
+        range,
         time_scale,
     );
 
@@ -268,16 +299,20 @@ pub fn get_gpu_capacity_by_type(range: i64, time_scale: PrometheusTimeScale) -> 
 
     match result {
         PrometheusDataResult::Capacity(capacity_data) => Ok(capacity_data),
-        PrometheusDataResult::Usage(_) => {
-            Err(AppError::DataFetch("Unexpected data type returned. Expected Capacity.".to_string()))
-        }
+        PrometheusDataResult::Usage(_) => Err(AppError::DataFetch(
+            "Unexpected data type returned. Expected Capacity.".to_string(),
+        )),
     }
 }
 
-pub async fn get_gpu_capacity_by_type_async(tx: mpsc::Sender<FetchedData>, range: i64, time_scale: PrometheusTimeScale) {
+pub async fn get_gpu_capacity_by_type_async(
+    tx: mpsc::Sender<FetchedData>,
+    range: i64,
+    time_scale: PrometheusTimeScale,
+) {
     let task = tokio::task::spawn_blocking(move || get_gpu_capacity_by_type(range, time_scale));
     let result = tokio::time::timeout(TASK_TIMEOUT, task).await;
-    
+
     let data_to_send = match result {
         Ok(Ok(data_res)) => FetchedData::GpuCapacityByType(data_res),
         Ok(Err(e)) => FetchedData::GpuCapacityByType(Err(AppError::TaskJoin(e.to_string()))),
@@ -285,4 +320,3 @@ pub async fn get_gpu_capacity_by_type_async(tx: mpsc::Sender<FetchedData>, range
     };
     if tx.send(data_to_send).await.is_err() {}
 }
-

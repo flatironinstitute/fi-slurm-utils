@@ -1,13 +1,13 @@
 [package]
-name = "fi_node"
+name = "fi-node"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
 clap = { version = "4.5.40", features = ["derive"] }
-fi_slurm = {path = "../fi_slurm"}
-fi_slurm_db = {path = "../fi_slurm_db"}
-fi_prometheus = {path = "../fi_prometheus"}
+fi-slurm = {path = "../fi-slurm"}
+fi-slurm-db = {path = "../fi-slurm-db"}
+fi-prometheus = {path = "../fi-prometheus"}
 colored = "3.0.0"
 color-eyre = "0.6.5"
 ratatui = "0.29.0"

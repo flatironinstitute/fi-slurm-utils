@@ -1,8 +1,8 @@
 use crate::PreemptNodes;
+use colored::*;
 use fi_slurm::jobs::SlurmJobs;
 use fi_slurm::nodes::{Node, NodeState};
 use fi_slurm::utils::count_blocks;
-use colored::*;
 use std::collections::{HashMap, HashSet};
 
 // Data Structures for the Tree Report
@@ -41,7 +41,9 @@ fn is_node_available(state: &NodeState) -> bool {
         NodeState::Compound { base, flags } => {
             if **base == NodeState::Idle {
                 // Node is idle, but check for disqualifying flags
-                !flags.iter().any(|flag| flag == "MAINT" || flag == "DOWN" || flag == "DRAIN" || flag == "INVALID_REG")
+                !flags.iter().any(|flag| {
+                    flag == "MAINT" || flag == "DOWN" || flag == "DRAIN" || flag == "INVALID_REG"
+                })
             } else {
                 false
             }
@@ -57,7 +59,9 @@ fn is_node_mixed(state: &NodeState) -> bool {
         NodeState::Compound { base, flags } => {
             if **base == NodeState::Mixed {
                 // Node is mixed, but check for disqualifying flags
-                !flags.iter().any(|flag| flag == "MAINT" || flag == "DOWN" || flag == "DRAIN" || flag == "INVALID_REG")
+                !flags.iter().any(|flag| {
+                    flag == "MAINT" || flag == "DOWN" || flag == "DRAIN" || flag == "INVALID_REG"
+                })
             } else {
                 false
             }
@@ -70,7 +74,7 @@ fn is_node_mixed(state: &NodeState) -> bool {
 pub enum GpuFilter {
     Gpu,
     NotGpu,
-    All
+    All,
 }
 
 /// Builds a hierarchical tree report from a flat list of Slurm nodes
@@ -92,17 +96,26 @@ pub fn build_tree_report(
         ..Default::default()
     };
 
-    if feature_filter.len() == 1 {root.single_filter = true};
+    if feature_filter.len() == 1 {
+        root.single_filter = true
+    };
 
     // a custom list of uninformative or redundant features excluded from the default presentation
     let hidden_features: HashSet<&str> = [
         "rocky8", "rocky9", "sxm", "sxm2", "sxm4", "sxm5", "nvlink", "a100", "h100", "v100", "ib",
-    ].iter().cloned().collect();
+    ]
+    .iter()
+    .cloned()
+    .collect();
 
     // the main loop, iterating over the nodes in order to construct the tree structure
     for &node in nodes {
         let alloc_cpus_for_node: u32 = if let Some(job_ids) = node_to_job_map.get(&node.id) {
-            job_ids.iter().filter_map(|id| jobs.jobs.get(id)).map(|j| j.num_cpus / j.num_nodes.max(1)).sum()
+            job_ids
+                .iter()
+                .filter_map(|id| jobs.jobs.get(id))
+                .map(|j| j.num_cpus / j.num_nodes.max(1))
+                .sum()
         } else {
             0
         };
@@ -117,7 +130,10 @@ pub fn build_tree_report(
 
         let derived_state = if alloc_cpus_for_node > 0 && alloc_cpus_for_node < node.cpus as u32 {
             match &node.state {
-                NodeState::Compound { flags, .. } => NodeState::Compound { base: Box::new(NodeState::Mixed), flags: flags.to_vec()},
+                NodeState::Compound { flags, .. } => NodeState::Compound {
+                    base: Box::new(NodeState::Mixed),
+                    flags: flags.to_vec(),
+                },
                 _ => NodeState::Mixed,
             }
         } else {
@@ -125,11 +141,10 @@ pub fn build_tree_report(
             node.state.clone()
         };
 
-
         let is_available = is_node_available(&derived_state);
         let is_mixed = is_node_mixed(&derived_state);
 
-        let preempted_node_ids = if preempt { 
+        let preempted_node_ids = if preempt {
             &preempted_nodes.as_ref().unwrap().0
         } else {
             &Vec::new()
@@ -153,7 +168,6 @@ pub fn build_tree_report(
 
             if gpu {
                 root.stats.idle_cpus = total_gpus;
-
             } else {
                 root.stats.idle_cpus += node.cpus as u32;
             }
@@ -161,7 +175,7 @@ pub fn build_tree_report(
             if preempted_node_ids.contains(&node.id) {
                 *root.stats.preempt_nodes.get_or_insert(0) += 1;
                 if gpu {
-                    *root.stats.preempt_cpus.get_or_insert(0) += total_gpus; 
+                    *root.stats.preempt_cpus.get_or_insert(0) += total_gpus;
                 } else {
                     *root.stats.preempt_cpus.get_or_insert(0) += node.cpus as u32; // because unlike
                 }
@@ -179,7 +193,6 @@ pub fn build_tree_report(
                 root.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
             }
         } else if is_mixed && preempt {
-
             if gpu {
                 root.stats.idle_cpus += (total_gpus).saturating_sub(allocated_gpus);
             } else {
@@ -188,9 +201,11 @@ pub fn build_tree_report(
 
             if preempted_node_ids.contains(&node.id) {
                 if gpu {
-                    *root.stats.preempt_cpus.get_or_insert(0) += (total_gpus).saturating_sub(allocated_gpus);
+                    *root.stats.preempt_cpus.get_or_insert(0) +=
+                        (total_gpus).saturating_sub(allocated_gpus);
                 } else {
-                    *root.stats.preempt_cpus.get_or_insert(0) += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
+                    *root.stats.preempt_cpus.get_or_insert(0) +=
+                        (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                 }
             }
         } else if is_mixed && !preempt {
@@ -200,23 +215,28 @@ pub fn build_tree_report(
                 root.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
             }
         }
-        
 
         // we filter the features list to remove the undesired features unless told otherwise
         let features_for_tree: Vec<_> = if show_hidden_features {
             node.features.iter().collect()
         } else {
-            node.features.iter().filter(|f| !hidden_features.contains(f.as_str())).collect()
+            node.features
+                .iter()
+                .filter(|f| !hidden_features.contains(f.as_str()))
+                .collect()
         };
 
-        // further refine with either gpu, not gpu, or both 
-        
+        // further refine with either gpu, not gpu, or both
+
         // tree building logic
         if feature_filter.is_empty() {
             // by default, build tree from the (potentially filtered) feature list
             let mut current_level = &mut root;
             for feature in &features_for_tree {
-                current_level = current_level.children.entry(feature.to_string()).or_default();
+                current_level = current_level
+                    .children
+                    .entry(feature.to_string())
+                    .or_default();
                 current_level.name = feature.to_string();
                 // add stats to this branch
                 current_level.stats.total_nodes += 1;
@@ -249,32 +269,37 @@ pub fn build_tree_report(
                 } else if is_available && !preempt {
                     current_level.stats.idle_nodes += 1;
                     if gpu {
-                        current_level.stats.idle_cpus += (total_gpus).saturating_sub(allocated_gpus);
+                        current_level.stats.idle_cpus +=
+                            (total_gpus).saturating_sub(allocated_gpus);
                     } else {
-                        current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
+                        current_level.stats.idle_cpus +=
+                            (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                     }
                 } else if is_mixed && preempt {
-
                     if gpu {
-                        current_level.stats.idle_cpus += (total_gpus).saturating_sub(allocated_gpus);
+                        current_level.stats.idle_cpus +=
+                            (total_gpus).saturating_sub(allocated_gpus);
                     } else {
-                        current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
+                        current_level.stats.idle_cpus +=
+                            (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                     }
 
                     if preempted_node_ids.contains(&node.id) {
-
                         if gpu {
-                            *current_level.stats.preempt_cpus.get_or_insert(0) += (total_gpus).saturating_sub(allocated_gpus);
+                            *current_level.stats.preempt_cpus.get_or_insert(0) +=
+                                (total_gpus).saturating_sub(allocated_gpus);
                         } else {
-                            *current_level.stats.preempt_cpus.get_or_insert(0) += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
+                            *current_level.stats.preempt_cpus.get_or_insert(0) +=
+                                (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                         }
-
                     }
                 } else if is_mixed && !preempt {
                     if gpu {
-                        current_level.stats.idle_cpus += (total_gpus).saturating_sub(allocated_gpus);
+                        current_level.stats.idle_cpus +=
+                            (total_gpus).saturating_sub(allocated_gpus);
                     } else {
-                        current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
+                        current_level.stats.idle_cpus +=
+                            (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                     }
                 }
 
@@ -315,44 +340,53 @@ pub fn build_tree_report(
                             if gpu {
                                 *current_level.stats.preempt_cpus.get_or_insert(0) += total_gpus;
                             } else {
-                                *current_level.stats.preempt_cpus.get_or_insert(0) += node.cpus as u32;
+                                *current_level.stats.preempt_cpus.get_or_insert(0) +=
+                                    node.cpus as u32;
                             }
                         }
                     } else if is_available && !preempt {
                         current_level.stats.idle_nodes += 1;
                         if gpu {
-                            current_level.stats.idle_cpus += (total_gpus).saturating_sub(allocated_gpus);
+                            current_level.stats.idle_cpus +=
+                                (total_gpus).saturating_sub(allocated_gpus);
                         } else {
-                            current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
+                            current_level.stats.idle_cpus +=
+                                (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                         }
                     } else if is_mixed && preempt {
-
                         if gpu {
-                            current_level.stats.idle_cpus += (total_gpus).saturating_sub(allocated_gpus);
+                            current_level.stats.idle_cpus +=
+                                (total_gpus).saturating_sub(allocated_gpus);
                         } else {
-                            current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
+                            current_level.stats.idle_cpus +=
+                                (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                         }
                         if preempted_node_ids.contains(&node.id) {
-
                             if gpu {
-                                *current_level.stats.preempt_cpus.get_or_insert(0) += (total_gpus).saturating_sub(allocated_gpus);                       
+                                *current_level.stats.preempt_cpus.get_or_insert(0) +=
+                                    (total_gpus).saturating_sub(allocated_gpus);
                             } else {
-                                *current_level.stats.preempt_cpus.get_or_insert(0) += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);                       
+                                *current_level.stats.preempt_cpus.get_or_insert(0) +=
+                                    (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                             }
                         }
                     } else if is_mixed && !preempt {
-
                         if gpu {
-                            current_level.stats.idle_cpus += (total_gpus).saturating_sub(allocated_gpus);
+                            current_level.stats.idle_cpus +=
+                                (total_gpus).saturating_sub(allocated_gpus);
                         } else {
-                            current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
+                            current_level.stats.idle_cpus +=
+                                (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                         }
                     }
 
                     // build the sub-branch from the *remaining* features,
                     // respecting the show_hidden_features flag
                     for feature in features_for_tree.iter().filter(|f| f.as_str() != filter) {
-                        current_level = current_level.children.entry(feature.to_string()).or_default();
+                        current_level = current_level
+                            .children
+                            .entry(feature.to_string())
+                            .or_default();
                         current_level.name = feature.to_string();
                         // add stats to the sub-branch
                         current_level.stats.total_nodes += 1;
@@ -378,40 +412,47 @@ pub fn build_tree_report(
                                 *current_level.stats.preempt_nodes.get_or_insert(0) += 1;
 
                                 if gpu {
-                                    *current_level.stats.preempt_cpus.get_or_insert(0) += total_gpus;
+                                    *current_level.stats.preempt_cpus.get_or_insert(0) +=
+                                        total_gpus;
                                 } else {
-                                    *current_level.stats.preempt_cpus.get_or_insert(0) += node.cpus as u32;
+                                    *current_level.stats.preempt_cpus.get_or_insert(0) +=
+                                        node.cpus as u32;
                                 }
                             }
                         } else if is_available && !preempt {
                             current_level.stats.idle_nodes += 1;
                             if gpu {
-                                current_level.stats.idle_cpus += (total_gpus).saturating_sub(allocated_gpus);
+                                current_level.stats.idle_cpus +=
+                                    (total_gpus).saturating_sub(allocated_gpus);
                             } else {
-                                current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
+                                current_level.stats.idle_cpus +=
+                                    (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                             }
                         } else if is_mixed && preempt {
-
                             if gpu {
-                                current_level.stats.idle_cpus += (total_gpus).saturating_sub(allocated_gpus);
+                                current_level.stats.idle_cpus +=
+                                    (total_gpus).saturating_sub(allocated_gpus);
                             } else {
-                                current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
+                                current_level.stats.idle_cpus +=
+                                    (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                             }
 
                             if preempted_node_ids.contains(&node.id) {
-
                                 if gpu {
-                                    *current_level.stats.preempt_cpus.get_or_insert(0) += (total_gpus).saturating_sub(allocated_gpus);
+                                    *current_level.stats.preempt_cpus.get_or_insert(0) +=
+                                        (total_gpus).saturating_sub(allocated_gpus);
                                 } else {
-                                    *current_level.stats.preempt_cpus.get_or_insert(0) += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
+                                    *current_level.stats.preempt_cpus.get_or_insert(0) +=
+                                        (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                                 }
-
                             }
                         } else if is_mixed && !preempt {
                             if gpu {
-                                current_level.stats.idle_cpus += (total_gpus).saturating_sub(allocated_gpus);
+                                current_level.stats.idle_cpus +=
+                                    (total_gpus).saturating_sub(allocated_gpus);
                             } else {
-                                current_level.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
+                                current_level.stats.idle_cpus +=
+                                    (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                             }
                         }
 
@@ -425,7 +466,6 @@ pub fn build_tree_report(
     }
     root
 }
-
 
 // Display Logic
 
@@ -462,17 +502,27 @@ fn calculate_column_widths(tree_node: &TreeNode) -> ColumnWidths {
         let child_widths = calculate_column_widths(child);
         widths.max_idle_nodes = widths.max_idle_nodes.max(child_widths.max_idle_nodes);
         widths.max_total_nodes = widths.max_total_nodes.max(child_widths.max_total_nodes);
-        widths.max_preempt_nodes_width = widths.max_preempt_nodes_width.max(child_widths.max_preempt_nodes_width);
+        widths.max_preempt_nodes_width = widths
+            .max_preempt_nodes_width
+            .max(child_widths.max_preempt_nodes_width);
         widths.max_idle_cpus = widths.max_idle_cpus.max(child_widths.max_idle_cpus);
         widths.max_total_cpus = widths.max_total_cpus.max(child_widths.max_total_cpus);
-        widths.max_preempt_cpus_width = widths.max_preempt_cpus_width.max(child_widths.max_preempt_cpus_width);
+        widths.max_preempt_cpus_width = widths
+            .max_preempt_cpus_width
+            .max(child_widths.max_preempt_cpus_width);
     }
 
     widths
 }
 
 /// Creates a colored bar string for available resources (nodes or CPUs)
-fn create_avail_bar(current: u32, total: u32, width: usize, color: Color, no_color: bool) -> String {
+fn create_avail_bar(
+    current: u32,
+    total: u32,
+    width: usize,
+    color: Color,
+    no_color: bool,
+) -> String {
     if total == 0 {
         // To avoid division by zero and provide clear output for empty categories
         let bar_content = " ".repeat(width);
@@ -482,12 +532,19 @@ fn create_avail_bar(current: u32, total: u32, width: usize, color: Color, no_col
     let percentage = current as f64 / total as f64;
 
     let bars = count_blocks(20, percentage);
-    
-    let filled = "█".repeat(bars.0).color(if no_color { Color::White} else { color });
+
+    let filled = "█"
+        .repeat(bars.0)
+        .color(if no_color { Color::White } else { color });
     let empty = " ".repeat(bars.1);
 
     if let Some(remainder) = bars.2 {
-        format!("│{}{}{}│", filled, remainder.color(if no_color { Color::White} else { color }), empty)
+        format!(
+            "│{}{}{}│",
+            filled,
+            remainder.color(if no_color { Color::White } else { color }),
+            empty
+        )
     } else {
         format!("│{}{}│", filled, empty)
     }
@@ -515,7 +572,14 @@ fn calculate_max_width(tree_node: &TreeNode, prefix_len: usize) -> usize {
 }
 
 /// Prints the tree report
-pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names: bool, sort: bool, preempt: bool, gpu: bool) {
+pub fn print_tree_report(
+    root: &TreeReportData,
+    no_color: bool,
+    show_node_names: bool,
+    sort: bool,
+    preempt: bool,
+    gpu: bool,
+) {
     // --- Define Headers ---
     const HEADER_FEATURE: &str = "FEATURE (Avail/Total)";
     const HEADER_NODES_PREEMPT: &str = "NODES (PREEMPTABLE)";
@@ -530,7 +594,7 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
     // Calculate Column Widths
     let max_feature_width = calculate_max_width(root, 0).max(HEADER_FEATURE.len()) - 4;
     let bar_width = 20;
-    
+
     let col_widths = calculate_column_widths(root);
 
     // Calculate data width for the NODES column, accounting for the preempt count string
@@ -543,12 +607,12 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
             base_width
         }
     };
-    
+
     // CPU column width calculation remains the same
     let cpus_data_width = col_widths.max_idle_cpus + col_widths.max_total_cpus + 1;
 
     // The final column width is the larger of the header or the data
-    let nodes_final_width =  if preempt {
+    let nodes_final_width = if preempt {
         nodes_data_width.max(HEADER_NODES_PREEMPT.len())
     } else {
         nodes_data_width.max(HEADER_NODES.len())
@@ -579,19 +643,37 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
     } else {
         (root, &root.children)
     };
-    
+
     let stats = &top_level_node.stats;
 
     let (node_text, uncolored_node_text) = {
-        let idle_str = format!("{:>width$}", stats.idle_nodes, width = col_widths.max_idle_nodes);
-        let total_str = format!("{:>width$}", stats.total_nodes, width = col_widths.max_total_nodes);
+        let idle_str = format!(
+            "{:>width$}",
+            stats.idle_nodes,
+            width = col_widths.max_idle_nodes
+        );
+        let total_str = format!(
+            "{:>width$}",
+            stats.total_nodes,
+            width = col_widths.max_total_nodes
+        );
 
         if let Some(preempt_count) = stats.preempt_nodes {
-            let preempt_str_colored = format!("(-{:>width$})", preempt_count, width = col_widths.max_preempt_nodes_width).yellow().to_string();
-            let preempt_str_uncolored = format!("(-{:>width$})", preempt_count, width = col_widths.max_preempt_nodes_width);
+            let preempt_str_colored = format!(
+                "(-{:>width$})",
+                preempt_count,
+                width = col_widths.max_preempt_nodes_width
+            )
+            .yellow()
+            .to_string();
+            let preempt_str_uncolored = format!(
+                "(-{:>width$})",
+                preempt_count,
+                width = col_widths.max_preempt_nodes_width
+            );
             (
                 format!("{}{}/{}", idle_str, preempt_str_colored, total_str),
-                format!("{}{}/{}", idle_str, preempt_str_uncolored, total_str)
+                format!("{}{}/{}", idle_str, preempt_str_uncolored, total_str),
             )
         } else {
             let text = if col_widths.max_preempt_nodes_width > 0 {
@@ -606,15 +688,33 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
     let nodes_width_adjusted = nodes_final_width + node_text.len() - uncolored_node_text.len();
 
     let (cpu_text, uncolored_cpu_text) = {
-        let idle_str = format!("{:>width$}", stats.idle_cpus, width = col_widths.max_idle_cpus);
-        let total_str = format!("{:>width$}", stats.total_cpus, width = col_widths.max_total_cpus);
+        let idle_str = format!(
+            "{:>width$}",
+            stats.idle_cpus,
+            width = col_widths.max_idle_cpus
+        );
+        let total_str = format!(
+            "{:>width$}",
+            stats.total_cpus,
+            width = col_widths.max_total_cpus
+        );
 
         if let Some(preempt_count) = stats.preempt_cpus {
-            let preempt_str_colored = format!("(-{:>width$})", preempt_count, width = col_widths.max_preempt_cpus_width).yellow().to_string();
-            let preempt_str_uncolored = format!("(-{:>width$})", preempt_count, width = col_widths.max_preempt_cpus_width);
+            let preempt_str_colored = format!(
+                "(-{:>width$})",
+                preempt_count,
+                width = col_widths.max_preempt_cpus_width
+            )
+            .yellow()
+            .to_string();
+            let preempt_str_uncolored = format!(
+                "(-{:>width$})",
+                preempt_count,
+                width = col_widths.max_preempt_cpus_width
+            );
             (
                 format!("{}{}/{}", idle_str, preempt_str_colored, total_str),
-                format!("{}{}/{}", idle_str, preempt_str_uncolored, total_str)
+                format!("{}{}/{}", idle_str, preempt_str_uncolored, total_str),
             )
         } else {
             let text = if col_widths.max_preempt_cpus_width > 0 {
@@ -633,18 +733,40 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
     let max_nodes = stats.total_nodes;
     let max_cores = stats.total_cpus;
 
-    let node_bar = create_avail_bar(stats.idle_nodes, stats.total_nodes, bar_width, Color::Green, no_color);
+    let node_bar = create_avail_bar(
+        stats.idle_nodes,
+        stats.total_nodes,
+        bar_width,
+        Color::Green,
+        no_color,
+    );
     let cpu_bar = if gpu {
-        create_avail_bar(stats.idle_cpus, stats.total_cpus, bar_width, Color::Red, no_color)
+        create_avail_bar(
+            stats.idle_cpus,
+            stats.total_cpus,
+            bar_width,
+            Color::Red,
+            no_color,
+        )
     } else {
-        create_avail_bar(stats.idle_cpus, stats.total_cpus, bar_width, Color::Cyan, no_color)
+        create_avail_bar(
+            stats.idle_cpus,
+            stats.total_cpus,
+            bar_width,
+            Color::Cyan,
+            no_color,
+        )
     };
 
     // Print Headers with alignment
     println!(
         "{:<feature_w$} {:>nodes_w$}  {:^bar_w$}{:>cpus_w$}  {:^bar_w$}",
         HEADER_FEATURE.bold(),
-        if preempt {HEADER_NODES_PREEMPT.bold()} else {HEADER_NODES.bold()},
+        if preempt {
+            HEADER_NODES_PREEMPT.bold()
+        } else {
+            HEADER_NODES.bold()
+        },
         HEADER_NODE_AVAIL.bold(),
         if preempt {
             if gpu {
@@ -667,7 +789,8 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
     );
 
     // Print Separator Line
-    let total_width = max_feature_width + nodes_final_width + cpus_final_width + bar_final_width * 2 + 6; // +6 for spaces
+    let total_width =
+        max_feature_width + nodes_final_width + cpus_final_width + bar_final_width * 2 + 6; // +6 for spaces
     println!("{}", "-".repeat(total_width - 2));
 
     // Print the top-level line using the adjusted widths for proper alignment
@@ -697,7 +820,12 @@ pub fn print_tree_report(root: &TreeReportData, no_color: bool, show_node_names:
             "",
             is_last,
             no_color,
-            (max_feature_width, bar_width, nodes_final_width, cpus_final_width),
+            (
+                max_feature_width,
+                bar_width,
+                nodes_final_width,
+                cpus_final_width,
+            ),
             &col_widths,
             show_node_names,
             sort,
@@ -723,7 +851,7 @@ fn print_node_recursive(
 ) {
     let mut path_parts = vec![tree_node.name.as_str()];
     let mut current_node = tree_node;
-    
+
     let max_width = widths.0;
     let bar_width = widths.1;
     let nodes_final_width = widths.2;
@@ -738,19 +866,37 @@ fn print_node_recursive(
     let collapsed_name = path_parts.join(", ");
     let connector = if is_last { "└──" } else { "├──" };
     let display_name = format!("{}{}{}", prefix, connector, collapsed_name);
-    
+
     let stats = &current_node.stats;
 
     let (node_text, uncolored_node_text) = {
-        let idle_str = format!("{:>width$}", stats.idle_nodes, width = col_widths.max_idle_nodes);
-        let total_str = format!("{:>width$}", stats.total_nodes, width = col_widths.max_total_nodes);
+        let idle_str = format!(
+            "{:>width$}",
+            stats.idle_nodes,
+            width = col_widths.max_idle_nodes
+        );
+        let total_str = format!(
+            "{:>width$}",
+            stats.total_nodes,
+            width = col_widths.max_total_nodes
+        );
 
         if let Some(preempt_count) = stats.preempt_nodes {
-            let preempt_str_colored = format!("(-{:>width$})", preempt_count, width = col_widths.max_preempt_nodes_width).yellow().to_string();
-            let preempt_str_uncolored = format!("(-{:>width$})", preempt_count, width = col_widths.max_preempt_nodes_width);
+            let preempt_str_colored = format!(
+                "(-{:>width$})",
+                preempt_count,
+                width = col_widths.max_preempt_nodes_width
+            )
+            .yellow()
+            .to_string();
+            let preempt_str_uncolored = format!(
+                "(-{:>width$})",
+                preempt_count,
+                width = col_widths.max_preempt_nodes_width
+            );
             (
                 format!("{}{}/{}", idle_str, preempt_str_colored, total_str),
-                format!("{}{}/{}", idle_str, preempt_str_uncolored, total_str)
+                format!("{}{}/{}", idle_str, preempt_str_uncolored, total_str),
             )
         } else {
             let text = if col_widths.max_preempt_nodes_width > 0 {
@@ -765,15 +911,33 @@ fn print_node_recursive(
     let nodes_width_adjusted = nodes_final_width + node_text.len() - uncolored_node_text.len();
 
     let (cpu_text, uncolored_cpu_text) = {
-        let idle_str = format!("{:>width$}", stats.idle_cpus, width = col_widths.max_idle_cpus);
-        let total_str = format!("{:>width$}", stats.total_cpus, width = col_widths.max_total_cpus);
+        let idle_str = format!(
+            "{:>width$}",
+            stats.idle_cpus,
+            width = col_widths.max_idle_cpus
+        );
+        let total_str = format!(
+            "{:>width$}",
+            stats.total_cpus,
+            width = col_widths.max_total_cpus
+        );
 
         if let Some(preempt_count) = stats.preempt_cpus {
-            let preempt_str_colored = format!("(-{:>width$})", preempt_count, width = col_widths.max_preempt_cpus_width).yellow().to_string();
-            let preempt_str_uncolored = format!("(-{:>width$})", preempt_count, width = col_widths.max_preempt_cpus_width);
+            let preempt_str_colored = format!(
+                "(-{:>width$})",
+                preempt_count,
+                width = col_widths.max_preempt_cpus_width
+            )
+            .yellow()
+            .to_string();
+            let preempt_str_uncolored = format!(
+                "(-{:>width$})",
+                preempt_count,
+                width = col_widths.max_preempt_cpus_width
+            );
             (
                 format!("{}{}/{}", idle_str, preempt_str_colored, total_str),
-                format!("{}{}/{}", idle_str, preempt_str_uncolored, total_str)
+                format!("{}{}/{}", idle_str, preempt_str_uncolored, total_str),
             )
         } else {
             let text = if col_widths.max_preempt_cpus_width > 0 {
@@ -804,7 +968,11 @@ fn print_node_recursive(
         node_bar,
         cpu_text,
         cpu_bar,
-        if show_node_names {fi_slurm::parser::compress_hostlist(node_names)} else {"".to_string()},
+        if show_node_names {
+            fi_slurm::parser::compress_hostlist(node_names)
+        } else {
+            "".to_string()
+        },
         feature_w = max_width,
         nodes_w = nodes_width_adjusted,
         cpus_w = cpus_width_adjusted,
@@ -834,5 +1002,3 @@ fn print_node_recursive(
         );
     }
 }
-
-

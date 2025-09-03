@@ -1,10 +1,10 @@
-use std::ffi::CStr;
 use chrono::{DateTime, Utc};
 use rust_bind::bindings;
+use std::ffi::CStr;
 
 pub fn time_t_to_datetime(timestamp: i64) -> DateTime<Utc> {
     chrono::DateTime::from_timestamp(timestamp, 0).unwrap_or_default()
-}       
+}
 /// Helper function turning a C String into an owned Rust String.
 ///
 /// # Safety
@@ -12,10 +12,14 @@ pub fn time_t_to_datetime(timestamp: i64) -> DateTime<Utc> {
 /// This function may dereference a raw pointer. The caller must guarantee that the invoked pointer
 /// is not null, out-of-bounds, or misaligned
 pub unsafe fn c_str_to_string(ptr: *const i8) -> String {
-    if ptr.is_null() { String::new() }
-    else { unsafe { CStr::from_ptr(ptr) }.to_string_lossy().into_owned() }
+    if ptr.is_null() {
+        String::new()
+    } else {
+        unsafe { CStr::from_ptr(ptr) }
+            .to_string_lossy()
+            .into_owned()
+    }
 }
-
 
 // This struct ensures that the Slurm configuration is automatically
 // loaded on creation and freed when it goes out of scope
@@ -31,8 +35,7 @@ impl SlurmConfig {
         unsafe {
             if bindings::slurm_load_ctl_conf(0, &mut conf_ptr) != 0 {
                 return Err(
-                    "Failed to load slurm.conf. Check logs or SLURM_CONF env variable."
-                        .to_string(),
+                    "Failed to load slurm.conf. Check logs or SLURM_CONF env variable.".to_string(),
                 );
             }
         }
@@ -110,5 +113,4 @@ pub mod tests {
         assert_eq!(result.1, 1);
         assert_eq!(result.2, Some("▍".to_string()));
     }
-
 }

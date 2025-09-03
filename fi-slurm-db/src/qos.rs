@@ -1,9 +1,11 @@
+use rust_bind::bindings::{
+    slurm_list_destroy, slurmdb_qos_cond_t, slurmdb_qos_get, slurmdb_qos_rec_t, xlist,
+};
 use std::{ffi::CStr, ops::Deref};
-use rust_bind::bindings::{slurm_list_destroy, slurmdb_qos_cond_t, slurmdb_qos_get, slurmdb_qos_rec_t, xlist};
 use thiserror::Error;
 
 use crate::db::DbConn;
-use crate::utils::{vec_to_slurm_list, SlurmIterator};
+use crate::utils::{SlurmIterator, vec_to_slurm_list};
 
 #[derive(Error, Debug)]
 pub enum QosError {
@@ -17,7 +19,9 @@ pub enum QosError {
     QosListNull,
     #[error("Pointer to user_list is null")]
     UserListNull,
-    #[error("Database connection failed. Please ensure that SlurmDB is present and slurm_init has been run")]
+    #[error(
+        "Database connection failed. Please ensure that SlurmDB is present and slurm_init has been run"
+    )]
     DbConnError,
     #[error("List of QoS successfully retrieved but empty")]
     EmptyQosListError,
@@ -64,7 +68,7 @@ impl QosQueryInfo {
 impl Drop for QosQueryInfo {
     /// Safely destroy the Slurm-allocated lists in the QosQueryInfo struct
     /// We free the individual lists with their destructor functions,
-    /// and then, by creating a Rust Box from the top-level pointer, we 
+    /// and then, by creating a Rust Box from the top-level pointer, we
     /// claim the memory from C, and Rust safely drops it at the end of scope
     fn drop(&mut self) {
         if !self.qos.is_null() {
@@ -135,7 +139,6 @@ pub struct SlurmQos {
     pub max_tres_per_job: String,
 }
 
-
 impl SlurmQos {
     /// Generate a SlurmQos object from a C slurmdb_qos_rec_t object
     pub unsafe fn from_c_rec(rec: *const slurmdb_qos_rec_t) -> Self {
@@ -150,25 +153,33 @@ impl SlurmQos {
             let max_tres_per_user = if (*rec).max_tres_pu.is_null() {
                 String::from("foo")
             } else {
-                CStr::from_ptr((*rec).max_tres_pu).to_string_lossy().into_owned()
+                CStr::from_ptr((*rec).max_tres_pu)
+                    .to_string_lossy()
+                    .into_owned()
             };
 
             let max_tres_per_group = if (*rec).grp_tres.is_null() {
                 String::from("foo")
             } else {
-                CStr::from_ptr((*rec).grp_tres).to_string_lossy().into_owned()
+                CStr::from_ptr((*rec).grp_tres)
+                    .to_string_lossy()
+                    .into_owned()
             };
 
             let max_tres_per_account = if (*rec).max_tres_pa.is_null() {
                 String::from("foo")
             } else {
-                CStr::from_ptr((*rec).max_tres_pa).to_string_lossy().into_owned()
+                CStr::from_ptr((*rec).max_tres_pa)
+                    .to_string_lossy()
+                    .into_owned()
             };
 
             let max_tres_per_job = if (*rec).max_tres_pj.is_null() {
                 String::from("foo")
             } else {
-                CStr::from_ptr((*rec).max_tres_pj).to_string_lossy().into_owned()
+                CStr::from_ptr((*rec).max_tres_pj)
+                    .to_string_lossy()
+                    .into_owned()
             };
 
             Self {
@@ -186,18 +197,19 @@ impl SlurmQos {
 
 /// Process a SlurmQosList into a vector of SlurmQos objects, or else return an Error
 pub fn process_qos_list(qos_list: SlurmQosList) -> Result<Vec<SlurmQos>, QosError> {
-
     if qos_list.ptr.is_null() {
-        return Err(QosError::QosListNull)
+        return Err(QosError::QosListNull);
     }
 
     let iterator = unsafe { SlurmIterator::new(qos_list.ptr) };
 
-    let results: Vec<SlurmQos> = iterator.map(|node_ptr| {
-        // not even an unsafe cast!
-        let qos_rec_ptr = node_ptr as *const slurmdb_qos_rec_t;
-        unsafe { SlurmQos::from_c_rec(qos_rec_ptr) }
-    }).collect();
+    let results: Vec<SlurmQos> = iterator
+        .map(|node_ptr| {
+            // not even an unsafe cast!
+            let qos_rec_ptr = node_ptr as *const slurmdb_qos_rec_t;
+            unsafe { SlurmQos::from_c_rec(qos_rec_ptr) }
+        })
+        .collect();
 
     if !results.is_empty() {
         Ok(results)
@@ -205,5 +217,3 @@ pub fn process_qos_list(qos_list: SlurmQosList) -> Result<Vec<SlurmQos>, QosErro
         Err(QosError::EmptyQosListError)
     }
 }
-
-
