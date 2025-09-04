@@ -357,7 +357,8 @@ const HELP: &str = "Report the state of nodes in a Slurm cluster, grouped by fea
 #[command(
     version,
     after_help = HELP,
-    after_long_help = format!("{}\n\n{}", HELP, fi_slurm::AUTHOR_HELP),
+    after_long_help = format!("{}\n\n{}\n\n{}", HELP, fi_slurm::AUTHOR_HELP,
+"See also https://grafana.flatironinstitute.org for cluster monitoring dashboards."),
 )]
 struct Args {
     #[arg(short, long)]
@@ -383,7 +384,7 @@ struct Args {
     #[arg(short, long)]
     #[arg(help = "Prints the detailed report, showing nodes by Slurm state")]
     #[arg(
-        long_help = "Shows a detailed, state-oriented view of cluster nodes. It divides the nodes into top-level state (Idle, Mixed, Allocated, Down, or Unknown) along with compound state flags like DRAIN, RES, MAINT when present, and provides a count of nodes and the availability/utilization of their cores and GPUs. Unlike the default tree report, the detailed report declares 'available' any CPU core or GPU which belongs to a node that is IDLE or which is unallocate on a MIXED node, regardless of compound state flags like DRAIN or MAINT."
+        long_help = "Shows a detailed, state-oriented view of cluster nodes. It divides the nodes into top-level state (Idle, Mixed, Allocated, Down, or Unknown) along with compound state flags like DRAIN, RES, MAINT when present, and provides a count of nodes and the availability/utilization of their cores and GPUs. Unlike the default tree report, the detailed report declares 'available' any CPU core or GPU which belongs to a node that is IDLE or which is unallocate on a MIXED node, regardless of compound state flags like DRAIN or MAINT. Nodes are displayed under their first feature. -g and -a have no effect in detailed mode. Use -v to show GPUs by type."
     )]
     detailed: bool,
 
