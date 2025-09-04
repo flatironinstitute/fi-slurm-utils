@@ -94,18 +94,6 @@ fn main() -> Result<(), String> {
     // report functions
     enrich_jobs_with_node_ids(&mut jobs_collection, &nodes_collection.name_to_id);
 
-    // for filtering the final display
-    let gpu_filter: GpuFilter = if args.all {
-        GpuFilter::All
-    } else if args.gpu {
-        // not totally exclusive, but we want any use of --all/-a to override the
-        // others
-        GpuFilter::Gpu
-    } else {
-        // the default, we just show those which are not gpus
-        GpuFilter::NotGpu
-    };
-
     // Build Cross-Reference Map
     let node_to_job_map = build_node_to_job_map(&jobs_collection);
     if args.debug {
@@ -132,6 +120,25 @@ fn main() -> Result<(), String> {
     if args.debug && !args.feature.is_empty() {
         println!("Finished filtering data: {:?}", start.elapsed());
     }
+
+    // if all filtered nodes are GPU nodes, then automatically enable -g,
+    // if the user did not specify -a
+    let do_gpu_report = !args.all
+        && (args.gpu
+            || (!filtered_nodes.is_empty()
+                && filtered_nodes.iter().all(|node| node.gpu_info.is_some())));
+
+    // for filtering the final display
+    let gpu_filter: GpuFilter = if args.all {
+        GpuFilter::All
+    } else if do_gpu_report {
+        // not totally exclusive, but we want any use of --all/-a to override the
+        // others
+        GpuFilter::Gpu
+    } else {
+        // the default, we just show those which are not gpus
+        GpuFilter::NotGpu
+    };
 
     if args.debug {
         println!(
@@ -191,6 +198,8 @@ fn main() -> Result<(), String> {
         return Ok(());
     } else {
         // filtering out nodes by gpuinfo if necessary
+        // For example, we may have selected both GPU and CPU nodes with "icelake", but we
+        // want to display one or the other set without -a
         match gpu_filter {
             GpuFilter::Gpu => {
                 filtered_nodes.retain(|node| {
@@ -215,7 +224,7 @@ fn main() -> Result<(), String> {
             args.names,
             preempted_nodes,
             args.preempt,
-            args.gpu && !args.all,
+            do_gpu_report, // count GPUs instead of CPUs
         );
         print_tree_report(
             &tree_report,
@@ -223,8 +232,7 @@ fn main() -> Result<(), String> {
             args.names,
             args.alphabetical,
             args.preempt,
-            args.gpu && !args.all, // we use the gpus term only if we're talking about gpus and not
-                                   // all nodes
+            do_gpu_report, // display GPU column
         );
 
         if args.debug {
@@ -393,7 +401,9 @@ struct Args {
     feature: Vec<String>,
 
     #[arg(short, long)]
-    #[arg(help = "Shows only gpu nodes in the tree view")]
+    #[arg(
+        help = "Shows only gpu nodes in the tree view (default if all selected nodes have GPUs)"
+    )]
     gpu: bool,
 
     #[arg(short, long)]
