@@ -394,7 +394,7 @@ pub fn print_report(
     show_node_names: bool,
     allocated: bool,
 ) {
-    let padding: usize = 3;
+    let padding: usize = 2;
     let padding_str = " ".repeat(padding);
 
     let (report_widths, total_line) = get_report_widths(report_data, allocated);
@@ -465,16 +465,16 @@ pub fn print_report(
 
     // print headers
 
-    let state_header = if allocated {
-        "STATE (Alloc/Total)"
-    } else {
-        "STATE (Idle/Total)"
-    };
+    let state_header = "STATE";
+
+    let count_header = "COUNT";
+    let cpu_header = "CPU";
+    let gpu_header = "GPU";
 
     // calculate the exact width of the data part of each column
-    let count_data_width = report_widths.count_width;
-    let cpu_data_width = report_widths.alloc_or_idle_cpu_width + report_widths.total_cpu_width;
-    let gpu_data_width = report_widths.alloc_or_idle_gpu_width + report_widths.total_gpu_width;
+    let count_data_width = report_widths.count_width.max(count_header.len());
+    let cpu_data_width = report_widths.alloc_or_idle_cpu_width + report_widths.total_cpu_width + 1; // +1 for the '/' character
+    let gpu_data_width = report_widths.alloc_or_idle_gpu_width + report_widths.total_gpu_width + 1;
 
     // format each header to be aligned within its data column's width
     let state_header_formatted = format!(
@@ -482,9 +482,10 @@ pub fn print_report(
         state_header.bold(),
         width = report_widths.state_width
     );
-    let count_header_formatted = format!("{:>width$}", "COUNT".bold(), width = count_data_width);
-    let cpu_header_formatted = format!("{:>width$}", "CPU".bold(), width = cpu_data_width);
-    let gpu_header_formatted = format!("{:>width$}", "GPU".bold(), width = gpu_data_width);
+    let count_header_formatted =
+        format!("{:>width$}", count_header.bold(), width = count_data_width);
+    let cpu_header_formatted = format!("{:>width$}", cpu_header.bold(), width = cpu_data_width);
+    let gpu_header_formatted = format!("{:>width$}", gpu_header.bold(), width = gpu_data_width);
 
     // print each formatted header followed by the padding string
     print!("{}{}", state_header_formatted, padding_str);
@@ -499,7 +500,7 @@ pub fn print_report(
         + cpu_data_width
         + padding_str.len()
         + gpu_data_width;
-    println!("{}", "═".repeat(total_width + padding));
+    println!("{}", "═".repeat(total_width));
 
     // print report body
     for state in sorted_states {
@@ -510,14 +511,13 @@ pub fn print_report(
                 no_color,
                 Some(state),
             );
-            let count_comp =
-                CountComponent::new(group.summary.node_count, report_widths.count_width);
+            let count_comp = CountComponent::new(group.summary.node_count, count_data_width);
             let cpu_comp = CPUComponent::new(&group.summary, &report_widths, allocated);
             let gpu_comp = GPUComponent::new(&group.summary, &report_widths, allocated);
             let node_names = &group.summary.node_names.clone();
 
             println!(
-                "{}{}{}{}{}{}{}{}   {}",
+                "{}{}{}{}{}{}{}{}  {}",
                 state_comp.colored_text,
                 state_comp.padding,
                 padding_str,
@@ -530,7 +530,7 @@ pub fn print_report(
                     fi_slurm::parser::compress_hostlist(node_names)
                 } else {
                     "".to_string()
-                }
+                },
             );
 
             let mut sorted_subgroups: Vec<&String> = group.subgroups.keys().collect();
@@ -544,8 +544,7 @@ pub fn print_report(
                         no_color,
                         None,
                     );
-                    let count_comp =
-                        CountComponent::new(line.node_count, report_widths.count_width);
+                    let count_comp = CountComponent::new(line.node_count, count_data_width);
                     let cpu_comp = CPUComponent::new(line, &report_widths, allocated);
                     let gpu_comp = GPUComponent::new(line, &report_widths, allocated);
                     let node_names = &line.node_names.clone();
@@ -574,12 +573,12 @@ pub fn print_report(
     // print the total line
     println!("{}", "═".repeat(total_width));
     let state_comp = StateComponent::new(
-        "TOTAL".to_string(),
+        "TOTAL (Idle/Total)".to_string(),
         report_widths.state_width,
         no_color,
         None,
     );
-    let count_comp = CountComponent::new(total_line.node_count, report_widths.count_width);
+    let count_comp = CountComponent::new(total_line.node_count, count_data_width);
     let cpu_comp = CPUComponent::new(&total_line, &report_widths, allocated);
     let gpu_comp = GPUComponent::new(&total_line, &report_widths, allocated);
 
