@@ -357,7 +357,7 @@ const HELP: &str = "Report the state of nodes in a Slurm cluster, grouped by fea
 #[command(
     version,
     after_help = HELP,
-    after_long_help = HELP.to_string() + "\n\nAuthor: Nicolas Posner (nicolasposner@gmail.com)\nContributors: Lehman Garrison, Dylan Simon, and Alex Chavkin\nRepo: https://github.com/flatironinstitute/fi-slurm-utils"
+    after_long_help = format!("{}\n\n{}", HELP, fi_slurm::AUTHOR_HELP),
 )]
 struct Args {
     #[arg(short, long)]
@@ -372,7 +372,7 @@ struct Args {
 
     #[arg(long)]
     #[arg(
-        help = "Sort tree report hierarchy in alphabetical order instead of the default sorting by node count."
+        help = "Sort the tree report at each level in alphabetical order instead of by total node count."
     )]
     alphabetical: bool,
 
