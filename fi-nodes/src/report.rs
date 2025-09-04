@@ -499,7 +499,7 @@ pub fn print_report(
         + cpu_data_width
         + padding_str.len()
         + gpu_data_width;
-    println!("{}", "-".repeat(total_width + padding));
+    println!("{}", "═".repeat(total_width + padding));
 
     // print report body
     for state in sorted_states {
@@ -572,7 +572,7 @@ pub fn print_report(
     }
 
     // print the total line
-    println!("{}", "-".repeat(total_width));
+    println!("{}", "═".repeat(total_width));
     let state_comp = StateComponent::new(
         "TOTAL".to_string(),
         report_widths.state_width,
@@ -752,7 +752,7 @@ fn print_utilization(
     // Print the assembled bar
     if allocated {
         println!(
-            "Overall {} Utilization: \n [{}{}{}] {:.1}%",
+            "Overall {} Utilization: \n │{}{}{}│ {:.1}%",
             name,
             colored_full,
             colored_partial,
@@ -761,7 +761,7 @@ fn print_utilization(
         );
     } else {
         println!(
-            "Overall {} Availability: \n [{}{}{}] {:.1}%",
+            "Overall {} Availability: \n │{}{}{}│ {:.1}%",
             name,
             colored_full,
             colored_partial,

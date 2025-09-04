@@ -12,8 +12,8 @@ use std::collections::{HashMap, HashSet};
 pub struct TreeNode {
     pub name: String,
     pub stats: ReportLine,
-    pub children: HashMap<String, TreeNode>,
     pub single_filter: bool, // used to determine whether we are filtering on a single item
+    pub children: HashMap<String, TreeNode>,
 }
 
 /// A simplified version of the ReportLine from the detailed report
@@ -92,7 +92,7 @@ pub fn build_tree_report(
     gpu: bool,
 ) -> TreeReportData {
     let mut root = TreeNode {
-        name: "TOTAL".to_string(),
+        name: "Total".to_string(),
         ..Default::default()
     };
 
@@ -551,21 +551,23 @@ fn create_avail_bar(
 }
 
 /// Recursively calculates the maximum width needed for the feature name column
-fn calculate_max_width(tree_node: &TreeNode, prefix_len: usize) -> usize {
+fn calculate_max_width(tree_node: &TreeNode, prefix_len: usize, collapse: bool) -> usize {
     let mut path_parts = vec![tree_node.name.as_str()];
     let mut current_node = tree_node;
-    while current_node.children.len() == 1 {
-        let single_child = current_node.children.values().next().unwrap();
-        path_parts.push(single_child.name.as_str());
-        current_node = single_child;
+    if collapse {
+        while current_node.children.len() == 1 {
+            let single_child = current_node.children.values().next().unwrap();
+            path_parts.push(single_child.name.as_str());
+            current_node = single_child;
+        }
     }
     let collapsed_name = path_parts.join(", ");
-    let current_width = prefix_len + collapsed_name.len() + 4; // +4 for "└── "
+    let current_width = prefix_len + collapsed_name.len() + 5; // +3 for "└──", +2 for visual padding
 
     current_node
         .children
         .values()
-        .map(|child| calculate_max_width(child, prefix_len + 4))
+        .map(|child| calculate_max_width(child, prefix_len + 3, true))
         .max()
         .unwrap_or(0)
         .max(current_width)
@@ -581,35 +583,57 @@ pub fn print_tree_report(
     gpu: bool,
 ) {
     // --- Define Headers ---
-    const HEADER_FEATURE: &str = "FEATURE (Avail/Total)";
-    const HEADER_NODES_PREEMPT: &str = "NODES (PREEMPTABLE)";
-    const HEADER_NODES: &str = "NODES";
-    const HEADER_CPUS_PREEMPT: &str = "CORES (PREEMPTABLE) ";
-    const HEADER_CPUS: &str = "CORES";
-    const HEADER_GPUS_PREEMPT: &str = "GPUS (PREEMPTABLE) ";
-    const HEADER_GPUS: &str = "GPUS";
-    const HEADER_NODE_AVAIL: &str = "AVAIL.";
-    const HEADER_CPU_AVAIL: &str = "AVAIL.";
+    const HEADER_FEATURE: &str = "Feature";
+    const HEADER_NODES_PREEMPT: &str = "";
+    const HEADER_NODES: &str = "";
+    const HEADER_CPUS_PREEMPT: &str = "";
+    const HEADER_CPUS: &str = "";
+    const HEADER_GPUS_PREEMPT: &str = "";
+    const HEADER_GPUS: &str = "";
+    const HEADER_NODE_AVAIL: &str = "Nodes Available  ";
+    const HEADER_CPU_AVAIL: &str = "Cores Available  ";
+    const HEADER_GPU_AVAIL: &str = "GPUs Available  ";
+
+    // Determine what to print as the top level
+    let (top_level_node, children_to_iterate) = if root.single_filter {
+        if let Some(single_child) = root.children.values().next() {
+            (single_child, &single_child.children)
+        } else {
+            (root, &root.children)
+        }
+    } else {
+        (root, &root.children)
+    };
 
     // Calculate Column Widths
-    let max_feature_width = calculate_max_width(root, 0).max(HEADER_FEATURE.len()) - 4;
+    let max_feature_width =
+        calculate_max_width(top_level_node, 0, false).max(HEADER_FEATURE.len()) - 4;
     let bar_width = 20;
 
-    let col_widths = calculate_column_widths(root);
+    let col_widths = calculate_column_widths(top_level_node);
 
     // Calculate data width for the NODES column, accounting for the preempt count string
     let nodes_data_width = {
         let base_width = col_widths.max_idle_nodes + col_widths.max_total_nodes + 1; // for "/"
         if col_widths.max_preempt_nodes_width > 0 {
-            // Add width for the preempt count and the "()" characters
-            base_width + col_widths.max_preempt_nodes_width + 2
+            // Add width for the preempt count and the "(-)" characters
+            base_width + col_widths.max_preempt_nodes_width + 3
         } else {
             base_width
         }
     };
 
-    // CPU column width calculation remains the same
-    let cpus_data_width = col_widths.max_idle_cpus + col_widths.max_total_cpus + 1;
+    // CPU column width calculation, accounting for preempt count string if needed
+    // let cpus_data_width = col_widths.max_idle_cpus + col_widths.max_total_cpus + 1;
+    let cpus_data_width = {
+        let base_width = col_widths.max_idle_cpus + col_widths.max_total_cpus + 1; // for "/"
+        if col_widths.max_preempt_cpus_width > 0 {
+            // Add width for the preempt count and the "(-)" characters
+            base_width + col_widths.max_preempt_cpus_width + 3
+        } else {
+            base_width
+        }
+    };
 
     // The final column width is the larger of the header or the data
     let nodes_final_width = if preempt {
@@ -630,17 +654,6 @@ pub fn print_tree_report(
         (cpus_data_width).max(HEADER_CPUS.len())
     };
     let bar_final_width = (bar_width + 2).max(HEADER_NODE_AVAIL.len()); // +2 for "||"
-
-    // Determine what to print as the top level
-    let (top_level_node, children_to_iterate) = if root.single_filter {
-        if let Some(single_child) = root.children.values().next() {
-            (single_child, &single_child.children)
-        } else {
-            (root, &root.children)
-        }
-    } else {
-        (root, &root.children)
-    };
 
     let stats = &top_level_node.stats;
 
@@ -758,7 +771,7 @@ pub fn print_tree_report(
 
     // Print Headers with alignment
     println!(
-        "{:<feature_w$} {:>nodes_w$}  {:^bar_w$}{:>cpus_w$}  {:^bar_w$}",
+        "{:<feature_w$} {:<nodes_w$}  {:<bar_w$}{:<cpus_w$}  {:<bar_w$}",
         HEADER_FEATURE.bold(),
         if preempt {
             HEADER_NODES_PREEMPT.bold()
@@ -777,7 +790,11 @@ pub fn print_tree_report(
         } else {
             HEADER_CPUS.bold()
         },
-        HEADER_CPU_AVAIL.bold(),
+        if gpu {
+            HEADER_GPU_AVAIL.bold()
+        } else {
+            HEADER_CPU_AVAIL.bold()
+        },
         feature_w = max_feature_width,
         nodes_w = nodes_final_width,
         cpus_w = cpus_final_width,
@@ -787,7 +804,7 @@ pub fn print_tree_report(
     // Print Separator Line
     let total_width =
         max_feature_width + nodes_final_width + cpus_final_width + bar_final_width * 2 + 6; // +6 for spaces
-    println!("{}", "-".repeat(total_width - 2));
+    println!("{}", "═".repeat(total_width - 2));
 
     // Print the top-level line using the adjusted widths for proper alignment
     println!(
