@@ -6,4 +6,4 @@ Future versions of Slurm offer opportunities to improve fi_slurm. Updating to Sl
 
 For details on the structure of the fi_slurm API, refer to the API.md file in the same directory.
 
-This API was developed by Nicolas Posner and Lehman Garrison at the Scientific Computing Core of the Flatiron Institute. To implement this in your own cluster, refer to the MIGRATION.md file in the parent directory. For support and consultation, contact nicolasposner@gmail.com.
+This API was developed by Nicolas Posner and Lehman Garrison at the Scientific Computing Core of the Flatiron Institute. To implement this in your own cluster, refer to the MIGRATION.md file in the parent directory. For support and consultation, contact nicolasposner@gmail.com or file an issue in the https://github.com/flatironinstitute/fi-slurm-utils repo.

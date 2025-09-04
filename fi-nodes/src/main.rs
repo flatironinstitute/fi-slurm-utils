@@ -9,7 +9,7 @@ pub mod tui;
 use crate::tui::app::tui_execute;
 
 use clap::Parser;
-use fi_slurm::filter::{filter_nodes_by_feature, gather_all_features};
+use fi_slurm::filter::filter_nodes_by_feature;
 use fi_slurm::jobs::{SlurmJobs, build_node_to_job_map, enrich_jobs_with_node_ids, get_jobs};
 use fi_slurm::nodes::get_nodes;
 use fi_slurm::nodes::{NodeState, SlurmNodes};
@@ -39,12 +39,6 @@ fn main() -> Result<(), String> {
             let _ = tui_execute();
             return Ok(());
         }
-    }
-
-    if args.exact && args.feature.is_empty() {
-        eprintln!(
-            "-e/--exact has no effect without the -f/--feature argument. Did you intend to filter by a feature?"
-        )
     }
 
     if args.debug {
@@ -137,17 +131,6 @@ fn main() -> Result<(), String> {
     let mut filtered_nodes = filter_nodes_by_feature(&nodes_collection, &args.feature, args.exact);
     if args.debug && !args.feature.is_empty() {
         println!("Finished filtering data: {:?}", start.elapsed());
-    }
-
-    // validating input
-    if !args.feature.is_empty() && filtered_nodes.is_empty() {
-        eprintln!("Warning, no nodes found matching the specifiad features");
-
-        if args.exact {
-            eprint!("\n Consider removing the `--exact` argument");
-        }
-
-        let _all_features = gather_all_features(&nodes_collection);
     }
 
     if args.debug {
@@ -360,75 +343,91 @@ fn preempt_node(
     PreemptNodes(preempted_nodes)
 }
 
-/// A command-line utility to report the state of a Slurm cluster,
-/// showing a summary of nodes grouped by state and feature
+const HELP: &str = "Report the state of nodes in a Slurm cluster, grouped by feature (default view) or state (-d, detailed view). Only CPU nodes are shown by default; use -g to show only GPU nodes or -a to see all. The graphical availability bars display absolute node counts.";
+
 #[derive(Parser, Debug)]
 #[command(
     version,
-    about,
-    long_about = "This command-line and terminal application was built by Lehman Garrison, Nicolas Posner, Dylan Simon, and Alex Chavkin at the Scientific Computing Core of the Flatiron Institute. By default, it displays the availability of non-gpu nodes as a tree diagram, as queried from the locally running instance of Slurm. For support, contact nicolasposner@gmail.com"
+    after_help = HELP,
+    after_long_help = HELP.to_string() + "\n\nAuthor: Nicolas Posner (nicolasposner@gmail.com)\nContributors: Lehman Garrison, Dylan Simon, and Alex Chavkin\nRepo: https://github.com/flatironinstitute/fi-slurm-utils"
 )]
 struct Args {
     #[arg(short, long)]
-    #[arg(help = "Shows only gpu nodes in the tree view")]
-    gpu: bool,
-    #[arg(short, long)]
-    #[arg(help = "Shows only all nodes in the tree view")]
+    #[arg(help = "Shows all nodes (CPU and GPU) in the tree view")]
     all: bool,
-    #[arg(short, long)]
-    #[arg(help = "Prints the detailed, state-by-state report of node availability")]
-    #[arg(
-        long_help = "Primarily meant for internal use by SCC members in order to get detailed views of the overall state of the cluster and its individual nodes. It divides the nodes into top-level state, Idle, Mixed, Allocated, Down, or Unknown, along with compound state flags like DRAIN, RES, MAINT when present, and provides a count of nodes and the availability/utilization of their cores and gpus. Unlike the default tree report, the detailed report declares 'available' any cpu core or gpu which belongs to a node that is IDLE or which is unallocate on a MIXED node, regardless of compound state flags like DRAIN or MAINT."
-    )]
-    detailed: bool,
-    #[cfg(feature = "tui")]
-    #[arg(short, long)]
-    #[arg(help = "Displays historical cluster data in Terminal User Interface (TUI).")]
-    #[arg(
-        long_help = "The TUI queries the locally connected Slurm cluster using the 'http://prometheus/' URL and eagerly retrieves the data from the last 30 days in 1 day increments. The range and increment of data can be customized by selecting 'Custom Query' in setup. Note that the loading times from Prometheus are directly related to the number of requested increments, not the total time range. Requesting the last month's data in 1 minute increments will take a very, very long time."
-    )]
-    term: bool,
-    #[arg(
-        help = "Select individual features to filter by. `icelake` would only show information for icelake nodes. \n For multiple features, separate them with spaces, such as `genoa gpu skylake`"
-    )]
-    feature: Vec<String>,
-    #[arg(short, long)]
-    #[arg(
-        help = "In combination with --feature, filter only by exact match rather than substrings "
-    )]
-    exact: bool,
+
     #[arg(
         long,
         help = "Display allocated nodes instead of idle (use with --detailed)"
     )]
     allocated: bool,
-    #[arg(short, long)]
-    #[arg(help = "Classifies preemptable jobs as idle")]
-    #[arg(
-        long_help = "Reclassifies the base state of nodes according to the preemptability of the jobs running on them: an allocated node with some jobs which are preemptable will be reclassified as Mixed, while an Allocated or Mixed node where all jobs are preemptable will be reclassified as Idle."
-    )]
-    preempt: bool,
-    #[arg(short, long)]
-    #[arg(help = "Shows all node names (not yet implemented in summary report)")]
-    names: bool,
-    #[arg(long)]
-    #[arg(help = "Disable colors in output")]
-    no_color: bool,
-    #[arg(short, long)]
-    #[arg(help = "Shows redundant nodes traits in tree report")]
-    verbose: bool,
+
     #[arg(long)]
     #[arg(
         help = "Sort tree report hierarchy in alphabetical order instead of the default sorting by node count."
     )]
     alphabetical: bool,
-    #[arg(long)]
+
+    #[arg(long, hide = true)]
     #[arg(help = "Prints debug-level logging steps to terminal")]
     debug: bool,
+
     #[arg(short, long)]
-    // #[arg(help = "Prints the top-level summary report for each feature type")]
-    summary: bool,
-    // for showing just the gpus
+    #[arg(help = "Prints the detailed report, showing nodes by Slurm state")]
+    #[arg(
+        long_help = "Shows a detailed, state-oriented view of cluster nodes. It divides the nodes into top-level state (Idle, Mixed, Allocated, Down, or Unknown) along with compound state flags like DRAIN, RES, MAINT when present, and provides a count of nodes and the availability/utilization of their cores and GPUs. Unlike the default tree report, the detailed report declares 'available' any CPU core or GPU which belongs to a node that is IDLE or which is unallocate on a MIXED node, regardless of compound state flags like DRAIN or MAINT."
+    )]
+    detailed: bool,
+
+    #[arg(short, long)]
+    #[arg(
+        help = "In combination with --feature, filter only by exact match rather than substrings "
+    )]
+    #[arg(default_value_t = true, hide = true)]
+    // TODO: non-exact not displaying right, but also probably not needed
+    exact: bool,
+
+    #[arg(
+        help = "Node features to display, such as \"icelake\" or \"genoa\". Accepts multiple features.\nFor GPUs, use -g instead of \"gpu\"."
+    )]
+    feature: Vec<String>,
+
+    #[arg(short, long)]
+    #[arg(help = "Shows only gpu nodes in the tree view")]
+    gpu: bool,
+
+    #[arg(short, long)]
+    #[arg(
+        help = "Include preempt information in the output.\n\"123(-45)\" means 123 nodes are idle or preemptable, while 45 are preemptable."
+    )]
+    #[arg(
+        long_help = "Reclassifies the base state of nodes according to the preemptability of the jobs running on them: an allocated node with some jobs which are preemptable will be reclassified as Mixed, while an Allocated or Mixed node where all jobs are preemptable will be reclassified as Idle."
+    )]
+    preempt: bool,
+
+    #[arg(short, long)]
+    #[arg(help = "Shows node names")]
+    names: bool,
+
     #[arg(long)]
-    leaderboard: bool,
+    #[arg(help = "Disable colors in output")]
+    no_color: bool,
+
+    #[cfg(feature = "tui")]
+    #[arg(short, long)]
+    #[arg(
+        help = "[Experimental] Displays time-series cluster usage in an interactive Terminal User Interface (TUI)."
+    )]
+    #[arg(
+        long_help = "[Experimental] The TUI shows time-series cluster usage data from Prometheus.The default display is the last 30 days in 1 day increments. The range and increment of data can be customized by selecting 'Custom Query' in setup. Note that the loading times from Prometheus are directly related to the number of requested increments. Requesting the last month's data in 1 minute increments will take a very, very long time."
+    )]
+    term: bool,
+
+    #[arg(short, long)]
+    #[arg(help = "Shows hidden nodes features in tree report")]
+    verbose: bool,
+
+    #[arg(short, long, hide = true)] // summary report is deprecated in favor of tree view
+    #[arg(help = "Prints the top-level summary report for each feature type")]
+    summary: bool,
 }
