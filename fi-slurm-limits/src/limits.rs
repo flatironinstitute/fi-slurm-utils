@@ -9,8 +9,14 @@ use fi_slurm::{
 use fi_slurm_db::acct::{TresMax, get_tres_info};
 use std::collections::{HashMap, HashSet};
 
+const ALWAYS_SHOW: [&str; 2] = ["preempt", "gpupreempt"];
+
 pub fn print_limits(name: &str) {
-    let (user_acct, accounts_to_process) = get_tres_info(Some(name.to_string())); //None case tries to get name from OS
+    let (user_acct, accounts_to_process) =
+        get_tres_info(Some(name.to_string())).unwrap_or_else(|e| {
+            eprintln!("{e}");
+            std::process::exit(1);
+        });
 
     let accounts = accounts_to_process.first().unwrap().clone();
 
@@ -129,18 +135,21 @@ pub fn print_limits(name: &str) {
         };
     }
 
-    // only retain those lines for which there are some non-zero quantities
+    // only retain those lines for which there are some non-zero quantities,
+    // or that we specify should never be hidden.
+    // This naturally hides cca limits for ccb users, etc.
     user_usage.retain(|user| {
-        ![
-            user.nodes,
-            user.cores,
-            user.gpus,
-            user.max_nodes,
-            user.max_cores,
-            user.max_gpus,
-        ]
-        .iter()
-        .all(|i| *i == 0)
+        ALWAYS_SHOW.contains(&user.account.as_str())
+            || ![
+                user.nodes,
+                user.cores,
+                user.gpus,
+                user.max_nodes,
+                user.max_cores,
+                user.max_gpus,
+            ]
+            .iter()
+            .all(|i| *i == 0)
     });
 
     // only retain those lines for which there are some non-zero LIMITS
@@ -150,7 +159,11 @@ pub fn print_limits(name: &str) {
             .all(|i| *i == 0)
     });
 
-    println!("\nUser Limits");
+    // Sort both by account name
+    user_usage.sort_by(|a, b| a.account.cmp(&b.account));
+    center_usage.sort_by(|a, b| a.account.cmp(&b.account));
+
+    println!("\nUser Limits ({})", name);
     print_accounts(user_usage);
 
     println!("\nCenter Limits ({})", user_acct);
@@ -178,7 +191,7 @@ pub fn leaderboard(top_n: usize) {
     for (position, (user, score)) in sorted_scores.iter().enumerate().take(top_n) {
         let rank = position + 1;
         println!(
-            "{:>3}. {:<12} is using {:>4} nodes and {:>5} cores",
+            "{:>2}. {:<12} is using {:>4} nodes and {:>5} cores",
             rank, user, score.0, score.1
         );
     }

@@ -44,7 +44,8 @@ fn main() -> Result<(), String> {
     Ok(())
 }
 
-const HELP: &str = "it displays the current resource usage and limits of the user and their center";
+const HELP: &str =
+    "Displays current Slurm resource usage compared to limits. A value of \"-\" indictes no limit.";
 
 #[derive(Parser, Debug)]
 #[command(
@@ -67,7 +68,7 @@ struct Args {
     #[arg(short, long)]
     #[arg(num_args(0..))]
     #[arg(
-        help = "For use with the leaderboard: select individual features to filter by. `icelake` would only show information for icelake nodes. \n For multiple features, separate them with spaces, such as `genoa gpu skylake`"
+        help = "For the leaderboard: select feature(s) to filter by. \"icelake\" would only show information for icelake nodes."
     )]
     filter: Vec<String>,
 }

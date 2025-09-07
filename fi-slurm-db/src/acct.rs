@@ -272,7 +272,7 @@ impl SlurmAssoc {
 
 #[derive(Debug)]
 struct SlurmUser {
-    name: String,
+    _name: String,
     _default_acct: String,
     _admin_level: u16,
     associations: Vec<SlurmAssoc>,
@@ -281,7 +281,7 @@ struct SlurmUser {
 impl SlurmUser {
     fn from_c_rec(rec: *const slurmdb_user_rec_t) -> Result<Self, QosError> {
         unsafe {
-            let name = if (*rec).name.is_null() {
+            let _name = if (*rec).name.is_null() {
                 String::new()
             } else {
                 CStr::from_ptr((*rec).name).to_string_lossy().into_owned()
@@ -312,7 +312,7 @@ impl SlurmUser {
             }?;
 
             Ok(Self {
-                name,
+                _name,
                 _default_acct,
                 _admin_level: (*rec).admin_level, // we read actual admin value from database
                 // record, but don't let this be used for any purposes other than reading it. Is
@@ -454,8 +454,6 @@ pub fn get_user_info(
         return Err(QosError::SlurmUserError);
     };
 
-    println!("\nUser: {}", user.name);
-
     let qos_vec = get_qos_info(db_conn_qos, &user.associations);
 
     let jobs_vec = get_jobs_info(db_conn_job, &user.associations, &qos_vec);
@@ -474,9 +472,7 @@ pub fn get_user_info(
     // itself
 }
 
-pub fn print_fi_limits() {}
-
-pub fn get_tres_info(name: Option<String>) -> (String, Vec<Vec<TresInfo>>) {
+pub fn get_tres_info(name: Option<String>) -> Result<(String, Vec<Vec<TresInfo>>), String> {
     let name = name.unwrap_or_else(|| {
         get_current_username().unwrap_or_else(|| {
             eprintln!("Could not find user information: ensure that the running user is not deleted while the program is running");
@@ -485,11 +481,14 @@ pub fn get_tres_info(name: Option<String>) -> (String, Vec<Vec<TresInfo>>) {
     });
 
     let now = Utc::now();
-    let mut user_query = create_user_cond(vec![name], now - Duration::weeks(5), now);
+    let mut user_query = create_user_cond(vec![name.clone()], now - Duration::weeks(5), now);
 
     let mut persist_flags: u16 = 0;
 
-    let qos_job_data = get_user_info(&mut user_query, &mut persist_flags).unwrap(); // we could
+    let qos_job_data = get_user_info(&mut user_query, &mut persist_flags)
+        .map_err(|e| format!("Error getting user info for \"{name}\": {e:?}"))?;
+
+    // we could
     // also get the user associations out of here, extra return
 
     let tres_infos: Vec<Vec<TresInfo>> = qos_job_data
@@ -501,7 +500,7 @@ pub fn get_tres_info(name: Option<String>) -> (String, Vec<Vec<TresInfo>>) {
     // do the special case here? After it has already been adjusted, we just go into each
     // Vec<TresInfo> and manually adjust?
     let user_acct = qos_job_data.user_acct;
-    (user_acct, tres_infos)
+    Ok((user_acct, tres_infos))
 }
 
 #[derive(Clone)]
