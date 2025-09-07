@@ -351,7 +351,7 @@ fn preempt_node(
     PreemptNodes(preempted_nodes)
 }
 
-const HELP: &str = "Report the state of nodes in a Slurm cluster, grouped by feature (default view) or state (-d, detailed view). Only CPU nodes are shown by default; use -g to show only GPU nodes or -a to see all. The graphical availability bars display absolute node counts.";
+const HELP: &str = "Report the state of nodes in a Slurm cluster, grouped by feature (tree view, the default) or state (-d, detailed view). Only CPU nodes are shown by default in the tree view; use -g to show only GPU nodes or -a to see all. The graphical availability bars display absolute node counts.";
 
 #[derive(Parser, Debug)]
 #[command(
@@ -389,9 +389,7 @@ struct Args {
     detailed: bool,
 
     #[arg(short, long)]
-    #[arg(
-        help = "In combination with --feature, filter only by exact match rather than substrings "
-    )]
+    #[arg(help = "filter features only by exact match rather than substrings ")]
     #[arg(default_value_t = true, hide = true)]
     // TODO: non-exact not displaying right, but also probably not needed
     exact: bool,

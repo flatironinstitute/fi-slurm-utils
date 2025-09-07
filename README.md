@@ -4,7 +4,23 @@ This repo contains the source code for a set of Rust-based command-line utilitie
 
 fi-slurm-utils was developed at Flatiron Institute by [Nicolas Posner](https://github.com/nrposner), under the advisement of [Lehman Garrison](https://github.com/lgarrison), [Dylan Simon](https://github.com/dylex), and [Alex Chavkin](https://github.com/alexdotc).
 
-<!-- TODO: screenshot of tree view here -->
+## Example
+```
+❯ fi-nodes -a
+Feature                                 Nodes Available                     Cores Available       
+═════════════════════════════════════════════════════════════════════════════════════════════════
+Total                         316/1448 │████▍               │ 39988/148568 │█████▍              │
+├──rome, ib-rome, cpu         246/ 640 │███▍                │ 31682/ 81920 │████▎               │ 
+├──gpu                          3/  92 │                    │  1678/  5784 │▎                   │ 
+│  ├──icelake                   3/  88 │                    │  1630/  5632 │▎                   │ 
+│  │  ├──a100-80gb, ib-a100     3/  37 │                    │   825/  2368 │▏                   │ 
+│  │  └──a100-40gb, ib-a100     0/  35 │                    │   544/  2240 │▏                   │ 
+│  └──skylake, v100-32gb        0/   4 │                    │    48/   152 │                    │ 
+└──mem                          4/   4 │                    │   480/   480 │▏                   │ 
+   ├──cascadelake               2/   2 │                    │   288/   288 │                    │ 
+   └──cooperlake                2/   2 │                    │   192/   192 │                    │ 
+```
+Some rows were removed to keep this example short.
 
 ## Overview
 
