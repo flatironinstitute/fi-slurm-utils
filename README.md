@@ -10,7 +10,7 @@ fi-slurm-utils was developed at Flatiron Institute by [Nicolas Posner](https://g
 
 The primary utilities are:
 - `fi-nodes`: a CLI and TUI for querying availability of nodes, CPUs, and GPUs.
-- `fi-limits`: a CLI for displaying individual and group resource use relative to their assigned resource limits.
+- `fi-slurm-limits`: a CLI for displaying individual and group resource use relative to their assigned resource limits.
 
 These utilities are built on top of a set of Rust interfaces to Slurm's C APIs:
 - `fi-slurm`: a high-level Rust API (consisting of owning Rust types) to the `slurm.h` API.

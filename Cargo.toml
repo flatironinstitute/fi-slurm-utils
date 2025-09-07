@@ -3,7 +3,7 @@ resolver = "2"
 
 members = [
     "fi-job-top",
-    "fi-limits",
+    "fi-slurm-limits",
     "fi-nodes",
     "fi-prometheus",
     "fi-slurm-bind",
@@ -11,6 +11,6 @@ members = [
     "fi-slurm",
 ]
 default-members = [
-    "fi-limits",
+    "fi-slurm-limits",
     "fi-nodes",
 ]

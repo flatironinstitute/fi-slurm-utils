@@ -527,16 +527,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fi-limits"
-version = "0.1.0"
-dependencies = [
- "clap",
- "fi-slurm",
- "fi-slurm-db",
- "users",
-]
-
-[[package]]
 name = "fi-nodes"
 version = "0.1.0"
 dependencies = [
@@ -594,6 +584,16 @@ dependencies = [
  "chrono",
  "fi-slurm-bind",
  "thiserror",
+ "users",
+]
+
+[[package]]
+name = "fi-slurm-limits"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "fi-slurm",
+ "fi-slurm-db",
  "users",
 ]
 

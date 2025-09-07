@@ -8,17 +8,9 @@ use fi_slurm::{
 };
 use fi_slurm_db::acct::{TresMax, get_tres_info};
 use std::collections::{HashMap, HashSet};
-use users::get_current_username;
 
-pub fn print_limits(qos_name: Option<&String>) {
-    let name = qos_name.cloned().unwrap_or_else(|| {
-        get_current_username().unwrap_or_else(|| {
-            eprintln!("Could not find user information: ensure that the running user is not deleted while the program is running");
-            "".into()
-        }).to_string_lossy().into_owned() // handle the rare None case
-    });
-
-    let (user_acct, accounts_to_process) = get_tres_info(Some(name.clone())); //None case tries to get name from OS
+pub fn print_limits(name: &str) {
+    let (user_acct, accounts_to_process) = get_tres_info(Some(name.to_string())); //None case tries to get name from OS
 
     let accounts = accounts_to_process.first().unwrap().clone();
 
@@ -47,7 +39,7 @@ pub fn print_limits(qos_name: Option<&String>) {
         let user_jobs = jobs_collection
             .clone()
             .filter_by(FilterMethod::Partition(group.clone()))
-            .filter_by(FilterMethod::UserName(name.clone()));
+            .filter_by(FilterMethod::UserName(name.to_string()));
 
         let (user_nodes, user_cores) = user_jobs.get_resource_use();
         let user_gres_count = user_jobs.get_gres_total();
@@ -185,10 +177,9 @@ pub fn leaderboard(top_n: usize) {
 
     for (position, (user, score)) in sorted_scores.iter().enumerate().take(top_n) {
         let rank = position + 1;
-        let padding = if rank > 9 { "" } else { " " }; // just valid for the first 100
         println!(
-            "{}. {} {} is using {} nodes and {} cores",
-            rank, padding, user, score.0, score.1
+            "{:>3}. {:<12} is using {:>4} nodes and {:>5} cores",
+            rank, user, score.0, score.1
         );
     }
 }

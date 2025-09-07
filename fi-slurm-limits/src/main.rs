@@ -5,8 +5,10 @@ use fi_slurm::utils::{SlurmConfig, initialize_slurm};
 
 use crate::limits::{leaderboard, leaderboard_feature, print_limits};
 
-/// The main function for the fi-limits CLI application
-/// Parses the inputs and manages the pipeline for the fi-limits and leaderboard utilities
+use users::get_current_username;
+
+/// The main function for the fi-slurm-limits CLI application
+/// Parses the inputs and manages the pipeline for the fi-slurm-limits and leaderboard utilities
 fn main() -> Result<(), String> {
     let args = Args::parse();
 
@@ -31,33 +33,37 @@ fn main() -> Result<(), String> {
 
     // getting the user name passed in, if it exists, or else passes in None,
     // which will cause the print_limits function to get the username from OS
-    let user_name = if !args.user.is_empty() {
-        args.user.first()
-    } else {
-        None
-    };
+    let user_name = args.user.unwrap_or_else(|| {
+        get_current_username()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned()
+    });
 
-    print_limits(user_name);
+    print_limits(&user_name);
     Ok(())
 }
+
+const HELP: &str = "it displays the current resource usage and limits of the user and their center";
 
 #[derive(Parser, Debug)]
 #[command(
     version,
     about,
-    long_about = "This command-line and terminal application was built by Lehman Garrison, Nicolas Posner, Dylan Simon, and Alex Chavkin at the Scientific Computing Core of the Flatiron Institute. By default, it displays the current resource usage and limits of the user and their center."
+    after_help = HELP,
+    after_long_help = format!("{}\n\n{}", HELP, fi_slurm::AUTHOR_HELP),
 )]
 struct Args {
+    #[arg(help = "The username for which to show limits. Defaults to the current user.")]
+    user: Option<String>,
+
     #[arg(short, long)]
-    #[arg(help = "Select a specific user by name to show their fi-limits")]
-    user: Vec<String>,
-    #[arg(long)]
     #[arg(num_args(0..=1))]
-    #[arg(default_missing_value = "20")]
-    #[arg(
-        help = "Display a leaderboard of current cluster use by user, according to node and core use. If no number is passed, it defaults to showing the top 20"
-    )]
+    #[arg(value_name = "TOP_N")]
+    #[arg(default_missing_value = "10")]
+    #[arg(help = "Display the users with the highest current cluster usage. Defaults to top 10.")]
     leaderboard: Option<usize>,
+
     #[arg(short, long)]
     #[arg(num_args(0..))]
     #[arg(
