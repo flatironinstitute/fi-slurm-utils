@@ -2,7 +2,7 @@
 
 This repo contains the source code for a set of Rust-based command-line utilities for interacting with the Slurm job scheduler. 
 
-fi-slurm-utils was developed at Flatiron Institute by [Nicolas Posner](https://github.com/nrposner), under the advisement of [Lehman Garrison](https://github.com/lgarrison), [Dylan Simon](https://github.com/dylex), and [Alex Chavkin](https://github.com/alexdotc).
+fi-slurm-utils was developed at Flatiron Institute by [Nicolas Posner](https://github.com/nrposner), with contributions from [Lehman Garrison](https://github.com/lgarrison), [Dylan Simon](https://github.com/dylex), and [Alex Chavkin](https://github.com/alexdotc).
 
 ## Example
 ```
@@ -20,7 +20,7 @@ Total                         316/1448 │████▍               │ 3998
    ├──cascadelake               2/   2 │                    │   288/   288 │                    │ 
    └──cooperlake                2/   2 │                    │   192/   192 │                    │ 
 ```
-Some rows were removed to keep this example short.
+Some rows were removed to keep this example brief.
 
 ## Overview
 
