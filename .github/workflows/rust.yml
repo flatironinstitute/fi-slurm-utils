@@ -124,13 +124,16 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add bin/
-          git commit -m "fi-slurm-utils: tag ${{ github.ref_name }}, Slurm ${{ needs.build.outputs.slurm_version }}, ${{ needs.build.outputs.rust_target }}" || echo "No commit"
+          git commit \
+            -m "fi-slurm-utils: tag ${{ github.ref_name }}, Slurm ${{ needs.build.outputs.slurm_version }}, ${{ needs.build.outputs.rust_target }}" \
+            -m "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/tree/${{ github.ref_name }}" \
+            || echo "No commit"
           git push
       - name: Upload as release asset
         run: |
           for f in artifacts/*; do
             mv "$f" "${f}-${{ needs.build.outputs.rust_target }}-slurm${{ needs.build.outputs.slurm_version }}";
           done
-          gh release upload "${{ github.ref_name }}" artifacts/*
+          gh release upload "${{ github.ref_name }}" artifacts/* -R ${{ github.repository }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
