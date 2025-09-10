@@ -104,7 +104,7 @@ jobs:
         with:
           repository: flatironinstitute/fi-utils
           token: ${{ secrets.FI_UTILS_TOKEN }}
-          ref: main
+          ref: prod
       - uses: actions/download-artifact@v4
         with:
           name: fi-slurm-binaries
