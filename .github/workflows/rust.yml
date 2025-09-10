@@ -111,6 +111,7 @@ jobs:
           path: artifacts
       - name: Push to fi-utils
         run: |
+          chmod +x artifacts/*
           cp -t bin/ artifacts/*
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
