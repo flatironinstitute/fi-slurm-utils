@@ -81,7 +81,8 @@ jobs:
       - run: cargo build --release --verbose --all-features
       - run: |
           mkdir -p artifacts
-          mv -t artifacts/ target/release/${{ env.BINARIES }}
+          cd target/release/
+          mv -t ../../artifacts/ ${{ env.BINARIES }}
       - name: Get target and Slurm version
         id: get_versions
         run: |
