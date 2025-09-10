@@ -67,7 +67,6 @@ jobs:
     outputs:
       slurm_version: ${{ steps.get_versions.outputs.slurm_version }}
       rust_target: ${{ steps.get_versions.outputs.rust_target }}
-      is_release_tag: ${{ steps.check_release_tag.outputs.is_release_tag }}
     # TODO: cargo cache
     # - uses: actions/cache@v4
     #   with:
@@ -93,20 +92,12 @@ jobs:
           name: fi-slurm-binaries
           path: |
             artifacts/*
-      - name: Check if tag is a release tag
-        id: check_release_tag
-        run: |
-          if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" =~ ^v[0-9].* ]]; then
-            echo "is_release_tag=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "is_release_tag=false" >> "$GITHUB_OUTPUT"
-          fi
 
   publish:
     needs: [build, check]
     environment: publish
     runs-on: ubuntu-latest
-    if: needs.build.outputs.is_release_tag == 'true'
+    if: github.event_name == 'release'
     steps:
       - name: Checkout fi-utils
         uses: actions/checkout@v4
@@ -125,8 +116,8 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add bin/
           git commit \
-            -m "fi-slurm-utils: tag ${{ github.ref_name }}, Slurm ${{ needs.build.outputs.slurm_version }}, ${{ needs.build.outputs.rust_target }}" \
-            -m "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/tree/${{ github.ref_name }}" \
+            -m "fi-slurm-utils: release ${{ github.ref_name }}, Slurm ${{ needs.build.outputs.slurm_version }}, ${{ needs.build.outputs.rust_target }}" \
+            -m "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/${{ github.ref_name }}" \
             || echo "No commit"
           git push
       - name: Upload as release asset
