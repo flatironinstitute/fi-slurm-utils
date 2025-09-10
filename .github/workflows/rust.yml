@@ -119,6 +119,7 @@ jobs:
           git commit \
             -m "fi-slurm-utils: release ${{ github.ref_name }}, Slurm ${{ needs.build.outputs.slurm_version }}, ${{ needs.build.outputs.rust_target }}" \
             -m "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/${{ github.ref_name }}" \
+            -m "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
             || echo "No commit"
           git push
       - name: Upload as release asset
