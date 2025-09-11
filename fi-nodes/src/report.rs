@@ -550,7 +550,7 @@ pub fn print_report(
                     let node_names = &line.node_names.clone();
 
                     println!(
-                        "{}{}{}{}{}{}{}{}   {}",
+                        "{}{}{}{}{}{}{}{}  {}",
                         state_comp.colored_text,
                         state_comp.padding,
                         padding_str,
