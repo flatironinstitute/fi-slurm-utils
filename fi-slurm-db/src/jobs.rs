@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use fi_slurm_bind::{
+use fi_slurm_sys::{
     slurm_list_destroy, slurmdb_job_cond_t, slurmdb_job_rec_t, slurmdb_jobs_get, xlist,
 };
 use std::{ffi::CStr, ops::Deref};

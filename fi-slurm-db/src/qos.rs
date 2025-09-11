@@ -1,4 +1,4 @@
-use fi_slurm_bind::{
+use fi_slurm_sys::{
     slurm_list_destroy, slurmdb_qos_cond_t, slurmdb_qos_get, slurmdb_qos_rec_t, xlist,
 };
 use std::{ffi::CStr, ops::Deref};

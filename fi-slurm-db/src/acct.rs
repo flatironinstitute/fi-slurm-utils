@@ -4,7 +4,7 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use fi_slurm_bind::{
+use fi_slurm_sys::{
     slurm_list_destroy, slurmdb_assoc_cond_t, slurmdb_assoc_rec_t, slurmdb_user_cond_t,
     slurmdb_user_rec_t, slurmdb_users_get, xlist,
 };

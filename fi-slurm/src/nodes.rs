@@ -2,7 +2,7 @@ use crate::energy::AcctGatherEnergy;
 use crate::states::NodeStateFlags;
 use crate::utils::{c_str_to_string, time_t_to_datetime};
 use chrono::{DateTime, Utc};
-use fi_slurm_bind::{
+use fi_slurm_sys::{
     node_info, node_info_msg_t, node_info_t, slurm_free_node_info_msg, slurm_load_node, time_t,
 };
 use std::{collections::HashMap, ffi::CStr, fmt};

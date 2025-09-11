@@ -560,19 +560,7 @@ version = "0.1.6"
 dependencies = [
  "bitflags",
  "chrono",
- "fi-slurm-bind",
- "regex",
-]
-
-[[package]]
-name = "fi-slurm-bind"
-version = "0.1.6"
-dependencies = [
- "bindgen",
- "chrono",
- "clap",
- "libc",
- "once_cell",
+ "fi-slurm-sys",
  "regex",
 ]
 
@@ -582,7 +570,7 @@ version = "0.1.6"
 dependencies = [
  "bitflags",
  "chrono",
- "fi-slurm-bind",
+ "fi-slurm-sys",
  "thiserror",
  "users",
 ]
@@ -595,6 +583,18 @@ dependencies = [
  "fi-slurm",
  "fi-slurm-db",
  "users",
+]
+
+[[package]]
+name = "fi-slurm-sys"
+version = "0.1.6"
+dependencies = [
+ "bindgen",
+ "chrono",
+ "clap",
+ "libc",
+ "once_cell",
+ "regex",
 ]
 
 [[package]]

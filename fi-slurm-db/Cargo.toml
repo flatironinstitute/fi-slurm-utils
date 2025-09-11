@@ -8,6 +8,6 @@ license = { workspace = true }
 [dependencies]
 bitflags = "2.9.1"
 chrono = "0.4.41"
-fi-slurm-bind = {path = "../fi-slurm-bind"}
+fi-slurm-sys = {path = "../fi-slurm-sys"}
 thiserror = "2.0.12"
 users = "0.11.0"

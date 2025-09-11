@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use fi_slurm_bind;
+use fi_slurm_sys;
 use std::ffi::CStr;
 
 pub fn time_t_to_datetime(timestamp: i64) -> DateTime<Utc> {
@@ -24,16 +24,16 @@ pub unsafe fn c_str_to_string(ptr: *const i8) -> String {
 // This struct ensures that the Slurm configuration is automatically
 // loaded on creation and freed when it goes out of scope
 pub struct SlurmConfig {
-    _ptr: *mut fi_slurm_bind::slurm_conf_t,
+    _ptr: *mut fi_slurm_sys::slurm_conf_t,
 }
 
 impl SlurmConfig {
     /// Loads the Slurm configuration and returns a guard object
     /// The configuration will be freed when the guard is dropped
     pub fn load() -> Result<Self, String> {
-        let mut conf_ptr: *mut fi_slurm_bind::slurm_conf_t = std::ptr::null_mut();
+        let mut conf_ptr: *mut fi_slurm_sys::slurm_conf_t = std::ptr::null_mut();
         unsafe {
-            if fi_slurm_bind::slurm_load_ctl_conf(0, &mut conf_ptr) != 0 {
+            if fi_slurm_sys::slurm_load_ctl_conf(0, &mut conf_ptr) != 0 {
                 return Err(
                     "Failed to load slurm.conf. Check logs or SLURM_CONF env variable.".to_string(),
                 );
@@ -53,7 +53,7 @@ impl Drop for SlurmConfig {
         // This is guaranteed to be called when the SlurmConfig instance
         // goes out of scope, preventing memory leaks
         unsafe {
-            fi_slurm_bind::slurm_free_ctl_conf(self._ptr);
+            fi_slurm_sys::slurm_free_ctl_conf(self._ptr);
         }
         //println!("\nCleaned up Slurm configuration.");
     }
@@ -61,7 +61,7 @@ impl Drop for SlurmConfig {
 
 pub fn initialize_slurm() {
     unsafe {
-        fi_slurm_bind::slurm_init(std::ptr::null());
+        fi_slurm_sys::slurm_init(std::ptr::null());
     }
 }
 

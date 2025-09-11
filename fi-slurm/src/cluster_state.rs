@@ -1,4 +1,4 @@
-//use fi_slurm_bind::time_t;
+//use fi_slurm_sys::time_t;
 //
 //use crate::{jobs::{self, RawSlurmJobInfo}, nodes::{self, RawSlurmNodeInfo}};
 //

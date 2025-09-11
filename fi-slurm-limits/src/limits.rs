@@ -238,11 +238,10 @@ pub fn leaderboard_feature(top_n: usize, features: Vec<String>) {
 
     for (position, (user, score)) in sorted_scores.iter().enumerate().take(top_n) {
         let rank = position + 1;
-        let padding = if rank > 9 { "" } else { " " }; // just valid for the first 100
         // let (initial, surname) = user.split_at_checked(1).unwrap_or(("Dr", "Evil"));
         println!(
-            "{}. {} {} is using {} nodes and {} cores",
-            rank, padding, user, score.0, score.1
+            "{:>2}. {:<12} is using {:>4} nodes and {:>5} cores",
+            rank, user, score.0, score.1
         );
     }
 }

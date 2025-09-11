@@ -5,7 +5,7 @@ members = [
     "fi-slurm-limits",
     "fi-nodes",
     "fi-prometheus",
-    "fi-slurm-bind",
+    "fi-slurm-sys",
     "fi-slurm-db",
     "fi-slurm",
 ]

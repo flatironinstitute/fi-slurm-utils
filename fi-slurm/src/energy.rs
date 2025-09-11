@@ -1,6 +1,6 @@
 use crate::utils::time_t_to_datetime;
 use chrono::{DateTime, Utc};
-use fi_slurm_bind::acct_gather_energy_t;
+use fi_slurm_sys::acct_gather_energy_t;
 
 #[derive(Clone, Debug)]
 #[allow(dead_code)]
