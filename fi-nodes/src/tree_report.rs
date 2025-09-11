@@ -4,6 +4,22 @@ use fi_slurm::jobs::SlurmJobs;
 use fi_slurm::nodes::{Node, NodeState};
 use fi_slurm::utils::count_blocks;
 use std::collections::{HashMap, HashSet};
+use std::sync::OnceLock;
+
+// a custom list of uninformative or redundant features excluded from the default presentation
+static HIDDEN_FEATURES: OnceLock<HashSet<&str>> = OnceLock::new();
+
+// TODO: per-site hidden feature configuration
+fn hidden_features() -> &'static HashSet<&'static str> {
+    HIDDEN_FEATURES.get_or_init(|| {
+        [
+            "rocky8", "rocky9", "sxm", "sxm2", "sxm4", "sxm5", "nvlink", "a100", "h100", "v100", "ib",
+        ]
+        .iter()
+        .cloned()
+        .collect()
+    })
+}
 
 // Data Structures for the Tree Report
 
@@ -99,14 +115,6 @@ pub fn build_tree_report(
     if feature_filter.len() == 1 {
         root.single_filter = true
     };
-
-    // a custom list of uninformative or redundant features excluded from the default presentation
-    let hidden_features: HashSet<&str> = [
-        "rocky8", "rocky9", "sxm", "sxm2", "sxm4", "sxm5", "nvlink", "a100", "h100", "v100", "ib",
-    ]
-    .iter()
-    .cloned()
-    .collect();
 
     // the main loop, iterating over the nodes in order to construct the tree structure
     for &node in nodes {
@@ -222,7 +230,7 @@ pub fn build_tree_report(
         } else {
             node.features
                 .iter()
-                .filter(|f| !hidden_features.contains(f.as_str()))
+                .filter(|f| !hidden_features().contains(f.as_str()))
                 .collect()
         };
 
