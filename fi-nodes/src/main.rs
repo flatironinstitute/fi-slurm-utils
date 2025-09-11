@@ -433,7 +433,9 @@ struct Args {
     term: bool,
 
     #[arg(short, long)]
-    #[arg(help = "In the tree report, shows hidden node features. In the detailed view, breaks out GPU types.")]
+    #[arg(
+        help = "In the tree report, shows hidden node features. In the detailed view, breaks out GPU types."
+    )]
     verbose: bool,
 
     #[arg(short, long, hide = true)] // summary report is deprecated in favor of tree view
