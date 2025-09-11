@@ -9,5 +9,6 @@ license = { workspace = true }
 bitflags = "2.9.1"
 chrono = "0.4.41"
 fi-slurm-sys = {path = "../fi-slurm-sys"}
+fi-slurm = {path = "../fi-slurm"}
 thiserror = "2.0.12"
 users = "0.11.0"

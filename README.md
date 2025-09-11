@@ -55,6 +55,9 @@ To enable the `fi-nodes` TUI (brings in Prometheus dependencies):
 cargo build --release --features tui
 ```
 
+## Configuration
+`fi-slurm` currently has very limited site configuration through a `site.conf` file located in the same directory as the running binary. The contents of this file are used to populate the `cluster_list` field in the `slurmdb_assoc_cond_t` struct.
+
 ## License
 Copyright 2025 The Simons Foundation, Inc.
 

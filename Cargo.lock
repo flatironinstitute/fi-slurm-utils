@@ -570,6 +570,7 @@ version = "0.1.6"
 dependencies = [
  "bitflags",
  "chrono",
+ "fi-slurm",
  "fi-slurm-sys",
  "thiserror",
  "users",

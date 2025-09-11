@@ -9,6 +9,8 @@ use fi_slurm_sys::{
     slurmdb_user_rec_t, slurmdb_users_get, xlist,
 };
 
+use fi_slurm::site;
+
 use users::get_current_username;
 
 use crate::db::{DbConn, slurmdb_connect};
@@ -166,7 +168,7 @@ fn create_user_cond(
 ) -> UserQueryInfo {
     let assoc = AssocConfig {
         acct_list: None,
-        cluster_list: Some(vec!["rusty".to_string()]),
+        cluster_list: site::cluster().clone().map(|s| vec![s]),
         def_qos_id_list: None,
         flags: 0,
         format_list: None,
