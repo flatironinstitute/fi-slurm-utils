@@ -32,3 +32,16 @@ bitflags! {
         const BLOCKED = fi_slurm_sys::bind_node_state_flags_PLANNED;
     }
 }
+
+bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    pub struct ShowFlags: u16 {
+        const ALL = fi_slurm_sys::bind_show_flags_ALL;
+        const DETAIL = fi_slurm_sys::bind_show_flags_DETAIL;
+        const MIXED = fi_slurm_sys::bind_show_flags_MIXED;
+        const LOCAL = fi_slurm_sys::bind_show_flags_LOCAL;
+        const SIBLING = fi_slurm_sys::bind_show_flags_SIBLING;
+        const FEDERATION = fi_slurm_sys::bind_show_flags_FEDERATION;
+        const FUTURE = fi_slurm_sys::bind_show_flags_FUTURE;
+    }
+}
