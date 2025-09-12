@@ -245,7 +245,7 @@ fn main() -> Result<(), String> {
     Ok(())
 }
 
-/// Newtype for the ids of preempted nodes
+/// Newtype for the ids of preemptable nodes
 #[derive(Clone)]
 pub struct PreemptNodes(Vec<usize>);
 

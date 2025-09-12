@@ -104,7 +104,7 @@ pub fn build_tree_report(
     feature_filter: &[String],
     show_hidden_features: bool,
     show_node_names: bool,
-    preempted_nodes: Option<PreemptNodes>,
+    preemptable_nodes: Option<PreemptNodes>,
     preempt: bool,
     gpu: bool,
 ) -> TreeReportData {
@@ -154,7 +154,7 @@ pub fn build_tree_report(
         let is_mixed = is_node_mixed(&derived_state);
 
         let preempted_node_ids = if preempt {
-            &preempted_nodes.as_ref().unwrap().0
+            &preemptable_nodes.as_ref().unwrap().0
         } else {
             &Vec::new()
         };
@@ -170,13 +170,14 @@ pub fn build_tree_report(
             root.stats.alloc_cpus += alloc_cpus_for_node;
         }
 
+        // Preemptable nodes have already had their state updated to Idle or Mixed
         if is_available && preempt {
-            // we don't increment idle nodes or cpus in this case in this case
+            // we don't increment idle nodes or cpus in this case
             // in order to keep idle nodes referring only to idle and not idle + preempt
             root.stats.idle_nodes += 1;
 
             if gpu {
-                root.stats.idle_cpus = total_gpus;
+                root.stats.idle_cpus += total_gpus;
             } else {
                 root.stats.idle_cpus += node.cpus as u32;
             }
