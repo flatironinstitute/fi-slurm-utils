@@ -107,8 +107,8 @@ fn main() -> Result<(), String> {
         println!("Finished building node to job map: {:?}", start.elapsed());
     }
 
-    // getting information on which nodes are preempted, to be used in the build report functions
-    let preempted_nodes = if args.preempt {
+    // getting information on which nodes are preemptable, to be used in the build report functions
+    let preemptable_nodes = if args.preempt {
         Some(preempt_node(
             &mut nodes_collection,
             &node_to_job_map,
@@ -225,7 +225,7 @@ fn main() -> Result<(), String> {
             &args.feature,
             args.verbose,
             args.names,
-            preempted_nodes,
+            preemptable_nodes,
             args.preempt,
             do_gpu_report, // count GPUs instead of CPUs
         );
@@ -310,18 +310,18 @@ fn preempt_node(
     // we leave mixed be, because if the jobs running on it were all preempt, the node would be in
     // the other category
 
-    let mut preempted_nodes: Vec<usize> = Vec::new();
+    let mut preemptable_nodes: Vec<usize> = Vec::new();
 
     for node in slurm_nodes.nodes.iter_mut() {
         if all_preempt.contains(&node.id) {
             match &node.state {
                 NodeState::Allocated | NodeState::Mixed => {
-                    preempted_nodes.push(node.id);
+                    preemptable_nodes.push(node.id);
                     node.state = NodeState::Idle
                 }
                 NodeState::Compound { base, flags } => match **base {
                     NodeState::Allocated | NodeState::Mixed => {
-                        preempted_nodes.push(node.id);
+                        preemptable_nodes.push(node.id);
                         node.state = NodeState::Compound {
                             base: Box::new(NodeState::Idle),
                             flags: flags.to_vec(),
@@ -334,12 +334,12 @@ fn preempt_node(
         } else if partially_preempt.contains(&node.id) {
             match &node.state {
                 NodeState::Allocated => {
-                    preempted_nodes.push(node.id);
+                    preemptable_nodes.push(node.id);
                     node.state = NodeState::Mixed
                 }
                 NodeState::Compound { base, flags } => {
                     if **base == NodeState::Allocated {
-                        preempted_nodes.push(node.id);
+                        preemptable_nodes.push(node.id);
                         node.state = NodeState::Compound {
                             base: Box::new(NodeState::Mixed),
                             flags: flags.to_vec(),
@@ -351,7 +351,7 @@ fn preempt_node(
         }
     }
 
-    PreemptNodes(preempted_nodes)
+    PreemptNodes(preemptable_nodes)
 }
 
 const HELP: &str = "Report the state of nodes in a Slurm cluster, grouped by feature (tree view, the default) or state (-d, detailed view). Only CPU nodes are shown by default in the tree view; use -g to show only GPU nodes or -a to see all. The graphical availability bars display absolute node counts.";

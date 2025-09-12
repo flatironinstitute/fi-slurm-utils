@@ -153,7 +153,7 @@ pub fn build_tree_report(
         let is_available = is_node_available(&derived_state);
         let is_mixed = is_node_mixed(&derived_state);
 
-        let preempted_node_ids = if preempt {
+        let preemptable_node_ids = if preempt {
             &preemptable_nodes.as_ref().unwrap().0
         } else {
             &Vec::new()
@@ -182,7 +182,7 @@ pub fn build_tree_report(
                 root.stats.idle_cpus += node.cpus as u32;
             }
 
-            if preempted_node_ids.contains(&node.id) {
+            if preemptable_node_ids.contains(&node.id) {
                 *root.stats.preempt_nodes.get_or_insert(0) += 1;
                 if gpu {
                     *root.stats.preempt_cpus.get_or_insert(0) += total_gpus;
@@ -209,7 +209,7 @@ pub fn build_tree_report(
                 root.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
             }
 
-            if preempted_node_ids.contains(&node.id) {
+            if preemptable_node_ids.contains(&node.id) {
                 if gpu {
                     *root.stats.preempt_cpus.get_or_insert(0) +=
                         (total_gpus).saturating_sub(allocated_gpus);
@@ -268,7 +268,7 @@ pub fn build_tree_report(
                         current_level.stats.idle_cpus += node.cpus as u32;
                     }
 
-                    if preempted_node_ids.contains(&node.id) {
+                    if preemptable_node_ids.contains(&node.id) {
                         *current_level.stats.preempt_nodes.get_or_insert(0) += 1;
                         if gpu {
                             *current_level.stats.preempt_cpus.get_or_insert(0) += total_gpus;
@@ -294,7 +294,7 @@ pub fn build_tree_report(
                             (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                     }
 
-                    if preempted_node_ids.contains(&node.id) {
+                    if preemptable_node_ids.contains(&node.id) {
                         if gpu {
                             *current_level.stats.preempt_cpus.get_or_insert(0) +=
                                 (total_gpus).saturating_sub(allocated_gpus);
@@ -344,7 +344,7 @@ pub fn build_tree_report(
                             current_level.stats.idle_cpus += node.cpus as u32;
                         }
 
-                        if preempted_node_ids.contains(&node.id) {
+                        if preemptable_node_ids.contains(&node.id) {
                             *current_level.stats.preempt_nodes.get_or_insert(0) += 1;
 
                             if gpu {
@@ -371,7 +371,7 @@ pub fn build_tree_report(
                             current_level.stats.idle_cpus +=
                                 (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                         }
-                        if preempted_node_ids.contains(&node.id) {
+                        if preemptable_node_ids.contains(&node.id) {
                             if gpu {
                                 *current_level.stats.preempt_cpus.get_or_insert(0) +=
                                     (total_gpus).saturating_sub(allocated_gpus);
@@ -418,7 +418,7 @@ pub fn build_tree_report(
                                 current_level.stats.idle_cpus += node.cpus as u32;
                             }
 
-                            if preempted_node_ids.contains(&node.id) {
+                            if preemptable_node_ids.contains(&node.id) {
                                 *current_level.stats.preempt_nodes.get_or_insert(0) += 1;
 
                                 if gpu {
@@ -447,7 +447,7 @@ pub fn build_tree_report(
                                     (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
                             }
 
-                            if preempted_node_ids.contains(&node.id) {
+                            if preemptable_node_ids.contains(&node.id) {
                                 if gpu {
                                     *current_level.stats.preempt_cpus.get_or_insert(0) +=
                                         (total_gpus).saturating_sub(allocated_gpus);
