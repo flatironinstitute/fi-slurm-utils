@@ -1,5 +1,5 @@
 use crate::energy::AcctGatherEnergy;
-use crate::states::NodeStateFlags;
+use crate::states::{NodeStateFlags, ShowFlags};
 use crate::utils::{c_str_to_string, time_t_to_datetime};
 use chrono::{DateTime, Utc};
 use fi_slurm_sys::{
@@ -91,6 +91,11 @@ impl RawSlurmNodeInfo {
 
         for (id, raw_node) in raw_nodes_slice.iter().enumerate() {
             let safe_node = Node::from_raw_binding(id, raw_node)?;
+
+            // Misconfigured node?
+            if safe_node.cpus == 0 {
+                continue;
+            }
 
             name_to_id_map.insert(safe_node.name.clone(), id);
 

@@ -75,7 +75,8 @@ fn main() -> Result<(), String> {
     let mut nodes_collection = get_nodes()?;
     if args.debug {
         println!(
-            "Finished loading node data from Slurm: {:?}",
+            "Finished loading node data for {} nodes from Slurm: {:?}",
+            nodes_collection.nodes.len(),
             start.elapsed()
         );
     }
@@ -84,7 +85,8 @@ fn main() -> Result<(), String> {
     let mut jobs_collection = get_jobs()?;
     if args.debug {
         println!(
-            "Finished loading job data from Slurm: {:?}",
+            "Finished loading job data for {} jobs from Slurm: {:?}",
+            jobs_collection.jobs.len(),
             start.elapsed()
         );
     }

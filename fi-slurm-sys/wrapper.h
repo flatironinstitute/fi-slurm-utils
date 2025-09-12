@@ -28,3 +28,14 @@ enum bind_node_state_flags {
     DYNAMIC_NORM = NODE_STATE_DYNAMIC_NORM,
     BLOCKED = NODE_STATE_BLOCKED,
 };
+
+enum bind_show_flags : uint16_t {
+    ALL = SHOW_ALL,
+    DETAIL = SHOW_DETAIL,
+    /*	SLURM_BIT(2) empty */
+    MIXED = SHOW_MIXED,
+    LOCAL = SHOW_LOCAL,     /* Show only local information, even on federated cluster */
+    SIBLING = SHOW_SIBLING,   /* Show sibling jobs on a federated cluster */
+    FEDERATION = SHOW_FEDERATION, /* Show federated state information. Shows local info if not in federation */
+    FUTURE = SHOW_FUTURE,    /* Show future nodes */
+};
