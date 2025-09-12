@@ -882,6 +882,9 @@ fn print_node_recursive(
 
     while current_node.children.len() == 1 {
         let single_child = current_node.children.values().next().unwrap();
+        if current_node.stats.total_nodes != single_child.stats.total_nodes {
+            break;
+        }
         path_parts.push(single_child.name.as_str());
         current_node = single_child;
     }
