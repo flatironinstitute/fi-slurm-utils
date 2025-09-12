@@ -89,11 +89,13 @@ impl RawSlurmNodeInfo {
         let mut nodes_vec = Vec::with_capacity(num_nodes);
         let mut name_to_id_map = HashMap::with_capacity(num_nodes);
 
+        let mut skip_count = 0;
         for (id, raw_node) in raw_nodes_slice.iter().enumerate() {
             let safe_node = Node::from_raw_binding(id, raw_node)?;
 
             // Misconfigured node?
             if safe_node.cpus == 0 {
+                skip_count += 1;
                 continue;
             }
 
@@ -109,6 +111,7 @@ impl RawSlurmNodeInfo {
             nodes: nodes_vec,
             name_to_id: name_to_id_map,
             last_update,
+            skip_count,
         })
     }
 }
@@ -473,4 +476,7 @@ pub struct SlurmNodes {
     // The lookup map: maps a node name to its index in the `nodes` vector.
     pub name_to_id: HashMap<String, usize>,
     pub last_update: DateTime<chrono::Utc>,
+    // The number of nodes that were skipped during loading due to exceptional
+    // conditions like having 0 CPUs
+    pub skip_count: usize,
 }

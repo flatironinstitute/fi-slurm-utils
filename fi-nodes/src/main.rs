@@ -75,8 +75,9 @@ fn main() -> Result<(), String> {
     let mut nodes_collection = get_nodes()?;
     if args.debug {
         println!(
-            "Finished loading node data for {} nodes from Slurm: {:?}",
+            "Finished loading node data for {} nodes ({} skipped with 0 CPUs) from Slurm: {:?}",
             nodes_collection.nodes.len(),
+            nodes_collection.skip_count,
             start.elapsed()
         );
     }
