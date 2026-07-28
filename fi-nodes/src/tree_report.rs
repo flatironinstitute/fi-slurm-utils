@@ -13,8 +13,7 @@ static HIDDEN_FEATURES: OnceLock<HashSet<&str>> = OnceLock::new();
 fn hidden_features() -> &'static HashSet<&'static str> {
     HIDDEN_FEATURES.get_or_init(|| {
         [
-            "rocky8", "rocky9", "sxm", "sxm2", "sxm4", "sxm5", "nvlink", "a100", "h100", "v100",
-            "ib",
+            "sxm", "sxm2", "sxm4", "sxm5", "nvlink", "a100", "h100", "v100", "ib",
         ]
         .iter()
         .cloned()
@@ -541,7 +540,7 @@ fn create_avail_bar(
 
     let percentage = current as f64 / total as f64;
 
-    let bars = count_blocks(20, percentage);
+    let bars = count_blocks(width, percentage);
 
     let filled = "█"
         .repeat(bars.0)
@@ -557,6 +556,129 @@ fn create_avail_bar(
         )
     } else {
         format!("│{}{}│", filled, empty)
+    }
+}
+
+/// Bars are never drawn wider than this, however wide the terminal is
+const BAR_WIDTH_MAX: usize = 20;
+/// A bar narrower than this conveys nothing, so it is dropped instead
+const BAR_WIDTH_MIN: usize = 4;
+
+const TITLE_FEATURE: &str = "Feature";
+const TITLE_NAMES: &str = "Node Names";
+/// Availability column titles, as (long, short); the short form is used in narrow terminals
+const TITLE_NODES: (&str, &str) = ("Nodes Available", "Nodes");
+const TITLE_CORES: (&str, &str) = ("Cores Available", "Cores");
+const TITLE_GPUS: (&str, &str) = ("GPUs Available", "GPUs");
+
+/// The resolved column widths for one rendering of the tree table.
+///
+/// The header and data rows only line up if the title field is exactly `bar_width + 2` (the
+/// width of a bar including its two `│`), so titles are chosen to fit that field and never
+/// allowed to widen it.
+struct Layout {
+    feature_w: usize,
+    nodes_w: usize,
+    cpus_w: usize,
+    /// `None` suppresses the bars, which moves the titles over the numeric columns
+    bar_width: Option<usize>,
+    /// Room reserved for the node-names title, or 0 when names are not shown. The hostlists
+    /// themselves are unbounded and spill past the budget; only their title is laid out.
+    names_w: usize,
+}
+
+impl Layout {
+    /// Fits the table into `budget` columns by shrinking the bars. `budget` of `None` means
+    /// unbounded, which yields full-width bars.
+    ///
+    /// The feature column is left at its natural width: if it alone overruns the budget the
+    /// line is allowed to spill, since truncating feature names would hide the answer the
+    /// user came for.
+    fn solve(
+        feature_w: usize,
+        nodes_data_w: usize,
+        cpus_data_w: usize,
+        names_w: usize,
+        gpu: bool,
+        budget: Option<usize>,
+    ) -> Self {
+        let bar_width = match budget {
+            None => BAR_WIDTH_MAX,
+            Some(budget) => {
+                // four single-space column gaps, plus the two `│` of each bar
+                let fixed = feature_w + nodes_data_w + cpus_data_w + names_w + 4 + 4;
+                BAR_WIDTH_MAX.min(budget.saturating_sub(fixed) / 2)
+            }
+        };
+
+        if bar_width >= BAR_WIDTH_MIN {
+            Layout {
+                feature_w,
+                nodes_w: nodes_data_w,
+                cpus_w: cpus_data_w,
+                bar_width: Some(bar_width),
+                names_w,
+            }
+        } else {
+            let cpus_title = if gpu { TITLE_GPUS } else { TITLE_CORES };
+            Layout {
+                feature_w,
+                nodes_w: nodes_data_w.max(TITLE_NODES.1.len()),
+                cpus_w: cpus_data_w.max(cpus_title.1.len()),
+                bar_width: None,
+                names_w,
+            }
+        }
+    }
+
+    /// Rendered width of one bar, including its two `│`
+    fn bar_field(&self) -> usize {
+        self.bar_width.map_or(0, |w| w + 2)
+    }
+
+    /// Width of a full row, which the separator line matches
+    fn total_width(&self) -> usize {
+        self.feature_w
+            + self.nodes_w
+            + self.cpus_w
+            + 2
+            + self.bar_width.map_or(0, |w| 2 * (w + 2) + 2)
+    }
+
+    /// The rule under the header, carrying a junction wherever a bar's `│` descends from it
+    ///
+    /// The names column has no fixed width, so the rule reaches only far enough to underline
+    /// its title.
+    fn separator(&self) -> String {
+        let width = self.total_width() + self.names_w;
+        let mut rule = vec!['═'; width];
+        if let Some(w) = self.bar_width {
+            let nodes_bar = self.feature_w + self.nodes_w + 2;
+            let cpus_bar = nodes_bar + w + self.cpus_w + 4;
+            for border in [nodes_bar, nodes_bar + w + 1, cpus_bar, cpus_bar + w + 1] {
+                // the rightmost border ends the rule, so it takes a corner rather than a tee
+                rule[border] = if border + 1 == width { '╕' } else { '╤' };
+            }
+        }
+        rule.into_iter().collect()
+    }
+
+    /// The (nodes, cores/GPUs) titles, in their long form when the bars can hold it
+    fn titles(&self, gpu: bool) -> (&'static str, &'static str) {
+        let cpus = if gpu { TITLE_GPUS } else { TITLE_CORES };
+        // a title starts at the bar's first cell, so it may run as far as the closing `│`;
+        // both titles switch together so the two columns stay visually consistent
+        match self.bar_width {
+            Some(w) if TITLE_NODES.0.len().max(cpus.0.len()) <= w + 1 => (TITLE_NODES.0, cpus.0),
+            _ => (TITLE_NODES.1, cpus.1),
+        }
+    }
+
+    /// A bar prefixed by its column gap, or the empty string when bars are suppressed
+    fn bar(&self, current: u32, total: u32, color: Color, no_color: bool) -> String {
+        self.bar_width.map_or(String::new(), |w| {
+            format!(" {}", create_avail_bar(current, total, w, color, no_color))
+        })
     }
 }
 
@@ -584,26 +706,16 @@ fn calculate_max_width(tree_node: &TreeNode, prefix_len: usize, collapse: bool) 
 }
 
 /// Prints the tree report
+///
+/// `budget` is the target line width; `None` renders at full width.
 pub fn print_tree_report(
     root: &TreeReportData,
     no_color: bool,
     show_node_names: bool,
     sort: bool,
-    preempt: bool,
     gpu: bool,
+    budget: Option<usize>,
 ) {
-    // --- Define Headers ---
-    const HEADER_FEATURE: &str = "Feature";
-    const HEADER_NODES_PREEMPT: &str = "";
-    const HEADER_NODES: &str = "";
-    const HEADER_CPUS_PREEMPT: &str = "";
-    const HEADER_CPUS: &str = "";
-    const HEADER_GPUS_PREEMPT: &str = "";
-    const HEADER_GPUS: &str = "";
-    const HEADER_NODE_AVAIL: &str = "Nodes Available  ";
-    const HEADER_CPU_AVAIL: &str = "Cores Available  ";
-    const HEADER_GPU_AVAIL: &str = "GPUs Available  ";
-
     // Determine what to print as the top level
     let (top_level_node, children_to_iterate) = if root.single_filter {
         if let Some(single_child) = root.children.values().next() {
@@ -616,9 +728,9 @@ pub fn print_tree_report(
     };
 
     // Calculate Column Widths
-    let max_feature_width =
-        calculate_max_width(top_level_node, 0, false).max(HEADER_FEATURE.len()) - 4;
-    let bar_width = 20;
+    let feature_width = calculate_max_width(top_level_node, 0, false)
+        .saturating_sub(4)
+        .max(TITLE_FEATURE.len());
 
     let col_widths = calculate_column_widths(top_level_node);
 
@@ -645,25 +757,19 @@ pub fn print_tree_report(
         }
     };
 
-    // The final column width is the larger of the header or the data
-    let nodes_final_width = if preempt {
-        nodes_data_width.max(HEADER_NODES_PREEMPT.len())
+    let names_width = if show_node_names {
+        TITLE_NAMES.len() + 1
     } else {
-        nodes_data_width.max(HEADER_NODES.len())
+        0
     };
-
-    let cpus_final_width = if preempt {
-        if gpu {
-            (cpus_data_width).max(HEADER_GPUS_PREEMPT.len())
-        } else {
-            (cpus_data_width).max(HEADER_CPUS_PREEMPT.len())
-        }
-    } else if gpu {
-        (cpus_data_width).max(HEADER_GPUS.len())
-    } else {
-        (cpus_data_width).max(HEADER_CPUS.len())
-    };
-    let bar_final_width = (bar_width + 2).max(HEADER_NODE_AVAIL.len()); // +2 for "||"
+    let layout = Layout::solve(
+        feature_width,
+        nodes_data_width,
+        cpus_data_width,
+        names_width,
+        gpu,
+        budget,
+    );
 
     let stats = &top_level_node.stats;
 
@@ -706,7 +812,7 @@ pub fn print_tree_report(
             (text.clone(), text)
         }
     };
-    let nodes_width_adjusted = nodes_final_width + node_text.len() - uncolored_node_text.len();
+    let nodes_width_adjusted = layout.nodes_w + node_text.len() - uncolored_node_text.len();
 
     let (cpu_text, uncolored_cpu_text) = {
         let idle_str = format!(
@@ -747,84 +853,77 @@ pub fn print_tree_report(
             (text.clone(), text)
         }
     };
-    let cpus_width_adjusted = cpus_final_width + cpu_text.len() - uncolored_cpu_text.len();
+    let cpus_width_adjusted = layout.cpus_w + cpu_text.len() - uncolored_cpu_text.len();
 
     // getting the true max at the top level
 
     let max_nodes = stats.total_nodes;
     let max_cores = stats.total_cpus;
 
-    let node_bar = create_avail_bar(
-        stats.idle_nodes,
-        stats.total_nodes,
-        bar_width,
-        Color::Green,
+    let node_bar = layout.bar(stats.idle_nodes, stats.total_nodes, Color::Green, no_color);
+    let cpu_bar = layout.bar(
+        stats.idle_cpus,
+        stats.total_cpus,
+        if gpu { Color::Red } else { Color::Cyan },
         no_color,
     );
-    let cpu_bar = if gpu {
-        create_avail_bar(
-            stats.idle_cpus,
-            stats.total_cpus,
-            bar_width,
-            Color::Red,
-            no_color,
-        )
-    } else {
-        create_avail_bar(
-            stats.idle_cpus,
-            stats.total_cpus,
-            bar_width,
-            Color::Cyan,
-            no_color,
-        )
-    };
 
     // Print Headers with alignment
-    println!(
-        "{:<feature_w$} {:<nodes_w$}  {:<bar_w$}{:<cpus_w$}  {:<bar_w$}",
-        HEADER_FEATURE.bold(),
-        if preempt {
-            HEADER_NODES_PREEMPT.bold()
-        } else {
-            HEADER_NODES.bold()
-        },
-        HEADER_NODE_AVAIL.bold(),
-        if preempt {
-            if gpu {
-                HEADER_GPUS_PREEMPT.bold()
+    let (nodes_title, cpus_title) = layout.titles(gpu);
+    // the names column is unbounded, so its title trails the last column rather than
+    // being padded into one
+    let names_title = if show_node_names {
+        format!(" {}", TITLE_NAMES.bold())
+    } else {
+        String::new()
+    };
+    if layout.bar_width.is_some() {
+        // titles sit over the bars; the numeric columns are left unlabelled
+        println!(
+            "{:<feature_w$} {:<nodes_w$}  {:<bar_w$}{:<cpus_w$}  {:<cpus_title_w$}{}",
+            TITLE_FEATURE.bold(),
+            "",
+            nodes_title.bold(),
+            "",
+            cpus_title.bold(),
+            names_title,
+            feature_w = layout.feature_w,
+            nodes_w = layout.nodes_w,
+            cpus_w = layout.cpus_w,
+            bar_w = layout.bar_field(),
+            // pad out to the bar's closing `│` so the names title lands in the gap after
+            // it; the title fit rule guarantees cpus_title is no wider than that
+            cpus_title_w = if show_node_names {
+                layout.bar_field() - 1
             } else {
-                HEADER_CPUS_PREEMPT.bold()
-            }
-        } else if gpu {
-            HEADER_GPUS.bold()
-        } else {
-            HEADER_CPUS.bold()
-        },
-        if gpu {
-            HEADER_GPU_AVAIL.bold()
-        } else {
-            HEADER_CPU_AVAIL.bold()
-        },
-        feature_w = max_feature_width,
-        nodes_w = nodes_final_width,
-        cpus_w = cpus_final_width,
-        bar_w = bar_final_width
-    );
+                0
+            },
+        );
+    } else {
+        println!(
+            "{:<feature_w$} {:>nodes_w$} {:>cpus_w$}{}",
+            TITLE_FEATURE.bold(),
+            nodes_title.bold(),
+            cpus_title.bold(),
+            names_title,
+            feature_w = layout.feature_w,
+            nodes_w = layout.nodes_w,
+            cpus_w = layout.cpus_w,
+        );
+    }
 
     // Print Separator Line
-    let total_width =
-        max_feature_width + nodes_final_width + cpus_final_width + bar_final_width * 2 + 6; // +6 for spaces
-    println!("{}", "═".repeat(total_width - 2));
+    println!("{}", layout.separator());
 
     // Print the top-level line using the adjusted widths for proper alignment
     println!(
-        "{:<feature_w$} {:>nodes_w$} {} {:>cpus_w$} {}",
+        "{:<feature_w$} {:>nodes_w$}{} {:>cpus_w$}{}",
         top_level_node.name.bold(),
         node_text,
         node_bar,
         cpu_text,
         cpu_bar,
-        feature_w = max_feature_width,
+        feature_w = layout.feature_w,
         nodes_w = nodes_width_adjusted,
         cpus_w = cpus_width_adjusted
     );
@@ -843,12 +942,7 @@ pub fn print_tree_report(
             "",
             is_last,
             no_color,
-            (
-                max_feature_width,
-                bar_width,
-                nodes_final_width,
-                cpus_final_width,
-            ),
+            &layout,
             &col_widths,
             show_node_names,
             sort,
@@ -865,7 +959,7 @@ fn print_node_recursive(
     prefix: &str,
     is_last: bool,
     no_color: bool,
-    widths: (usize, usize, usize, usize),
+    layout: &Layout,
     col_widths: &ColumnWidths,
     show_node_names: bool,
     sort: bool,
@@ -874,11 +968,6 @@ fn print_node_recursive(
 ) {
     let mut path_parts = vec![tree_node.name.as_str()];
     let mut current_node = tree_node;
-
-    let max_width = widths.0;
-    let bar_width = widths.1;
-    let nodes_final_width = widths.2;
-    let cpus_final_width = widths.3;
 
     while current_node.children.len() == 1 {
         let single_child = current_node.children.values().next().unwrap();
@@ -934,7 +1023,7 @@ fn print_node_recursive(
             (text.clone(), text)
         }
     };
-    let nodes_width_adjusted = nodes_final_width + node_text.len() - uncolored_node_text.len();
+    let nodes_width_adjusted = layout.nodes_w + node_text.len() - uncolored_node_text.len();
 
     let (cpu_text, uncolored_cpu_text) = {
         let idle_str = format!(
@@ -975,31 +1064,34 @@ fn print_node_recursive(
             (text.clone(), text)
         }
     };
-    let cpus_width_adjusted = cpus_final_width + cpu_text.len() - uncolored_cpu_text.len();
+    let cpus_width_adjusted = layout.cpus_w + cpu_text.len() - uncolored_cpu_text.len();
 
-    let node_bar = create_avail_bar(stats.idle_nodes, max.0, bar_width, Color::Green, no_color);
+    let node_bar = layout.bar(stats.idle_nodes, max.0, Color::Green, no_color);
+    let cpu_bar = layout.bar(
+        stats.idle_cpus,
+        max.1,
+        if gpu { Color::Red } else { Color::Cyan },
+        no_color,
+    );
 
-    let cpu_bar = if gpu {
-        create_avail_bar(stats.idle_cpus, max.1, bar_width, Color::Red, no_color)
+    let names = if show_node_names {
+        format!(
+            " {}",
+            fi_slurm::parser::compress_hostlist(&current_node.stats.node_names)
+        )
     } else {
-        create_avail_bar(stats.idle_cpus, max.1, bar_width, Color::Cyan, no_color)
+        String::new()
     };
 
-    let node_names = &current_node.stats.node_names.clone();
-
     println!(
-        "{:<feature_w$} {:>nodes_w$} {} {:>cpus_w$} {} {}",
+        "{:<feature_w$} {:>nodes_w$}{} {:>cpus_w$}{}{}",
         display_name.bold(),
         node_text,
         node_bar,
         cpu_text,
         cpu_bar,
-        if show_node_names {
-            fi_slurm::parser::compress_hostlist(node_names)
-        } else {
-            "".to_string()
-        },
-        feature_w = max_width,
+        names,
+        feature_w = layout.feature_w,
         nodes_w = nodes_width_adjusted,
         cpus_w = cpus_width_adjusted,
     );
@@ -1019,7 +1111,7 @@ fn print_node_recursive(
             &full_child_prefix,
             is_child_last,
             no_color,
-            (max_width, bar_width, nodes_final_width, cpus_final_width),
+            layout,
             col_widths,
             show_node_names,
             sort,

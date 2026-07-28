@@ -2,7 +2,7 @@
 
 This repo contains the source code for a set of Rust-based command-line utilities for interacting with the Slurm job scheduler. 
 
-fi-slurm-utils was developed at Flatiron Institute by [Nicolas Posner](https://github.com/nrposner), with contributions from [Lehman Garrison](https://github.com/lgarrison), [Dylan Simon](https://github.com/dylex), and [Alex Chavkin](https://github.com/alexdotc).
+fi-slurm-utils was developed at Flatiron Institute and is maintained by [Lehman Garrison](https://github.com/lgarrison). The original author is [Nicolas Posner](https://github.com/nrposner), with contributions from [Dylan Simon](https://github.com/dylex) and [Alex Chavkin](https://github.com/alexdotc).
 
 ## Example
 ![demo](demo.png)
@@ -44,6 +44,6 @@ cargo build --release --features tui
 `fi-slurm` currently has very limited site configuration through a `site.conf` file located in the same directory as the running binary. The contents of this file are used to populate the `cluster_list` field in the `slurmdb_assoc_cond_t` struct.
 
 ## License
-Copyright 2025 The Simons Foundation, Inc.
+Copyright 2025-2026 The Simons Foundation, Inc.
 
 SPDX-License-Identifier: Apache-2.0

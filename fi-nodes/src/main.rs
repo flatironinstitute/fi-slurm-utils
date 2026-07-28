@@ -234,8 +234,8 @@ fn main() -> Result<(), String> {
             args.no_color,
             args.names,
             args.alphabetical,
-            args.preempt,
             do_gpu_report, // display GPU column
+            target_width(args.width),
         );
 
         if args.debug {
@@ -354,6 +354,17 @@ fn preempt_node(
     PreemptNodes(preemptable_nodes)
 }
 
+/// The width the tree report should fit into, or `None` for unbounded.
+///
+/// Unbounded when stdout is not a terminal, so piped and redirected output stays
+/// reproducible instead of depending on the terminal that happened to launch us.
+fn target_width(override_width: Option<usize>) -> Option<usize> {
+    override_width.or_else(|| {
+        terminal_size::terminal_size_of(std::io::stdout())
+            .map(|(terminal_size::Width(w), _)| w as usize)
+    })
+}
+
 const HELP: &str = "Report the state of nodes in a Slurm cluster, grouped by feature (tree view, the default) or state (-d, detailed view). Only CPU nodes are shown by default in the tree view; use -g to show only GPU nodes or -a to see all. The graphical availability bars display absolute node counts.";
 
 #[derive(Parser, Debug)]
@@ -444,4 +455,8 @@ struct Args {
     #[arg(short, long, hide = true)] // summary report is deprecated in favor of tree view
     #[arg(help = "Prints the top-level summary report for each feature type")]
     summary: bool,
+
+    #[arg(long, hide = true)]
+    #[arg(help = "Override the detected terminal width used to lay out the tree report")]
+    width: Option<usize>,
 }
