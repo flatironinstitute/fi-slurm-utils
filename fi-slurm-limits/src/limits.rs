@@ -1,8 +1,8 @@
 use fi_slurm::parser::parse_slurm_hostlist;
 use fi_slurm::{
     jobs::{
-        AccountJobUsage, FilterMethod, JobState, SlurmJobs, build_node_to_job_map, get_jobs,
-        print_accounts,
+        AccountJobUsage, AcctUsageWidths, FilterMethod, JobState, SlurmJobs, build_node_to_job_map,
+        get_jobs, print_accounts,
     },
     nodes::get_nodes,
 };
@@ -10,6 +10,12 @@ use fi_slurm_db::acct::{TresMax, get_tres_info};
 use std::collections::{HashMap, HashSet};
 
 const ALWAYS_SHOW: [&str; 2] = ["preempt", "gpupreempt"];
+
+/// Slurm spells an unset scalar limit INFINITE (0xffffffff) or NO_VAL (0xfffffffe);
+/// `AccountJobUsage` spells it 0.
+fn unlimited_to_zero(limit: u32) -> u32 {
+    if limit >= u32::MAX - 1 { 0 } else { limit }
+}
 
 pub fn print_limits(name: &str) {
     let (user_acct, accounts_to_process) =
@@ -41,6 +47,7 @@ pub fn print_limits(name: &str) {
         let center_gres_count = center_jobs.get_gres_total();
 
         let (center_nodes, center_cores) = center_jobs.get_resource_use();
+        let center_job_count = center_jobs.jobs.len() as u32;
 
         let user_jobs = jobs_collection
             .clone()
@@ -49,35 +56,42 @@ pub fn print_limits(name: &str) {
 
         let (user_nodes, user_cores) = user_jobs.get_resource_use();
         let user_gres_count = user_jobs.get_gres_total();
+        let user_job_count = user_jobs.jobs.len() as u32;
 
         let user_tres_max = TresMax::new(a.max_tres_per_user.clone().unwrap_or("".to_string()));
         let user_max_nodes = user_tres_max.max_nodes.unwrap_or(0);
         let user_max_cores = user_tres_max.max_cores.unwrap_or(0);
         let user_max_gres = user_tres_max.max_gpus.unwrap_or(0);
+        let user_max_jobs = unlimited_to_zero(a.max_jobs_per_user);
 
         let center_tres_max = TresMax::new(a.max_tres_per_group.clone().unwrap_or("".to_string()));
         let center_max_nodes = center_tres_max.max_nodes.unwrap_or(0);
         let center_max_cores = center_tres_max.max_cores.unwrap_or(0);
         let center_max_gres = center_tres_max.max_gpus.unwrap_or(0);
 
-        user_usage.push(AccountJobUsage::new(
-            &group,
-            user_nodes,
-            user_cores,
-            user_gres_count,
-            user_max_nodes,
-            user_max_cores,
-            user_max_gres,
-        ));
-        center_usage.push(AccountJobUsage::new(
-            &group,
-            center_nodes,
-            center_cores,
-            center_gres_count,
-            center_max_nodes,
-            center_max_cores,
-            center_max_gres,
-        ));
+        user_usage.push(AccountJobUsage {
+            account: group.clone(),
+            cores: user_cores,
+            nodes: user_nodes,
+            gpus: user_gres_count,
+            jobs: user_job_count,
+            max_cores: user_max_cores,
+            max_nodes: user_max_nodes,
+            max_gpus: user_max_gres,
+            max_jobs: user_max_jobs,
+        });
+        center_usage.push(AccountJobUsage {
+            account: group.clone(),
+            cores: center_cores,
+            nodes: center_nodes,
+            gpus: center_gres_count,
+            jobs: center_job_count,
+            max_cores: center_max_cores,
+            max_nodes: center_max_nodes,
+            max_gpus: center_max_gres,
+            // MaxJobsPU is a per-user limit, so the center has no counterpart to show
+            max_jobs: 0,
+        });
     });
 
     // a special edge case to deal with the fact that we need to get the QOS limits for the gen
@@ -110,15 +124,17 @@ pub fn print_limits(name: &str) {
     // handle the case where we failed to get both with a warning?
     if let (Some(gen_bla), Some(inter)) = (&gen_acc, &inter_acc) {
         // create composite element from their combination
-        let gen_inter = AccountJobUsage::new(
-            "gen",
-            gen_bla.nodes,
-            gen_bla.cores,
-            gen_bla.gpus,
-            inter.max_nodes,
-            inter.max_cores,
-            inter.max_gpus,
-        );
+        let gen_inter = AccountJobUsage {
+            account: "gen".to_string(),
+            cores: gen_bla.cores,
+            nodes: gen_bla.nodes,
+            gpus: gen_bla.gpus,
+            jobs: gen_bla.jobs,
+            max_cores: inter.max_cores,
+            max_nodes: inter.max_nodes,
+            max_gpus: inter.max_gpus,
+            max_jobs: inter.max_jobs,
+        };
 
         user_usage.insert(0, gen_inter);
     } else {
@@ -141,12 +157,14 @@ pub fn print_limits(name: &str) {
     user_usage.retain(|user| {
         ALWAYS_SHOW.contains(&user.account.as_str())
             || ![
-                user.nodes,
                 user.cores,
+                user.nodes,
                 user.gpus,
-                user.max_nodes,
+                user.jobs,
                 user.max_cores,
+                user.max_nodes,
                 user.max_gpus,
+                user.max_jobs,
             ]
             .iter()
             .all(|i| *i == 0)
@@ -163,11 +181,16 @@ pub fn print_limits(name: &str) {
     user_usage.sort_by(|a, b| a.account.cmp(&b.account));
     center_usage.sort_by(|a, b| a.account.cmp(&b.account));
 
+    // shared widths so the two reports line up column-for-column
+    let widths = AcctUsageWidths::default()
+        .measure(&user_usage)
+        .measure(&center_usage);
+
     println!("\nUser Limits ({})", name);
-    print_accounts(user_usage);
+    print_accounts(&user_usage, &widths);
 
     println!("\nCenter Limits ({})", user_acct);
-    print_accounts(center_usage);
+    print_accounts(&center_usage, &widths);
 }
 
 pub fn leaderboard(top_n: usize) {
