@@ -13,8 +13,7 @@ static HIDDEN_FEATURES: OnceLock<HashSet<&str>> = OnceLock::new();
 fn hidden_features() -> &'static HashSet<&'static str> {
     HIDDEN_FEATURES.get_or_init(|| {
         [
-            "rocky8", "rocky9", "sxm", "sxm2", "sxm4", "sxm5", "nvlink", "a100", "h100", "v100",
-            "ib",
+            "sxm", "sxm2", "sxm4", "sxm5", "nvlink", "a100", "h100", "v100", "ib",
         ]
         .iter()
         .cloned()
