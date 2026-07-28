@@ -638,6 +638,21 @@ impl Layout {
             + self.bar_width.map_or(0, |w| 2 * (w + 2) + 2)
     }
 
+    /// The rule under the header, carrying a junction wherever a bar's `│` descends from it
+    fn separator(&self) -> String {
+        let width = self.total_width();
+        let mut rule = vec!['═'; width];
+        if let Some(w) = self.bar_width {
+            let nodes_bar = self.feature_w + self.nodes_w + 2;
+            let cpus_bar = nodes_bar + w + self.cpus_w + 4;
+            for border in [nodes_bar, nodes_bar + w + 1, cpus_bar, cpus_bar + w + 1] {
+                // the rightmost border ends the rule, so it takes a corner rather than a tee
+                rule[border] = if border + 1 == width { '╕' } else { '╤' };
+            }
+        }
+        rule.into_iter().collect()
+    }
+
     /// The (nodes, cores/GPUs) titles, in their long form when the bars can hold it
     fn titles(&self, gpu: bool) -> (&'static str, &'static str) {
         let cpus = if gpu { TITLE_GPUS } else { TITLE_CORES };
@@ -866,7 +881,7 @@ pub fn print_tree_report(
     }
 
     // Print Separator Line
-    println!("{}", "═".repeat(layout.total_width()));
+    println!("{}", layout.separator());
 
     // Print the top-level line using the adjusted widths for proper alignment
     println!(
