@@ -442,8 +442,10 @@ impl AccountJobUsage {
 
 // to print a vector of account job usage in a sensible way
 
+/// The column widths needed to print a set of `AccountJobUsage` rows. Widths can be
+/// accumulated over several sets so that separate reports align with each other.
 #[derive(Clone, Copy, Default)]
-struct MaxAcctUsage {
+pub struct AcctUsageWidths {
     name_length: usize,
     core_length: usize,
     max_core_length: usize,
@@ -451,6 +453,21 @@ struct MaxAcctUsage {
     max_node_length: usize,
     gpu_length: usize,
     max_gpu_length: usize,
+}
+
+impl AcctUsageWidths {
+    pub fn measure<'a>(mut self, accounts: impl IntoIterator<Item = &'a AccountJobUsage>) -> Self {
+        for acc in accounts {
+            self.name_length = self.name_length.max(acc.account.len());
+            self.core_length = self.core_length.max(acc.cores.to_string().len());
+            self.max_core_length = self.max_core_length.max(zero_to_dash(acc.max_cores).len());
+            self.node_length = self.node_length.max(acc.nodes.to_string().len());
+            self.max_node_length = self.max_node_length.max(zero_to_dash(acc.max_nodes).len());
+            self.gpu_length = self.gpu_length.max(acc.gpus.to_string().len());
+            self.max_gpu_length = self.max_gpu_length.max(zero_to_dash(acc.max_gpus).len());
+        }
+        self
+    }
 }
 
 fn zero_to_dash(x: u32) -> String {
@@ -461,35 +478,14 @@ fn zero_to_dash(x: u32) -> String {
     }
 }
 
-pub fn print_accounts(accounts: Vec<AccountJobUsage>) {
-    let max: &MaxAcctUsage =
-        &accounts
-            .iter()
-            .fold(MaxAcctUsage::default(), |mut accumulator, acc| {
-                accumulator.name_length = accumulator.name_length.max(acc.account.len());
-                accumulator.core_length = accumulator.core_length.max(acc.cores.to_string().len());
-                accumulator.max_core_length = accumulator
-                    .max_core_length
-                    .max(acc.max_cores.to_string().len());
-                accumulator.node_length = accumulator.node_length.max(acc.nodes.to_string().len());
-                accumulator.max_node_length = accumulator
-                    .max_node_length
-                    .max(acc.max_nodes.to_string().len());
-                accumulator.gpu_length = accumulator.gpu_length.max(acc.gpus.to_string().len());
-                accumulator.max_gpu_length = accumulator
-                    .max_gpu_length
-                    .max(acc.max_gpus.to_string().len());
-
-                accumulator
-            });
-
-    let max_name_length = max.name_length;
-    let max_core_length = max.core_length;
-    let max_max_core_length = max.max_core_length;
-    let max_node_length = max.node_length;
-    let max_max_node_length = max.max_node_length;
-    let max_gpu_length = max.gpu_length;
-    let max_max_gpu_length = max.max_gpu_length;
+pub fn print_accounts(accounts: &[AccountJobUsage], widths: &AcctUsageWidths) {
+    let max_name_length = widths.name_length;
+    let max_core_length = widths.core_length;
+    let max_max_core_length = widths.max_core_length;
+    let max_node_length = widths.node_length;
+    let max_max_node_length = widths.max_node_length;
+    let max_gpu_length = widths.gpu_length;
+    let max_max_gpu_length = widths.max_gpu_length;
 
     let padding = " ".repeat(4);
 

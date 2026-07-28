@@ -1,8 +1,8 @@
 use fi_slurm::parser::parse_slurm_hostlist;
 use fi_slurm::{
     jobs::{
-        AccountJobUsage, FilterMethod, JobState, SlurmJobs, build_node_to_job_map, get_jobs,
-        print_accounts,
+        AccountJobUsage, AcctUsageWidths, FilterMethod, JobState, SlurmJobs, build_node_to_job_map,
+        get_jobs, print_accounts,
     },
     nodes::get_nodes,
 };
@@ -163,11 +163,16 @@ pub fn print_limits(name: &str) {
     user_usage.sort_by(|a, b| a.account.cmp(&b.account));
     center_usage.sort_by(|a, b| a.account.cmp(&b.account));
 
+    // shared widths so the two reports line up column-for-column
+    let widths = AcctUsageWidths::default()
+        .measure(&user_usage)
+        .measure(&center_usage);
+
     println!("\nUser Limits ({})", name);
-    print_accounts(user_usage);
+    print_accounts(&user_usage, &widths);
 
     println!("\nCenter Limits ({})", user_acct);
-    print_accounts(center_usage);
+    print_accounts(&center_usage, &widths);
 }
 
 pub fn leaderboard(top_n: usize) {
