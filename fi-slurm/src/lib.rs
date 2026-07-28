@@ -2,7 +2,7 @@
 #![allow(non_upper_case_globals)]
 #![allow(non_snake_case)]
 
-pub const AUTHOR_HELP: &str = "Author: Nicolas Posner (nicolasposner@gmail.com)\nContributors: Lehman Garrison, Dylan Simon, and Alex Chavkin\nRepo: https://github.com/flatironinstitute/fi-slurm-utils";
+pub const AUTHOR_HELP: &str = "Maintainer: Lehman Garrison (https://github.com/lgarrison)\nOriginal author: Nicolas Posner (nicolasposner@gmail.com)\nContributors: Dylan Simon and Alex Chavkin\nRepo: https://github.com/flatironinstitute/fi-slurm-utils";
 
 pub mod cluster_state;
 pub mod energy;
