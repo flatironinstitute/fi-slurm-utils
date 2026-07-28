@@ -8,5 +8,6 @@ license = { workspace = true }
 [dependencies]
 bitflags = "2.9.1"
 chrono = "0.4.41"
+colored = "3.0.0"
 regex = "1.11.1"
 fi-slurm-sys = {path = "../fi-slurm-sys"}

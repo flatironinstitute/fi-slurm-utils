@@ -1,6 +1,7 @@
 use crate::parser::parse_tres_str;
 use crate::utils::{c_str_to_string, time_t_to_datetime};
 use chrono::{DateTime, Utc};
+use colored::Colorize;
 use fi_slurm_sys::{job_info, job_info_msg_t, slurm_free_job_info_msg, slurm_load_jobs, time_t};
 use std::collections::HashMap;
 use std::ffi::CStr;
@@ -478,6 +479,41 @@ fn zero_to_dash(x: u32) -> String {
     }
 }
 
+/// Percent of a limit at which usage turns yellow, then orange; 100% turns red
+const YELLOW_PERCENT: u64 = 50;
+const ORANGE_PERCENT: u64 = 75;
+
+/// No ANSI color is orange, so it comes from the truecolor range. `colored` substitutes
+/// the nearest basic color where the terminal lacks truecolor support.
+const ORANGE: (u8, u8, u8) = (255, 165, 0);
+
+/// Renders one "used/limit" cell, padded to `col_width` and colored by how much of the
+/// limit is consumed. A limit of zero means unlimited, so it is never flagged.
+fn usage_cell(
+    used: u32,
+    limit: u32,
+    used_width: usize,
+    limit_width: usize,
+    col_width: usize,
+) -> String {
+    let plain = format!("{used:>used_width$}/{:>limit_width$}", zero_to_dash(limit));
+    // pad by the visible length, which the color escapes would otherwise inflate
+    let pad = " ".repeat(col_width.saturating_sub(plain.len()));
+
+    let colored = if limit == 0 {
+        plain
+    } else {
+        match u64::from(used) * 100 / u64::from(limit) {
+            p if p >= 100 => plain.red().to_string(),
+            p if p >= ORANGE_PERCENT => plain.truecolor(ORANGE.0, ORANGE.1, ORANGE.2).to_string(),
+            p if p >= YELLOW_PERCENT => plain.yellow().to_string(),
+            _ => plain,
+        }
+    };
+
+    format!("{colored}{pad}")
+}
+
 pub fn print_accounts(accounts: &[AccountJobUsage], widths: &AcctUsageWidths) {
     let max_name_length = widths.name_length;
     let max_core_length = widths.core_length;
@@ -501,10 +537,6 @@ pub fn print_accounts(accounts: &[AccountJobUsage], widths: &AcctUsageWidths) {
     let final_nodes_width = nodes_data_width.max(header_nodes.len());
     let final_gpus_width = gpus_data_width.max(header_gpus.len());
 
-    //let cores_col_width = max_core_length + 1 + max_max_core_length;
-    //let nodes_col_width = max_node_length + 1 + max_max_node_length;
-    //let gpus_col_width = max_gpu_length + 1 + max_max_gpu_length;
-
     // We left-align (`:<`) the header text within the final calculated column width.
     let header_line = format!(
         "{:<max_name_length$}{}{:>final_cores_width$}{}{:>final_nodes_width$}{}{:>final_gpus_width$}",
@@ -520,34 +552,35 @@ pub fn print_accounts(accounts: &[AccountJobUsage], widths: &AcctUsageWidths) {
     println!("{}", header_line);
 
     for acc in accounts {
-        // First, create the "value/max" string for each column for this specific account
-        let cores_str = format!(
-            "{:>max_core_length$}/{:>max_max_core_length$}",
+        // Each cell is padded to its column width, so the data lines up under its header
+        let cores_str = usage_cell(
             acc.cores,
-            zero_to_dash(acc.max_cores)
+            acc.max_cores,
+            max_core_length,
+            max_max_core_length,
+            final_cores_width,
         );
-        let nodes_str = format!(
-            "{:>max_node_length$}/{:>max_max_node_length$}",
+        let nodes_str = usage_cell(
             acc.nodes,
-            zero_to_dash(acc.max_nodes)
+            acc.max_nodes,
+            max_node_length,
+            max_max_node_length,
+            final_nodes_width,
         );
-        let gpus_str = format!(
-            "{:>max_gpu_length$}/{:>max_max_gpu_length$}",
+        let gpus_str = usage_cell(
             acc.gpus,
-            zero_to_dash(acc.max_gpus)
+            acc.max_gpus,
+            max_gpu_length,
+            max_max_gpu_length,
+            final_gpus_width,
         );
 
-        // Now, format the full line, left-aligning each data string within the final column width.
-        // This ensures the start of each data string aligns perfectly with the start of its header.
         let data_line = format!(
-            "{:<max_name_length$}{}{:<final_cores_width$}{}{:<final_nodes_width$}{}{:<final_gpus_width$}",
+            "{:<max_name_length$}{}{}{}{}{}{}",
             acc.account, padding, cores_str, padding, nodes_str, padding, gpus_str,
         );
         println!("{}", data_line);
     }
-
-    // iterate through, get the lengths of each set of printed components, align them as we did in
-    // the report, and then print
 }
 
 /// Builds a map where keys are node hostnames and values are a list of job IDs
