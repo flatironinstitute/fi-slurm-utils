@@ -565,6 +565,7 @@ const BAR_WIDTH_MAX: usize = 20;
 const BAR_WIDTH_MIN: usize = 4;
 
 const TITLE_FEATURE: &str = "Feature";
+const TITLE_NAMES: &str = "Node Names";
 /// Availability column titles, as (long, short); the short form is used in narrow terminals
 const TITLE_NODES: (&str, &str) = ("Nodes Available", "Nodes");
 const TITLE_CORES: (&str, &str) = ("Cores Available", "Cores");
@@ -581,6 +582,9 @@ struct Layout {
     cpus_w: usize,
     /// `None` suppresses the bars, which moves the titles over the numeric columns
     bar_width: Option<usize>,
+    /// Room reserved for the node-names title, or 0 when names are not shown. The hostlists
+    /// themselves are unbounded and spill past the budget; only their title is laid out.
+    names_w: usize,
 }
 
 impl Layout {
@@ -594,6 +598,7 @@ impl Layout {
         feature_w: usize,
         nodes_data_w: usize,
         cpus_data_w: usize,
+        names_w: usize,
         gpu: bool,
         budget: Option<usize>,
     ) -> Self {
@@ -601,7 +606,7 @@ impl Layout {
             None => BAR_WIDTH_MAX,
             Some(budget) => {
                 // four single-space column gaps, plus the two `│` of each bar
-                let fixed = feature_w + nodes_data_w + cpus_data_w + 4 + 4;
+                let fixed = feature_w + nodes_data_w + cpus_data_w + names_w + 4 + 4;
                 BAR_WIDTH_MAX.min(budget.saturating_sub(fixed) / 2)
             }
         };
@@ -612,6 +617,7 @@ impl Layout {
                 nodes_w: nodes_data_w,
                 cpus_w: cpus_data_w,
                 bar_width: Some(bar_width),
+                names_w,
             }
         } else {
             let cpus_title = if gpu { TITLE_GPUS } else { TITLE_CORES };
@@ -620,6 +626,7 @@ impl Layout {
                 nodes_w: nodes_data_w.max(TITLE_NODES.1.len()),
                 cpus_w: cpus_data_w.max(cpus_title.1.len()),
                 bar_width: None,
+                names_w,
             }
         }
     }
@@ -639,8 +646,11 @@ impl Layout {
     }
 
     /// The rule under the header, carrying a junction wherever a bar's `│` descends from it
+    ///
+    /// The names column has no fixed width, so the rule reaches only far enough to underline
+    /// its title.
     fn separator(&self) -> String {
-        let width = self.total_width();
+        let width = self.total_width() + self.names_w;
         let mut rule = vec!['═'; width];
         if let Some(w) = self.bar_width {
             let nodes_bar = self.feature_w + self.nodes_w + 2;
@@ -747,10 +757,16 @@ pub fn print_tree_report(
         }
     };
 
+    let names_width = if show_node_names {
+        TITLE_NAMES.len() + 1
+    } else {
+        0
+    };
     let layout = Layout::solve(
         feature_width,
         nodes_data_width,
         cpus_data_width,
+        names_width,
         gpu,
         budget,
     );
@@ -854,26 +870,42 @@ pub fn print_tree_report(
 
     // Print Headers with alignment
     let (nodes_title, cpus_title) = layout.titles(gpu);
+    // the names column is unbounded, so its title trails the last column rather than
+    // being padded into one
+    let names_title = if show_node_names {
+        format!(" {}", TITLE_NAMES.bold())
+    } else {
+        String::new()
+    };
     if layout.bar_width.is_some() {
         // titles sit over the bars; the numeric columns are left unlabelled
         println!(
-            "{:<feature_w$} {:<nodes_w$}  {:<bar_w$}{:<cpus_w$}  {}",
+            "{:<feature_w$} {:<nodes_w$}  {:<bar_w$}{:<cpus_w$}  {:<cpus_title_w$}{}",
             TITLE_FEATURE.bold(),
             "",
             nodes_title.bold(),
             "",
             cpus_title.bold(),
+            names_title,
             feature_w = layout.feature_w,
             nodes_w = layout.nodes_w,
             cpus_w = layout.cpus_w,
             bar_w = layout.bar_field(),
+            // pad out to the bar's closing `│` so the names title lands in the gap after
+            // it; the title fit rule guarantees cpus_title is no wider than that
+            cpus_title_w = if show_node_names {
+                layout.bar_field() - 1
+            } else {
+                0
+            },
         );
     } else {
         println!(
-            "{:<feature_w$} {:>nodes_w$} {:>cpus_w$}",
+            "{:<feature_w$} {:>nodes_w$} {:>cpus_w$}{}",
             TITLE_FEATURE.bold(),
             nodes_title.bold(),
             cpus_title.bold(),
+            names_title,
             feature_w = layout.feature_w,
             nodes_w = layout.nodes_w,
             cpus_w = layout.cpus_w,
