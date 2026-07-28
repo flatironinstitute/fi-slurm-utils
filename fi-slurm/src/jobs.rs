@@ -383,62 +383,19 @@ pub fn enrich_jobs_with_node_ids(
     }
 }
 
+/// Usage of one account, alongside the limits it counts against.
+/// A limit of zero means unlimited.
 #[derive(Clone)]
 pub struct AccountJobUsage {
     pub account: String,
-    pub nodes: u32,
     pub cores: u32,
+    pub nodes: u32,
     pub gpus: u32,
-    pub max_nodes: u32,
+    pub jobs: u32,
     pub max_cores: u32,
+    pub max_nodes: u32,
     pub max_gpus: u32,
-}
-
-impl AccountJobUsage {
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        account: &str,
-        nodes: u32,
-        cores: u32,
-        gpus: u32,
-        max_nodes: u32,
-        max_cores: u32,
-        max_gpus: u32,
-    ) -> Self {
-        Self {
-            account: account.to_string(),
-            nodes,
-            cores,
-            gpus,
-            max_nodes,
-            max_cores,
-            max_gpus,
-        }
-    }
-    // pub fn print_user(&self, padding: usize) {
-    //     println!("{} {} {}/{} {}/{} {}/{}",
-    //         self.account,
-    //         " ".repeat(padding),
-    //         self.user_cores,
-    //         self.user_max_cores,
-    //         self.user_nodes,
-    //         self.user_max_nodes,
-    //         self.user_gres,
-    //         self.user_max_gres,
-    //     )
-    // }
-    // pub fn print_center(&self, padding: usize) {
-    //     println!("{} {} {}/{} {}/{} {}/{}",
-    //         self.account,
-    //         " ".repeat(padding),
-    //         self.center_cores,
-    //         self.group_max_cores,
-    //         self.center_nodes,
-    //         self.group_max_nodes,
-    //         self.center_gres,
-    //         self.group_max_gres,
-    //     )
-    // }
+    pub max_jobs: u32,
 }
 
 // to print a vector of account job usage in a sensible way
@@ -454,6 +411,8 @@ pub struct AcctUsageWidths {
     max_node_length: usize,
     gpu_length: usize,
     max_gpu_length: usize,
+    job_length: usize,
+    max_job_length: usize,
 }
 
 impl AcctUsageWidths {
@@ -466,6 +425,8 @@ impl AcctUsageWidths {
             self.max_node_length = self.max_node_length.max(zero_to_dash(acc.max_nodes).len());
             self.gpu_length = self.gpu_length.max(acc.gpus.to_string().len());
             self.max_gpu_length = self.max_gpu_length.max(zero_to_dash(acc.max_gpus).len());
+            self.job_length = self.job_length.max(acc.jobs.to_string().len());
+            self.max_job_length = self.max_job_length.max(zero_to_dash(acc.max_jobs).len());
         }
         self
     }
@@ -522,31 +483,38 @@ pub fn print_accounts(accounts: &[AccountJobUsage], widths: &AcctUsageWidths) {
     let max_max_node_length = widths.max_node_length;
     let max_gpu_length = widths.gpu_length;
     let max_max_gpu_length = widths.max_gpu_length;
+    let max_job_length = widths.job_length;
+    let max_max_job_length = widths.max_job_length;
 
     let padding = " ".repeat(4);
 
     let header_cores = "CORES";
     let header_nodes = "NODES";
     let header_gpus = "GPUS";
+    let header_jobs = "JOBS";
 
     let cores_data_width = max_core_length + 1 + max_max_core_length;
     let nodes_data_width = max_node_length + 1 + max_max_node_length;
     let gpus_data_width = max_gpu_length + 1 + max_max_gpu_length;
+    let jobs_data_width = max_job_length + 1 + max_max_job_length;
 
     let final_cores_width = cores_data_width.max(header_cores.len());
     let final_nodes_width = nodes_data_width.max(header_nodes.len());
     let final_gpus_width = gpus_data_width.max(header_gpus.len());
+    let final_jobs_width = jobs_data_width.max(header_jobs.len());
 
     // We left-align (`:<`) the header text within the final calculated column width.
     let header_line = format!(
-        "{:<max_name_length$}{}{:>final_cores_width$}{}{:>final_nodes_width$}{}{:>final_gpus_width$}",
+        "{:<max_name_length$}{}{:>final_cores_width$}{}{:>final_nodes_width$}{}{:>final_gpus_width$}{}{:>final_jobs_width$}",
         "", // Placeholder for the account name column
         padding,
         header_cores,
         padding,
         header_nodes,
         padding,
-        header_gpus
+        header_gpus,
+        padding,
+        header_jobs
     );
 
     println!("{}", header_line);
@@ -574,10 +542,25 @@ pub fn print_accounts(accounts: &[AccountJobUsage], widths: &AcctUsageWidths) {
             max_max_gpu_length,
             final_gpus_width,
         );
+        let jobs_str = usage_cell(
+            acc.jobs,
+            acc.max_jobs,
+            max_job_length,
+            max_max_job_length,
+            final_jobs_width,
+        );
 
         let data_line = format!(
-            "{:<max_name_length$}{}{}{}{}{}{}",
-            acc.account, padding, cores_str, padding, nodes_str, padding, gpus_str,
+            "{:<max_name_length$}{}{}{}{}{}{}{}{}",
+            acc.account,
+            padding,
+            cores_str,
+            padding,
+            nodes_str,
+            padding,
+            gpus_str,
+            padding,
+            jobs_str,
         );
         println!("{}", data_line);
     }
