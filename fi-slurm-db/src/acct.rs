@@ -59,7 +59,7 @@ impl AssocConfig {
 
 /// Wrapper owning heap-allocated Slurm user condition struct
 pub struct UserQueryInfo {
-    pub user: *mut slurmdb_user_cond_t,
+    user: *mut slurmdb_user_cond_t,
 }
 
 impl UserQueryInfo {
@@ -197,6 +197,11 @@ impl SlurmUserList {
             Self { ptr }
         }
     }
+
+    /// Walks the records; the borrow keeps the list alive for as long as the iterator
+    fn iter(&self) -> SlurmIterator<'_> {
+        unsafe { SlurmIterator::new(self.ptr) }
+    }
 }
 
 impl Drop for SlurmUserList {
@@ -331,8 +336,8 @@ fn process_user_list(user_list: SlurmUserList) -> Result<Vec<SlurmUser>, QosErro
         return Err(QosError::UserListNull);
     }
 
-    let iterator = unsafe { SlurmIterator::new(user_list.ptr) };
-    let results: Vec<SlurmUser> = iterator
+    let results: Vec<SlurmUser> = user_list
+        .iter()
         .filter_map(|node_ptr| {
             let user_rec_ptr = node_ptr as *const slurmdb_user_rec_t;
             SlurmUser::from_c_rec(user_rec_ptr).ok()

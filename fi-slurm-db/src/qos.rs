@@ -53,7 +53,7 @@ impl QosConfig {
 
 /// Wrapper owning a heap-allocated Slurm QoS filter struct
 pub struct QosQueryInfo {
-    pub qos: *mut slurmdb_qos_cond_t,
+    qos: *mut slurmdb_qos_cond_t,
 }
 
 impl QosQueryInfo {
@@ -106,7 +106,7 @@ impl Deref for QosQueryInfo {
 }
 
 pub struct SlurmQosList {
-    pub ptr: *mut xlist,
+    ptr: *mut xlist,
 }
 
 impl SlurmQosList {
@@ -116,6 +116,11 @@ impl SlurmQosList {
             let ptr = slurmdb_qos_get(db_conn.as_mut_ptr(), qos_query.qos);
             Self { ptr }
         }
+    }
+
+    /// Walks the records; the borrow keeps the list alive for as long as the iterator
+    fn iter(&self) -> SlurmIterator<'_> {
+        unsafe { SlurmIterator::new(self.ptr) }
     }
 }
 
@@ -191,9 +196,8 @@ pub fn process_qos_list(qos_list: SlurmQosList) -> Result<Vec<SlurmQos>, QosErro
         return Err(QosError::QosListNull);
     }
 
-    let iterator = unsafe { SlurmIterator::new(qos_list.ptr) };
-
-    let results: Vec<SlurmQos> = iterator
+    let results: Vec<SlurmQos> = qos_list
+        .iter()
         .map(|node_ptr| {
             // not even an unsafe cast!
             let qos_rec_ptr = node_ptr as *const slurmdb_qos_rec_t;

@@ -1,4 +1,4 @@
-use std::{ffi::CString, os::raw::c_void};
+use std::{ffi::CString, marker::PhantomData, os::raw::c_void};
 
 use fi_slurm_sys::{
     list_itr_t, slurm_list_append, slurm_list_create, slurm_list_iterator_create,
@@ -7,7 +7,6 @@ use fi_slurm_sys::{
 
 /// A custom destructor function that can be passed to C
 /// It takes a raw pointer to a CString and correctly frees it using Rust's allocator
-#[unsafe(no_mangle)]
 extern "C" fn free_rust_string(ptr: *mut c_void) {
     if !ptr.is_null() {
         unsafe {
@@ -54,32 +53,38 @@ pub fn bool_to_int(b: bool) -> u16 {
     if b { 1 } else { 0 }
 }
 
-/// A container struct for a pointer to a C list iterator
-pub struct SlurmIterator {
-    pub ptr: *mut list_itr_t,
+/// A container struct for a pointer to a C list iterator.
+/// `'a` is the lifetime of the list being walked: Slurm invalidates the iterator when the
+/// list is destroyed, so the borrow checker is made to keep the list alive for as long.
+pub struct SlurmIterator<'a> {
+    ptr: *mut list_itr_t,
+    _list: PhantomData<&'a xlist>,
 }
 
-impl SlurmIterator {
-    /// Create a new slurm list from a raw pointer
+impl<'a> SlurmIterator<'a> {
+    /// Create an iterator over a raw Slurm list
     /// # Safety
     /// This function is unsafe because it takes a raw pointer to a C list.
     /// The caller must ensure that the pointer is valid and points to a properly initialized
-    /// Slurm list. If the pointer is null, the iterator will also be null.
-    /// The caller is responsible for ensuring that the list outlives the iterator.
-    /// The iterator must be dropped to free its resources.///
+    /// Slurm list, and that the list outlives `'a`. If the pointer is null, the iterator
+    /// yields nothing. Prefer the owning wrappers' `iter`, which pick `'a` for you.
     pub unsafe fn new(list_ptr: *mut xlist) -> Self {
         if list_ptr.is_null() {
             return Self {
                 ptr: std::ptr::null_mut(),
+                _list: PhantomData,
             };
         }
         let iter_ptr = unsafe { slurm_list_iterator_create(list_ptr) };
 
-        Self { ptr: iter_ptr }
+        Self {
+            ptr: iter_ptr,
+            _list: PhantomData,
+        }
     }
 }
 
-impl Drop for SlurmIterator {
+impl Drop for SlurmIterator<'_> {
     /// Safely destroy the slurm list iterator by freeing it with the C destructor
     fn drop(&mut self) {
         if !self.ptr.is_null() {
@@ -91,7 +96,7 @@ impl Drop for SlurmIterator {
     }
 }
 
-impl Iterator for SlurmIterator {
+impl Iterator for SlurmIterator<'_> {
     type Item = *mut c_void;
 
     fn next(&mut self) -> Option<Self::Item> {
