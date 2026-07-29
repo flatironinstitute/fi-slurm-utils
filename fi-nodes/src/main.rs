@@ -103,8 +103,8 @@ fn run() -> Result<(), String> {
         println!("Finished building node to job map: {:?}", start.elapsed());
     }
 
-    // getting information on which nodes are preemptable, to be used in the build report functions
-    let preemptable_nodes = if args.preempt {
+    // getting information on which jobs are preemptable, to be used in the build report functions
+    let preempt_jobs = if args.preempt {
         Some(preempt_node(
             &mut nodes_collection,
             &node_to_job_map,
@@ -226,8 +226,7 @@ fn run() -> Result<(), String> {
             args.exact,
             args.verbose,
             args.names,
-            preemptable_nodes,
-            args.preempt,
+            preempt_jobs.as_ref(),
             do_gpu_report, // count GPUs instead of CPUs
         );
         print_tree_report(
@@ -247,9 +246,15 @@ fn run() -> Result<(), String> {
     Ok(())
 }
 
-/// Newtype for the ids of preemptable nodes
+/// Newtype for the ids of jobs that are already past their preemptable time
 #[derive(Clone)]
-pub struct PreemptNodes(Vec<usize>);
+pub struct PreemptJobs(HashSet<u32>);
+
+impl PreemptJobs {
+    pub fn contains(&self, job_id: &u32) -> bool {
+        self.0.contains(job_id)
+    }
+}
 
 /// Function to crawl through the node to job map and change the status of a given node if the
 /// job/s running on it are preempt.
@@ -257,11 +262,14 @@ pub struct PreemptNodes(Vec<usize>);
 /// If a preempt job is othe only one running on that node, we change its base state to Idle. If
 /// a preempt job is one of several running on the node, we can change it from Allocated to Mixed,
 /// assuming it was not already Mixed.
+///
+/// Returns the ids of the jobs found to be preemptable, which is what the reports need to work out
+/// how much of a node's allocation could be freed by preempting.
 fn preempt_node(
     slurm_nodes: &mut SlurmNodes,
     node_to_job_map: &HashMap<usize, Vec<u32>>,
     slurm_jobs: &SlurmJobs,
-) -> PreemptNodes {
+) -> PreemptJobs {
     let now: DateTime<Utc> = Utc::now();
 
     let mut preemptable_jobs: HashSet<u32> = HashSet::new();
@@ -311,18 +319,12 @@ fn preempt_node(
     // we leave mixed be, because if the jobs running on it were all preempt, the node would be in
     // the other category
 
-    let mut preemptable_nodes: Vec<usize> = Vec::new();
-
     for node in slurm_nodes.nodes.iter_mut() {
         if all_preempt.contains(&node.id) {
             match &node.state {
-                NodeState::Allocated | NodeState::Mixed => {
-                    preemptable_nodes.push(node.id);
-                    node.state = NodeState::Idle
-                }
+                NodeState::Allocated | NodeState::Mixed => node.state = NodeState::Idle,
                 NodeState::Compound { base, flags } => match **base {
                     NodeState::Allocated | NodeState::Mixed => {
-                        preemptable_nodes.push(node.id);
                         node.state = NodeState::Compound {
                             base: Box::new(NodeState::Idle),
                             flags: flags.to_vec(),
@@ -334,13 +336,9 @@ fn preempt_node(
             }
         } else if partially_preempt.contains(&node.id) {
             match &node.state {
-                NodeState::Allocated => {
-                    preemptable_nodes.push(node.id);
-                    node.state = NodeState::Mixed
-                }
+                NodeState::Allocated => node.state = NodeState::Mixed,
                 NodeState::Compound { base, flags } => {
                     if **base == NodeState::Allocated {
-                        preemptable_nodes.push(node.id);
                         node.state = NodeState::Compound {
                             base: Box::new(NodeState::Mixed),
                             flags: flags.to_vec(),
@@ -352,7 +350,7 @@ fn preempt_node(
         }
     }
 
-    PreemptNodes(preemptable_nodes)
+    PreemptJobs(preemptable_jobs)
 }
 
 /// The width the tree report should fit into, or `None` for unbounded.

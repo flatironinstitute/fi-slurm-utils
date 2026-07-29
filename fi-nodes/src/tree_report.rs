@@ -1,7 +1,7 @@
-use crate::PreemptNodes;
+use crate::PreemptJobs;
 use colored::*;
 use fi_slurm::filter::FeatureQuery;
-use fi_slurm::jobs::SlurmJobs;
+use fi_slurm::jobs::{Job, SlurmJobs};
 use fi_slurm::nodes::{Node, NodeState};
 use fi_slurm::utils::count_blocks;
 use std::collections::{HashMap, HashSet};
@@ -94,8 +94,152 @@ pub enum GpuFilter {
     All,
 }
 
+/// What a single node contributes to the stats of every tree level it belongs to
+///
+/// As in `ReportLine`, the `cpus` fields carry GPU counts when the report is counting GPUs.
+#[derive(Default)]
+struct NodeContribution {
+    idle_nodes: u32,
+    preempt_nodes: Option<u32>,
+    total_cpus: u32,
+    idle_cpus: u32,
+    preempt_cpus: Option<u32>,
+    alloc_cpus: u32,
+}
+
+impl ReportLine {
+    /// Folds one node's contribution into this line
+    fn add(&mut self, contribution: &NodeContribution) {
+        self.total_nodes += 1;
+        self.idle_nodes += contribution.idle_nodes;
+        self.total_cpus += contribution.total_cpus;
+        self.idle_cpus += contribution.idle_cpus;
+        self.alloc_cpus += contribution.alloc_cpus;
+
+        // `None` and `Some(0)` are deliberately distinct: the latter marks a line where
+        // preemption is in play but yields nothing, which prints as "(-0)" rather than blank
+        if let Some(nodes) = contribution.preempt_nodes {
+            *self.preempt_nodes.get_or_insert(0) += nodes;
+        }
+        if let Some(cpus) = contribution.preempt_cpus {
+            *self.preempt_cpus.get_or_insert(0) += cpus;
+        }
+    }
+}
+
+/// A job's share of one node, counted in GPUs rather than CPUs when `gpu` is set
+///
+/// Slurm reports these totals for the job as a whole, so an even split across its nodes is the
+/// closest we can get for a heterogeneous allocation.
+fn job_share(job: &Job, gpu: bool) -> u32 {
+    let total = if gpu {
+        job.allocated_gres.get("gres/gpu").copied().unwrap_or(0) as u32
+    } else {
+        job.num_cpus
+    };
+
+    total / job.num_nodes.max(1)
+}
+
+/// Computes what one node adds to every tree level it belongs to
+///
+/// Under `preempt_jobs`, resources held by jobs that are already preemptable count as available,
+/// and the `preempt_*` fields record how much of that availability requires preempting something.
+fn node_contribution(
+    node: &Node,
+    jobs: &SlurmJobs,
+    jobs_on_node: &[u32],
+    preempt_jobs: Option<&PreemptJobs>,
+    gpu: bool,
+) -> NodeContribution {
+    let alloc_cpus: u32 = jobs_on_node
+        .iter()
+        .filter_map(|id| jobs.jobs.get(id))
+        .map(|job| job_share(job, false))
+        .sum();
+
+    let (total, alloc) = match (gpu, &node.gpu_info) {
+        (true, Some(gpu_info)) => (gpu_info.total_gpus as u32, gpu_info.allocated_gpus as u32),
+        (true, None) => (0, 0),
+        (false, _) => (node.cpus as u32, alloc_cpus),
+    };
+
+    // Slurm calls a node Allocated once every core is claimed, but the jobs we can see on it may
+    // not account for all of them
+    let derived_state = if alloc_cpus > 0 && alloc_cpus < node.cpus as u32 {
+        match &node.state {
+            NodeState::Compound { flags, .. } => NodeState::Compound {
+                base: Box::new(NodeState::Mixed),
+                flags: flags.to_vec(),
+            },
+            _ => NodeState::Mixed,
+        }
+    } else {
+        // Otherwise, we trust the state reported by Slurm
+        node.state.clone()
+    };
+
+    // the preempt set, kept only if any of it is actually running here
+    let preempt_jobs =
+        preempt_jobs.filter(|preempt_jobs| jobs_on_node.iter().any(|id| preempt_jobs.contains(id)));
+
+    // `preempt_node` has already rewritten the state of a node whose every job is preemptable to
+    // Idle; the Mixed derivation above must not undo that, since preempting frees the whole node
+    // however few of its cores those jobs hold
+    let (is_available, is_mixed) = if preempt_jobs.is_some() && is_node_available(&node.state) {
+        (true, false)
+    } else {
+        (
+            is_node_available(&derived_state),
+            is_node_mixed(&derived_state),
+        )
+    };
+
+    let mut contribution = NodeContribution {
+        total_cpus: total,
+        alloc_cpus: alloc,
+        ..Default::default()
+    };
+
+    // a down, drained or reserved node offers nothing, preemption included
+    if !is_available && !is_mixed {
+        return contribution;
+    }
+
+    let preemptable_held = match preempt_jobs {
+        Some(preempt_jobs) => {
+            let held = if jobs_on_node.iter().all(|id| preempt_jobs.contains(id)) {
+                // the node's own allocation figure is exact, so prefer it over apportioned
+                // per-job shares whenever everything on the node can be preempted
+                alloc
+            } else {
+                jobs_on_node
+                    .iter()
+                    .filter(|id| preempt_jobs.contains(id))
+                    .filter_map(|id| jobs.jobs.get(id))
+                    .map(|job| job_share(job, gpu))
+                    .sum::<u32>()
+                    .min(alloc)
+            };
+
+            // a whole node is only obtainable if preempting clears everything on it
+            contribution.preempt_nodes = Some(u32::from(is_available));
+            contribution.preempt_cpus = Some(held);
+
+            held
+        }
+        None => 0,
+    };
+
+    if is_available {
+        contribution.idle_nodes = 1;
+    }
+    contribution.idle_cpus = total.saturating_sub(alloc) + preemptable_held;
+
+    contribution
+}
+
 /// Builds a hierarchical tree report from a flat list of Slurm nodes
-/// Strong candidate for refactor, currently very repetitive and confusing
 #[allow(clippy::too_many_arguments)]
 pub fn build_tree_report(
     nodes: &[&Node],
@@ -105,8 +249,7 @@ pub fn build_tree_report(
     exact_match: bool,
     show_hidden_features: bool,
     show_node_names: bool,
-    preemptable_nodes: Option<PreemptNodes>,
-    preempt: bool,
+    preempt_jobs: Option<&PreemptJobs>,
     gpu: bool,
 ) -> TreeReportData {
     let mut root = TreeNode {
@@ -120,112 +263,15 @@ pub fn build_tree_report(
 
     // the main loop, iterating over the nodes in order to construct the tree structure
     for &node in nodes {
-        let alloc_cpus_for_node: u32 = if let Some(job_ids) = node_to_job_map.get(&node.id) {
-            job_ids
-                .iter()
-                .filter_map(|id| jobs.jobs.get(id))
-                .map(|j| j.num_cpus / j.num_nodes.max(1))
-                .sum()
-        } else {
-            0
-        };
+        let jobs_on_node = node_to_job_map
+            .get(&node.id)
+            .map(Vec::as_slice)
+            .unwrap_or_default();
 
-        let mut total_gpus: u32 = 0;
-        let mut allocated_gpus: u32 = 0;
+        // every level this node belongs to gets the same contribution
+        let contribution = node_contribution(node, jobs, jobs_on_node, preempt_jobs, gpu);
 
-        if let Some(gpu_info) = &node.gpu_info {
-            total_gpus = gpu_info.total_gpus as u32;
-            allocated_gpus = gpu_info.allocated_gpus as u32;
-        };
-
-        let derived_state = if alloc_cpus_for_node > 0 && alloc_cpus_for_node < node.cpus as u32 {
-            match &node.state {
-                NodeState::Compound { flags, .. } => NodeState::Compound {
-                    base: Box::new(NodeState::Mixed),
-                    flags: flags.to_vec(),
-                },
-                _ => NodeState::Mixed,
-            }
-        } else {
-            // Otherwise, we trust the state reported by Slurm
-            node.state.clone()
-        };
-
-        let is_available = is_node_available(&derived_state);
-        let is_mixed = is_node_mixed(&derived_state);
-
-        let preemptable_node_ids = if preempt {
-            &preemptable_nodes.as_ref().unwrap().0
-        } else {
-            &Vec::new()
-        };
-
-        // Update Grand Total Stats
-        root.stats.total_nodes += 1;
-
-        if gpu {
-            root.stats.total_cpus += total_gpus;
-            root.stats.alloc_cpus += allocated_gpus;
-        } else {
-            root.stats.total_cpus += node.cpus as u32;
-            root.stats.alloc_cpus += alloc_cpus_for_node;
-        }
-
-        // Preemptable nodes have already had their state updated to Idle or Mixed
-        if is_available && preempt {
-            // we don't increment idle nodes or cpus in this case
-            // in order to keep idle nodes referring only to idle and not idle + preempt
-            root.stats.idle_nodes += 1;
-
-            if gpu {
-                root.stats.idle_cpus += total_gpus;
-            } else {
-                root.stats.idle_cpus += node.cpus as u32;
-            }
-
-            if preemptable_node_ids.contains(&node.id) {
-                *root.stats.preempt_nodes.get_or_insert(0) += 1;
-                if gpu {
-                    *root.stats.preempt_cpus.get_or_insert(0) += total_gpus;
-                } else {
-                    *root.stats.preempt_cpus.get_or_insert(0) += node.cpus as u32; // because unlike
-                }
-                // the nodes, cpus don't get any kind of base state change
-            }
-        } else if is_available && !preempt {
-            root.stats.idle_nodes += 1;
-            // we assume that, if we're using the gpu bool flag and have gotten to this point, all
-            // the nodes we loop over will unwrap without panicking, since is_some was the
-            // inclusion condition
-            // but the mixed logic above may not be fully accurate...
-            if gpu {
-                root.stats.idle_cpus += (total_gpus).saturating_sub(allocated_gpus);
-            } else {
-                root.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
-            }
-        } else if is_mixed && preempt {
-            if gpu {
-                root.stats.idle_cpus += (total_gpus).saturating_sub(allocated_gpus);
-            } else {
-                root.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
-            }
-
-            if preemptable_node_ids.contains(&node.id) {
-                if gpu {
-                    *root.stats.preempt_cpus.get_or_insert(0) +=
-                        (total_gpus).saturating_sub(allocated_gpus);
-                } else {
-                    *root.stats.preempt_cpus.get_or_insert(0) +=
-                        (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
-                }
-            }
-        } else if is_mixed && !preempt {
-            if gpu {
-                root.stats.idle_cpus += (total_gpus).saturating_sub(allocated_gpus);
-            } else {
-                root.stats.idle_cpus += (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
-            }
-        }
+        root.stats.add(&contribution);
 
         // we filter the features list to remove the undesired features unless told otherwise
         let features_for_tree: Vec<_> = if show_hidden_features {
@@ -249,70 +295,7 @@ pub fn build_tree_report(
                     .entry(feature.to_string())
                     .or_default();
                 current_level.name = feature.to_string();
-                // add stats to this branch
-                current_level.stats.total_nodes += 1;
-
-                if gpu {
-                    current_level.stats.total_cpus += total_gpus;
-                    current_level.stats.alloc_cpus += allocated_gpus;
-                } else {
-                    current_level.stats.total_cpus += node.cpus as u32;
-                    current_level.stats.alloc_cpus += alloc_cpus_for_node;
-                }
-
-                if is_available && preempt {
-                    current_level.stats.idle_nodes += 1;
-
-                    if gpu {
-                        current_level.stats.idle_cpus += total_gpus;
-                    } else {
-                        current_level.stats.idle_cpus += node.cpus as u32;
-                    }
-
-                    if preemptable_node_ids.contains(&node.id) {
-                        *current_level.stats.preempt_nodes.get_or_insert(0) += 1;
-                        if gpu {
-                            *current_level.stats.preempt_cpus.get_or_insert(0) += total_gpus;
-                        } else {
-                            *current_level.stats.preempt_cpus.get_or_insert(0) += node.cpus as u32;
-                        }
-                    }
-                } else if is_available && !preempt {
-                    current_level.stats.idle_nodes += 1;
-                    if gpu {
-                        current_level.stats.idle_cpus +=
-                            (total_gpus).saturating_sub(allocated_gpus);
-                    } else {
-                        current_level.stats.idle_cpus +=
-                            (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
-                    }
-                } else if is_mixed && preempt {
-                    if gpu {
-                        current_level.stats.idle_cpus +=
-                            (total_gpus).saturating_sub(allocated_gpus);
-                    } else {
-                        current_level.stats.idle_cpus +=
-                            (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
-                    }
-
-                    if preemptable_node_ids.contains(&node.id) {
-                        if gpu {
-                            *current_level.stats.preempt_cpus.get_or_insert(0) +=
-                                (total_gpus).saturating_sub(allocated_gpus);
-                        } else {
-                            *current_level.stats.preempt_cpus.get_or_insert(0) +=
-                                (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
-                        }
-                    }
-                } else if is_mixed && !preempt {
-                    if gpu {
-                        current_level.stats.idle_cpus +=
-                            (total_gpus).saturating_sub(allocated_gpus);
-                    } else {
-                        current_level.stats.idle_cpus +=
-                            (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
-                    }
-                }
+                current_level.stats.add(&contribution);
 
                 if show_node_names {
                     current_level.stats.node_names.push(node.name.clone());
@@ -328,70 +311,7 @@ pub fn build_tree_report(
                     let label = alternative.label();
                     let mut current_level = root.children.entry(label.clone()).or_default();
                     current_level.name = label;
-                    // add stats to this top-level branch
-                    current_level.stats.total_nodes += 1;
-
-                    if gpu {
-                        current_level.stats.total_cpus += total_gpus;
-                        current_level.stats.alloc_cpus += allocated_gpus;
-                    } else {
-                        current_level.stats.total_cpus += node.cpus as u32;
-                        current_level.stats.alloc_cpus += alloc_cpus_for_node;
-                    }
-
-                    if is_available && preempt {
-                        current_level.stats.idle_nodes += 1;
-                        if gpu {
-                            current_level.stats.idle_cpus += total_gpus;
-                        } else {
-                            current_level.stats.idle_cpus += node.cpus as u32;
-                        }
-
-                        if preemptable_node_ids.contains(&node.id) {
-                            *current_level.stats.preempt_nodes.get_or_insert(0) += 1;
-
-                            if gpu {
-                                *current_level.stats.preempt_cpus.get_or_insert(0) += total_gpus;
-                            } else {
-                                *current_level.stats.preempt_cpus.get_or_insert(0) +=
-                                    node.cpus as u32;
-                            }
-                        }
-                    } else if is_available && !preempt {
-                        current_level.stats.idle_nodes += 1;
-                        if gpu {
-                            current_level.stats.idle_cpus +=
-                                (total_gpus).saturating_sub(allocated_gpus);
-                        } else {
-                            current_level.stats.idle_cpus +=
-                                (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
-                        }
-                    } else if is_mixed && preempt {
-                        if gpu {
-                            current_level.stats.idle_cpus +=
-                                (total_gpus).saturating_sub(allocated_gpus);
-                        } else {
-                            current_level.stats.idle_cpus +=
-                                (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
-                        }
-                        if preemptable_node_ids.contains(&node.id) {
-                            if gpu {
-                                *current_level.stats.preempt_cpus.get_or_insert(0) +=
-                                    (total_gpus).saturating_sub(allocated_gpus);
-                            } else {
-                                *current_level.stats.preempt_cpus.get_or_insert(0) +=
-                                    (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
-                            }
-                        }
-                    } else if is_mixed && !preempt {
-                        if gpu {
-                            current_level.stats.idle_cpus +=
-                                (total_gpus).saturating_sub(allocated_gpus);
-                        } else {
-                            current_level.stats.idle_cpus +=
-                                (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
-                        }
-                    }
+                    current_level.stats.add(&contribution);
 
                     // build the sub-branch from the *remaining* features,
                     // respecting the show_hidden_features flag
@@ -405,73 +325,7 @@ pub fn build_tree_report(
                             .entry(feature.to_string())
                             .or_default();
                         current_level.name = feature.to_string();
-                        // add stats to the sub-branch
-                        current_level.stats.total_nodes += 1;
-
-                        if gpu {
-                            current_level.stats.total_cpus += total_gpus;
-                            current_level.stats.alloc_cpus += allocated_gpus;
-                        } else {
-                            current_level.stats.total_cpus += node.cpus as u32;
-                            current_level.stats.alloc_cpus += alloc_cpus_for_node;
-                        }
-
-                        if is_available && preempt {
-                            current_level.stats.idle_nodes += 1;
-
-                            if gpu {
-                                current_level.stats.idle_cpus += total_gpus;
-                            } else {
-                                current_level.stats.idle_cpus += node.cpus as u32;
-                            }
-
-                            if preemptable_node_ids.contains(&node.id) {
-                                *current_level.stats.preempt_nodes.get_or_insert(0) += 1;
-
-                                if gpu {
-                                    *current_level.stats.preempt_cpus.get_or_insert(0) +=
-                                        total_gpus;
-                                } else {
-                                    *current_level.stats.preempt_cpus.get_or_insert(0) +=
-                                        node.cpus as u32;
-                                }
-                            }
-                        } else if is_available && !preempt {
-                            current_level.stats.idle_nodes += 1;
-                            if gpu {
-                                current_level.stats.idle_cpus +=
-                                    (total_gpus).saturating_sub(allocated_gpus);
-                            } else {
-                                current_level.stats.idle_cpus +=
-                                    (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
-                            }
-                        } else if is_mixed && preempt {
-                            if gpu {
-                                current_level.stats.idle_cpus +=
-                                    (total_gpus).saturating_sub(allocated_gpus);
-                            } else {
-                                current_level.stats.idle_cpus +=
-                                    (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
-                            }
-
-                            if preemptable_node_ids.contains(&node.id) {
-                                if gpu {
-                                    *current_level.stats.preempt_cpus.get_or_insert(0) +=
-                                        (total_gpus).saturating_sub(allocated_gpus);
-                                } else {
-                                    *current_level.stats.preempt_cpus.get_or_insert(0) +=
-                                        (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
-                                }
-                            }
-                        } else if is_mixed && !preempt {
-                            if gpu {
-                                current_level.stats.idle_cpus +=
-                                    (total_gpus).saturating_sub(allocated_gpus);
-                            } else {
-                                current_level.stats.idle_cpus +=
-                                    (node.cpus as u32).saturating_sub(alloc_cpus_for_node);
-                            }
-                        }
+                        current_level.stats.add(&contribution);
 
                         if show_node_names {
                             current_level.stats.node_names.push(node.name.clone());
@@ -481,6 +335,7 @@ pub fn build_tree_report(
             }
         }
     }
+
     root
 }
 
