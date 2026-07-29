@@ -1,7 +1,7 @@
 pub mod limits;
 
 use clap::Parser;
-use fi_slurm::utils::{SlurmConfig, initialize_slurm};
+use fi_slurm::utils::initialize_slurm;
 
 use crate::limits::{leaderboard, leaderboard_feature, print_limits};
 
@@ -12,9 +12,9 @@ use users::get_current_username;
 fn main() -> Result<(), String> {
     let args = Args::parse();
 
+    // slurm_init is the only initialisation libslurm asks for; the controller's own config
+    // is a separate RPC that this report never reads
     initialize_slurm();
-    let _slurm_config = SlurmConfig::load()?;
-    // not clear we need to load config, but let's test that later
 
     match args.leaderboard {
         None => {} // do nothing
