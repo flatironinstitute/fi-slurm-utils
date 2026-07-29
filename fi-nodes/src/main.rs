@@ -9,7 +9,7 @@ pub mod tui;
 use crate::tui::app::tui_execute;
 
 use clap::Parser;
-use fi_slurm::filter::filter_nodes_by_feature;
+use fi_slurm::filter::{FeatureQuery, filter_nodes_by_feature};
 use fi_slurm::jobs::{SlurmJobs, build_node_to_job_map, enrich_jobs_with_node_ids, get_jobs};
 use fi_slurm::nodes::get_nodes;
 use fi_slurm::nodes::{NodeState, SlurmNodes};
@@ -115,7 +115,11 @@ fn run() -> Result<(), String> {
     };
 
     // filtering nodes by feature
-    let mut filtered_nodes = filter_nodes_by_feature(&nodes_collection, &args.feature, args.exact);
+    let selection = FeatureQuery::parse(&args.feature).unwrap_or_else(|e| {
+        eprintln!("error: {e}");
+        std::process::exit(2);
+    });
+    let mut filtered_nodes = filter_nodes_by_feature(&nodes_collection, &selection, args.exact);
     if args.debug && !args.feature.is_empty() {
         println!("Finished filtering data: {:?}", start.elapsed());
     }
@@ -218,7 +222,8 @@ fn run() -> Result<(), String> {
             &filtered_nodes,
             &jobs_collection,
             &node_to_job_map,
-            &args.feature,
+            &selection,
+            args.exact,
             args.verbose,
             args.names,
             preemptable_nodes,
@@ -405,7 +410,7 @@ struct Args {
     exact: bool,
 
     #[arg(
-        help = "Node features to display, such as \"icelake\" or \"genoa\". Accepts multiple features.\nFor GPUs, use -g instead of \"gpu\"."
+        help = "Node features to display, such as \"icelake\" or \"genoa\". Accepts multiple features.\nCombine them as Slurm does in a --constraint: \"icelake&gpu\" or \"icelake,gpu\" for nodes with both, \"icelake|genoa\" for either. Quote an expression containing & or |, which the shell would otherwise read.\nFor GPUs, use -g instead of \"gpu\"."
     )]
     feature: Vec<String>,
 

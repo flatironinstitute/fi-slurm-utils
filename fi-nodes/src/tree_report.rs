@@ -1,5 +1,6 @@
 use crate::PreemptNodes;
 use colored::*;
+use fi_slurm::filter::FeatureQuery;
 use fi_slurm::jobs::SlurmJobs;
 use fi_slurm::nodes::{Node, NodeState};
 use fi_slurm::utils::count_blocks;
@@ -100,7 +101,8 @@ pub fn build_tree_report(
     nodes: &[&Node],
     jobs: &SlurmJobs,
     node_to_job_map: &HashMap<usize, Vec<u32>>,
-    feature_filter: &[String],
+    selection: &FeatureQuery,
+    exact_match: bool,
     show_hidden_features: bool,
     show_node_names: bool,
     preemptable_nodes: Option<PreemptNodes>,
@@ -112,7 +114,7 @@ pub fn build_tree_report(
         ..Default::default()
     };
 
-    if feature_filter.len() == 1 {
+    if selection.alternatives().len() == 1 {
         root.single_filter = true
     };
 
@@ -238,7 +240,7 @@ pub fn build_tree_report(
         // further refine with either gpu, not gpu, or both
 
         // tree building logic
-        if feature_filter.is_empty() {
+        if selection.is_empty() {
             // by default, build tree from the (potentially filtered) feature list
             let mut current_level = &mut root;
             for feature in &features_for_tree {
@@ -317,13 +319,15 @@ pub fn build_tree_report(
                 }
             }
         } else {
-            // bring the filtered features to the top level
-            for filter in feature_filter {
+            // bring what was selected to the top level, one branch per alternative, so that
+            // a compound like icelake&gpu is one branch rather than one per feature in it
+            for alternative in selection.alternatives() {
                 // IMPORTANT: The check to see if a node belongs under a filter
                 // must use the ORIGINAL, unfiltered features.
-                if node.features.contains(filter) {
-                    let mut current_level = root.children.entry(filter.clone()).or_default();
-                    current_level.name = filter.clone();
+                if alternative.matches(node, exact_match) {
+                    let label = alternative.label();
+                    let mut current_level = root.children.entry(label.clone()).or_default();
+                    current_level.name = label;
                     // add stats to this top-level branch
                     current_level.stats.total_nodes += 1;
 
@@ -391,7 +395,11 @@ pub fn build_tree_report(
 
                     // build the sub-branch from the *remaining* features,
                     // respecting the show_hidden_features flag
-                    for feature in features_for_tree.iter().filter(|f| f.as_str() != filter) {
+                    let named = alternative.features();
+                    for feature in features_for_tree
+                        .iter()
+                        .filter(|f| !named.iter().any(|name| name == **f))
+                    {
                         current_level = current_level
                             .children
                             .entry(feature.to_string())
