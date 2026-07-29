@@ -88,6 +88,33 @@ pub fn print_limits(name: &str, show_all: bool) {
             .unwrap_or_default();
         let limits: QosLimits = counted.map(|qos| qos.limits.clone()).unwrap_or_default();
 
+        // A limit of zero cores or nodes admits no job at all, so the partition is closed
+        // and saying so on every report is noise. Anything already running against it is
+        // worth seeing, though, since the limit cannot be why it got there.
+        let closed = [
+            tres_limit(&limits.max_tres_per_user, "cpu"),
+            tres_limit(&limits.max_tres_per_user, "node"),
+            tres_limit(&limits.group_tres, "cpu"),
+            tres_limit(&limits.group_tres, "node"),
+        ]
+        .contains(&Some(0));
+        let idle = [
+            mine.jobs,
+            mine.cores(),
+            mine.nodes(),
+            mine.gpus(),
+            ours.jobs,
+            ours.cores(),
+            ours.nodes(),
+            ours.gpus(),
+        ]
+        .iter()
+        .all(|&used| used == 0);
+
+        if closed && idle && !show_all {
+            continue;
+        }
+
         user_usage.push(AccountJobUsage {
             account: label.clone(),
             qos: qos_column.clone(),

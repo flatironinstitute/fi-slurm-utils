@@ -84,7 +84,7 @@ struct Args {
 
     #[arg(short, long)]
     #[arg(
-        help = "Show every partition, including those with no limits to report, and name the QOS each partition draws its limits from."
+        help = "Show every partition, including those with no limits to report and those closed by a limit of zero, and name the QOS each partition draws its limits from."
     )]
     verbose: bool,
 }
