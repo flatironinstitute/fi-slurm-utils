@@ -1,5 +1,5 @@
 use colored::Colorize;
-use fi_slurm::assoc_mgr::{QosUsage, get_qos_usage};
+use fi_slurm::assoc_mgr::{QosLimits, QosUsage, get_qos_usage};
 use fi_slurm::parser::parse_slurm_hostlist;
 use fi_slurm::{
     jobs::{
@@ -8,14 +8,14 @@ use fi_slurm::{
     },
     nodes::get_nodes,
 };
-use fi_slurm_db::acct::{PartitionLimits, TresMax, get_tres_info};
+use fi_slurm_db::acct::get_user_partitions;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use users::get_user_by_name;
 
 const ALWAYS_SHOW: [&str; 2] = ["preempt", "gpupreempt"];
 
 pub fn print_limits(name: &str, show_all: bool) {
-    let (user_acct, partitions) = get_tres_info(Some(name.to_string())).unwrap_or_else(|e| {
+    let (user_acct, partitions) = get_user_partitions(Some(name.to_string())).unwrap_or_else(|e| {
         eprintln!("{e}");
         std::process::exit(1);
     });
@@ -42,16 +42,17 @@ pub fn print_limits(name: &str, show_all: bool) {
     // a fraction of the usage counted against it. Partitions with no QOS share nothing.
     let mut groups: BTreeMap<String, Group> = BTreeMap::new();
 
-    for limits in &partitions {
-        let key = match &limits.qos {
+    for partition in &partitions {
+        let qos = partition.effective_qos();
+        let key = match qos {
             Some(qos) => format!("qos\u{1}{qos}"),
-            None => format!("partition\u{1}{}", limits.partition),
+            None => format!("partition\u{1}{}", partition.name),
         };
         groups
             .entry(key)
-            .or_insert_with(|| Group::new(limits.clone()))
+            .or_insert_with(|| Group::new(qos.map(str::to_string)))
             .partitions
-            .push(limits.partition.clone());
+            .push(partition.name.clone());
     }
 
     let mut user_usage: Vec<AccountJobUsage> = Vec::new();
@@ -61,19 +62,16 @@ pub fn print_limits(name: &str, show_all: bool) {
         let label = group.label();
         // under -v the QOS the limits actually come from gets a column, since it is not
         // always named after the partitions drawing on it
-        let qos_column =
-            show_all.then(|| group.limits.qos.clone().unwrap_or_else(|| "-".to_string()));
+        let qos_column = show_all.then(|| group.qos.clone().unwrap_or_else(|| "-".to_string()));
 
-        // a partition with no QOS has nothing counting against it
-        let counted = group.limits.qos.as_deref().and_then(|qos| usage.get(qos));
+        // a partition with no QOS has no limits, and nothing counting against them
+        let counted = group.qos.as_deref().and_then(|qos| usage.get(qos));
         let mine = counted.map(|qos| qos.user(uid)).unwrap_or_default();
         // the center table is about one account, not everyone sharing the QOS
         let ours = counted
             .map(|qos| qos.account(&user_acct))
             .unwrap_or_default();
-
-        let user_max = TresMax::new(group.limits.max_tres_per_user.clone().unwrap_or_default());
-        let center_max = TresMax::new(group.limits.max_tres_per_group.clone().unwrap_or_default());
+        let limits: QosLimits = counted.map(|qos| qos.limits.clone()).unwrap_or_default();
 
         user_usage.push(AccountJobUsage {
             account: label.clone(),
@@ -82,10 +80,10 @@ pub fn print_limits(name: &str, show_all: bool) {
             nodes: mine.nodes(),
             gpus: mine.gpus(),
             jobs: mine.jobs,
-            max_cores: user_max.max_cores,
-            max_nodes: user_max.max_nodes,
-            max_gpus: user_max.max_gpus,
-            max_jobs: group.limits.max_jobs_per_user,
+            max_cores: tres_limit(&limits.max_tres_per_user, "cpu"),
+            max_nodes: tres_limit(&limits.max_tres_per_user, "node"),
+            max_gpus: tres_limit(&limits.max_tres_per_user, "gres/gpu"),
+            max_jobs: limits.max_jobs_per_user,
         });
         center_usage.push(AccountJobUsage {
             account: label,
@@ -94,9 +92,9 @@ pub fn print_limits(name: &str, show_all: bool) {
             nodes: ours.nodes(),
             gpus: ours.gpus(),
             jobs: ours.jobs,
-            max_cores: center_max.max_cores,
-            max_nodes: center_max.max_nodes,
-            max_gpus: center_max.max_gpus,
+            max_cores: tres_limit(&limits.group_tres, "cpu"),
+            max_nodes: tres_limit(&limits.group_tres, "node"),
+            max_gpus: tres_limit(&limits.group_tres, "gres/gpu"),
             // MaxJobsPU is a per-user limit, so the center has no counterpart to show
             max_jobs: None,
         });
@@ -143,17 +141,24 @@ pub fn print_limits(name: &str, show_all: bool) {
     print_accounts(&center_usage, &widths, label_title);
 }
 
+/// One TRES limit, narrowed to the width the report prints. Absent is no limit.
+fn tres_limit(limits: &HashMap<String, u64>, tres: &str) -> Option<u32> {
+    limits
+        .get(tres)
+        .map(|&limit| limit.try_into().unwrap_or(u32::MAX))
+}
+
 /// The partitions drawing on one QOS, which therefore share its limits and its counters
 struct Group {
     partitions: Vec<String>,
-    limits: PartitionLimits,
+    qos: Option<String>,
 }
 
 impl Group {
-    fn new(limits: PartitionLimits) -> Self {
+    fn new(qos: Option<String>) -> Self {
         Self {
             partitions: Vec::new(),
-            limits,
+            qos,
         }
     }
 

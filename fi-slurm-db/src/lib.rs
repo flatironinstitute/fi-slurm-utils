@@ -4,4 +4,3 @@
 
 pub mod acct;
 pub mod db;
-pub mod qos;

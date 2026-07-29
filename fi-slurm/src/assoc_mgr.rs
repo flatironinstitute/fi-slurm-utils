@@ -99,10 +99,23 @@ impl Usage {
     }
 }
 
-/// One QOS, with the usage counted against it
+/// A QOS's limits. An absent entry is no limit; a zero is a limit of zero, which permits
+/// nothing, so the two are kept apart.
+#[derive(Debug, Clone, Default)]
+pub struct QosLimits {
+    pub max_jobs_per_user: Option<u32>,
+    pub max_submit_jobs_per_user: Option<u32>,
+    /// MaxTRESPU, keyed by TRES name
+    pub max_tres_per_user: HashMap<String, u64>,
+    /// GrpTRES, the limit over everyone in the QOS
+    pub group_tres: HashMap<String, u64>,
+}
+
+/// One QOS, with its limits and the usage counted against them
 #[derive(Debug, Clone)]
 pub struct QosUsage {
     pub name: String,
+    pub limits: QosLimits,
     /// Usage by everyone in the QOS, which is what GrpTRES limits are measured against
     pub group: Usage,
     /// Usage per user, which is what MaxTRESPU and MaxJobsPU are measured against
@@ -120,6 +133,31 @@ impl QosUsage {
     /// What `account` has running against this QOS; absent means nothing at all
     pub fn account(&self, account: &str) -> Usage {
         self.per_account.get(account).cloned().unwrap_or_default()
+    }
+}
+
+/// Reads a TRES limit array, which is indexed like the counters. Slurm marks an unset limit
+/// INFINITE64 rather than leaving it out, so those drop and genuine zeroes stay.
+unsafe fn tres_limit_map(limits: *mut u64, names: &[String]) -> HashMap<String, u64> {
+    if limits.is_null() || names.is_empty() {
+        return HashMap::new();
+    }
+
+    let limits = unsafe { std::slice::from_raw_parts(limits, names.len()) };
+    names
+        .iter()
+        .zip(limits)
+        .filter(|&(_, &limit)| limit < u64::MAX - 1)
+        .map(|(name, &limit)| (name.clone(), limit))
+        .collect()
+}
+
+/// Slurm spells an unset scalar limit INFINITE or NO_VAL
+fn unlimited_to_none(limit: u32) -> Option<u32> {
+    if limit >= u32::MAX - 1 {
+        None
+    } else {
+        Some(limit)
     }
 }
 
@@ -176,11 +214,18 @@ pub fn get_qos_usage(users: Vec<String>) -> Result<Vec<QosUsage>, String> {
 /// `rec` must point to a valid QOS record from an association manager reply.
 unsafe fn read_qos(rec: *const slurmdb_qos_rec_t, tres_names: &[String]) -> QosUsage {
     let name = unsafe { c_str_to_string((*rec).name) };
+    let limits = QosLimits {
+        max_jobs_per_user: unlimited_to_none(unsafe { (*rec).max_jobs_pu }),
+        max_submit_jobs_per_user: unlimited_to_none(unsafe { (*rec).max_submit_jobs_pu }),
+        max_tres_per_user: unsafe { tres_limit_map((*rec).max_tres_pu_ctld, tres_names) },
+        group_tres: unsafe { tres_limit_map((*rec).grp_tres_ctld, tres_names) },
+    };
     let usage = unsafe { (*rec).usage };
 
     if usage.is_null() {
         return QosUsage {
             name,
+            limits,
             group: Usage::default(),
             per_user: HashMap::new(),
             per_account: HashMap::new(),
@@ -213,6 +258,7 @@ unsafe fn read_qos(rec: *const slurmdb_qos_rec_t, tres_names: &[String]) -> QosU
 
     QosUsage {
         name,
+        limits,
         group,
         per_user,
         per_account,
