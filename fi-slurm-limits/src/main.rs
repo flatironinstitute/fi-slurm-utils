@@ -40,7 +40,7 @@ fn main() -> Result<(), String> {
             .into_owned()
     });
 
-    print_limits(&user_name);
+    print_limits(&user_name, args.verbose);
     Ok(())
 }
 
@@ -71,4 +71,8 @@ struct Args {
         help = "For the leaderboard: select feature(s) to filter by. \"icelake\" would only show information for icelake nodes."
     )]
     filter: Vec<String>,
+
+    #[arg(short, long)]
+    #[arg(help = "Show every partition, including those with no limits to report.")]
+    verbose: bool,
 }

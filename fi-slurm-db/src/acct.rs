@@ -1,5 +1,6 @@
 use chrono::{DateTime, Duration, Utc};
 use std::{
+    collections::HashMap,
     ffi::CStr,
     ops::{Deref, DerefMut},
 };
@@ -9,12 +10,12 @@ use fi_slurm_sys::{
     slurmdb_user_rec_t, slurmdb_users_get, xlist,
 };
 
+use fi_slurm::partitions::{Partition, get_partitions};
 use fi_slurm::site;
 
 use users::get_current_username;
 
 use crate::db::{DbConn, slurmdb_connect};
-use crate::jobs::{JobsConfig, JobsQueryInfo, SlurmJobs, SlurmJobsList, process_jobs_list};
 use crate::qos::{QosConfig, QosError, QosQueryInfo, SlurmQos, SlurmQosList, process_qos_list};
 use crate::utils::{SlurmIterator, bool_to_int, vec_to_slurm_list};
 
@@ -341,88 +342,27 @@ fn process_user_list(user_list: SlurmUserList) -> Result<Vec<SlurmUser>, QosErro
     Ok(results)
 }
 
-pub struct QosJobInfo {
-    pub user_acct: String,
-    pub qos: Vec<Vec<SlurmQos>>,
-    pub jobs: Vec<SlurmJobs>,
-}
-
-fn get_qos_info(mut db_conn: DbConn, assocs: &[SlurmAssoc]) -> Vec<Vec<SlurmQos>> {
-    let ret: Vec<Vec<SlurmQos>> = assocs
-        .iter()
-        .filter_map(|target_assoc| {
-            // query for qos details
-            let qos_details: Result<Vec<SlurmQos>, QosError> = if !target_assoc.acct.is_empty() {
-                // build the query, currently very sparse
-                let qos_config = QosConfig {
-                    name_list: Some(vec![
-                        target_assoc.acct.clone(),
-                        "inter".to_string(),
-                        "gpu".to_string(),
-                        "gpupreempt".to_string(),
-                        "gpuxl".to_string(),
-                        "eval".to_string(),
-                        "gen".to_string(),
-                        "preempt".to_string(),
-                        "genx".to_string(),
-                        "sljks".to_string(), //dummy
-                    ]),
-                    format_list: None,
-                    id_list: None,
-                };
-
-                // create the wrapper for the query
-                let mut qos_query = QosQueryInfo::new(qos_config);
-
-                // create the wrapper for the list, calls slurmdb_qos_get internally
-                let qos_list = SlurmQosList::new(&mut db_conn, &mut qos_query);
-
-                // process the resulting list and get details
-                process_qos_list(qos_list)
-            } else {
-                // qos detail error
-                Err(QosError::EmptyAssocError)
-            };
-
-            qos_details.ok()
-        })
-        .collect();
-
-    ret
-}
-
-fn get_jobs_info(
-    db_conn: DbConn,
-    assocs: &[SlurmAssoc],
-    qos: &Vec<Vec<SlurmQos>>,
-) -> Vec<SlurmJobs> {
-    let accts: Vec<String> = assocs.iter().map(|assoc| assoc.acct.clone()).collect();
-
-    let mut qos_names: Vec<String> = Vec::new();
-
-    for q in qos {
-        for p in q {
-            qos_names.push(p.name.clone())
-        }
+/// Fetches the named QOS records in one query. An empty list would ask Slurm for every QOS,
+/// so it short-circuits instead.
+fn get_qos(db_conn: &mut DbConn, names: Vec<String>) -> Result<Vec<SlurmQos>, QosError> {
+    if names.is_empty() {
+        return Ok(Vec::new());
     }
 
-    let now = Utc::now();
-    let jobs_config = JobsConfig {
-        acct_list: Some(accts),
+    let qos_config = QosConfig {
+        name_list: Some(names),
         format_list: None,
-        qos_list: Some(qos_names),
-        usage_end: now,
-        usage_start: now - Duration::weeks(5),
+        id_list: None,
     };
 
     // create the wrapper for the query
-    let mut jobs_query = JobsQueryInfo::new(jobs_config);
+    let mut qos_query = QosQueryInfo::new(qos_config);
 
-    // create the wrapper for the list, calls slurmdb_jobs_get internally
-    let jobs_list = SlurmJobsList::new(db_conn, &mut jobs_query);
+    // create the wrapper for the list, calls slurmdb_qos_get internally
+    let qos_list = SlurmQosList::new(db_conn, &mut qos_query);
 
     // process the resulting list and get details
-    process_jobs_list(jobs_list).unwrap_or_default() // find a better way to handle this error case
+    process_qos_list(qos_list)
 }
 
 fn handle_connection(persist_flags: &mut u16) -> Result<DbConn, QosError> {
@@ -436,18 +376,20 @@ fn handle_connection(persist_flags: &mut u16) -> Result<DbConn, QosError> {
     Ok(db_conn)
 }
 
+/// The account of the user's first association, the partitions that account may submit to, and
+/// the QOS records those partitions draw their limits from.
+///
+/// A user can hold several associations, but only the first is reported on: the rest are
+/// typically stale accounts from a previous center.
 pub fn get_user_info(
     user_query: &mut UserQueryInfo,
     persist_flags: &mut u16,
-) -> Result<QosJobInfo, QosError> {
-    let mut db_conn_qos = handle_connection(persist_flags)?;
-    let db_conn_job = handle_connection(persist_flags)?;
-
+) -> Result<(String, Vec<Partition>, Vec<SlurmQos>), QosError> {
     // will automatically drop when it drops out of scope
+    let mut db_conn = handle_connection(persist_flags)?;
 
     // make sure that C can take in the user info struct
-
-    let user_list = SlurmUserList::new(&mut db_conn_qos, user_query);
+    let user_list = SlurmUserList::new(&mut db_conn, user_query);
 
     let users = process_user_list(user_list)?;
 
@@ -456,17 +398,26 @@ pub fn get_user_info(
         return Err(QosError::SlurmUserError);
     };
 
-    let qos_vec = get_qos_info(db_conn_qos, &user.associations);
+    let acct = &user
+        .associations
+        .first()
+        .ok_or(QosError::EmptyAssocError)?
+        .acct;
 
-    let jobs_vec = get_jobs_info(db_conn_job, &user.associations, &qos_vec);
+    let partitions: Vec<Partition> = get_partitions()
+        .map_err(QosError::PartitionLoadError)?
+        .into_iter()
+        .filter(|p| p.allows_account(acct))
+        .collect();
 
-    let acct = &user.associations.first().unwrap().acct;
+    // several partitions can share a QOS, so ask for each name once
+    let mut qos_names: Vec<String> = partitions.iter().filter_map(|p| p.qos.clone()).collect();
+    qos_names.sort();
+    qos_names.dedup();
 
-    Ok(QosJobInfo {
-        user_acct: acct.to_string(),
-        qos: qos_vec,
-        jobs: jobs_vec,
-    })
+    let qos = get_qos(&mut db_conn, qos_names)?;
+
+    Ok((acct.to_string(), partitions, qos))
 
     // at all points, wrap these raw return into Rust types with Drop impls that use the
     // equivalent slurmdb_destroy_db function
@@ -474,7 +425,8 @@ pub fn get_user_info(
     // itself
 }
 
-pub fn get_tres_info(name: Option<String>) -> Result<(String, Vec<Vec<TresInfo>>), String> {
+/// The user's account, and the limits applying to them in each partition they can submit to
+pub fn get_tres_info(name: Option<String>) -> Result<(String, Vec<PartitionLimits>), String> {
     let name = name.unwrap_or_else(|| {
         get_current_username().unwrap_or_else(|| {
             eprintln!("Could not find user information: ensure that the running user is not deleted while the program is running");
@@ -487,108 +439,54 @@ pub fn get_tres_info(name: Option<String>) -> Result<(String, Vec<Vec<TresInfo>>
 
     let mut persist_flags: u16 = 0;
 
-    let qos_job_data = get_user_info(&mut user_query, &mut persist_flags)
+    let (user_acct, partitions, qos) = get_user_info(&mut user_query, &mut persist_flags)
         .map_err(|e| format!("Error getting user info for \"{name}\": {e:?}"))?;
 
-    // we could
-    // also get the user associations out of here, extra return
+    let by_name: HashMap<&str, &SlurmQos> = qos.iter().map(|q| (q.name.as_str(), q)).collect();
 
-    let tres_infos: Vec<Vec<TresInfo>> = qos_job_data
-        .qos
+    let limits = partitions
         .iter()
-        .map(|q| q.iter().map(TresInfo::new).collect())
+        .map(|p| {
+            let qos = p.qos.as_deref().and_then(|name| by_name.get(name).copied());
+            PartitionLimits::new(&p.name, qos)
+        })
         .collect();
 
-    // do the special case here? After it has already been adjusted, we just go into each
-    // Vec<TresInfo> and manually adjust?
-    let user_acct = qos_job_data.user_acct;
-    Ok((user_acct, tres_infos))
+    Ok((user_acct, limits))
 }
 
-#[derive(Clone)]
-pub struct TresInfo {
-    pub name: String,
-    pub priority: u32,
+/// The limits that apply to a user's jobs in one partition, taken from that partition's QOS.
+/// Zero, or `None`, means unlimited — as does a partition having no QOS of its own.
+#[derive(Clone, Default)]
+pub struct PartitionLimits {
+    pub partition: String,
     pub max_jobs_per_user: u32,
     pub max_tres_per_user: Option<String>,
     pub max_tres_per_group: Option<String>,
-    pub max_tres_per_job: Option<String>,
 }
 
-impl TresInfo {
-    pub fn new(qos: &SlurmQos) -> Self {
-        Self {
-            name: qos.name.clone(),
-            priority: qos.priority,
-            max_jobs_per_user: qos.max_jobs_per_user,
-            max_tres_per_user: if qos.max_tres_per_user == "foo" {
-                None
-            } else {
-                Some(qos.max_tres_per_user.clone())
+impl PartitionLimits {
+    fn new(partition: &str, qos: Option<&SlurmQos>) -> Self {
+        let partition = partition.to_string();
+
+        match qos {
+            Some(qos) => Self {
+                partition,
+                max_jobs_per_user: unlimited_to_zero(qos.max_jobs_per_user),
+                max_tres_per_user: qos.max_tres_per_user.clone(),
+                max_tres_per_group: qos.max_tres_per_group.clone(),
             },
-            max_tres_per_group: if qos.max_tres_per_group == "foo" {
-                None
-            } else {
-                Some(qos.max_tres_per_group.clone())
-            },
-            max_tres_per_job: if qos.max_tres_per_job == "foo" {
-                None
-            } else {
-                Some(qos.max_tres_per_job.clone())
+            None => Self {
+                partition,
+                ..Default::default()
             },
         }
     }
-    pub fn print(self) {
-        let jpu = tres_parser(self.max_jobs_per_user.to_string());
-        let tpu = tres_parser(self.max_tres_per_user.unwrap_or("".to_string()));
-        let tpg = tres_parser(self.max_tres_per_group.unwrap_or("".to_string()));
-        let tpj = tres_parser(self.max_tres_per_job.unwrap_or("".to_string()));
-        println!(
-            "{} \n {} {} {} {} {} \n",
-            self.name,
-            self.priority,
-            if jpu.is_empty() {
-                "".to_string()
-            } else {
-                format!("\n JPU: {}", jpu)
-            },
-            if tpu.is_empty() {
-                "".to_string()
-            } else {
-                format!("\n TPU: {}", tpu)
-            },
-            if tpg.is_empty() {
-                "".to_string()
-            } else {
-                format!("\n TPG: {}", tpg)
-            },
-            if tpj.is_empty() {
-                "".to_string()
-            } else {
-                format!("\n TPJ: {}", tpj)
-            },
-        )
-    }
 }
 
-fn tres_parser(tres: String) -> String {
-    tres.split(',')
-        .map(|t| {
-            if let Some((category, quantity)) = t.split_once('=') {
-                let unit = match category {
-                    "1" => "Cores",
-                    "2" => "Memory(gb)",
-                    "4" => "Nodes",
-                    "1001" => "GPUs",
-                    _ => "Unknown unit",
-                };
-
-                format!(" {quantity} {unit}")
-            } else {
-                "".to_string()
-            }
-        })
-        .collect::<String>()
+/// Slurm spells an unset scalar limit INFINITE (0xffffffff) or NO_VAL (0xfffffffe)
+fn unlimited_to_zero(limit: u32) -> u32 {
+    if limit >= u32::MAX - 1 { 0 } else { limit }
 }
 
 pub struct TresMax {

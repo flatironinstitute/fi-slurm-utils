@@ -25,6 +25,8 @@ pub enum QosError {
     DbConnError,
     #[error("List of QoS successfully retrieved but empty")]
     EmptyQosListError,
+    #[error("Failed to load partitions: {0}")]
+    PartitionLoadError(String),
 }
 
 /// A Rust-side object corresponding to the slurmdb_qos_cond_t object
@@ -128,15 +130,16 @@ impl Drop for SlurmQosList {
 }
 
 #[derive(Debug)]
-/// A Rust object holding part of the information from a slurmdb_qos_rec_t object
+/// A Rust object holding part of the information from a slurmdb_qos_rec_t object.
+/// An unset limit is `None`, or `u32::MAX` (Slurm's INFINITE) for the scalar ones.
 pub struct SlurmQos {
     pub name: String,
     pub priority: u32,
     pub max_jobs_per_user: u32,
-    pub max_tres_per_user: String,
-    pub max_tres_per_group: String,
-    pub max_tres_per_account: String,
-    pub max_tres_per_job: String,
+    pub max_tres_per_user: Option<String>,
+    pub max_tres_per_group: Option<String>,
+    pub max_tres_per_account: Option<String>,
+    pub max_tres_per_job: Option<String>,
 }
 
 impl SlurmQos {
@@ -154,48 +157,31 @@ impl SlurmQos {
                 CStr::from_ptr((*rec).name).to_string_lossy().into_owned()
             };
 
-            let max_tres_per_user = if (*rec).max_tres_pu.is_null() {
-                String::from("foo")
-            } else {
-                CStr::from_ptr((*rec).max_tres_pu)
-                    .to_string_lossy()
-                    .into_owned()
-            };
-
-            let max_tres_per_group = if (*rec).grp_tres.is_null() {
-                String::from("foo")
-            } else {
-                CStr::from_ptr((*rec).grp_tres)
-                    .to_string_lossy()
-                    .into_owned()
-            };
-
-            let max_tres_per_account = if (*rec).max_tres_pa.is_null() {
-                String::from("foo")
-            } else {
-                CStr::from_ptr((*rec).max_tres_pa)
-                    .to_string_lossy()
-                    .into_owned()
-            };
-
-            let max_tres_per_job = if (*rec).max_tres_pj.is_null() {
-                String::from("foo")
-            } else {
-                CStr::from_ptr((*rec).max_tres_pj)
-                    .to_string_lossy()
-                    .into_owned()
-            };
-
             Self {
                 name,
                 priority: (*rec).priority,
                 max_jobs_per_user: (*rec).max_jobs_pu,
-                max_tres_per_user,
-                max_tres_per_group,
-                max_tres_per_account,
-                max_tres_per_job,
+                max_tres_per_user: tres_str((*rec).max_tres_pu),
+                max_tres_per_group: tres_str((*rec).grp_tres),
+                max_tres_per_account: tres_str((*rec).max_tres_pa),
+                max_tres_per_job: tres_str((*rec).max_tres_pj),
             }
         }
+    }
+}
+
+/// Reads an optional TRES limit string, which Slurm leaves null when unset
+/// # Safety
+/// The caller must ensure `ptr` is either null or a valid C string.
+unsafe fn tres_str(ptr: *const std::os::raw::c_char) -> Option<String> {
+    if ptr.is_null() {
+        None
+    } else {
+        Some(
+            unsafe { CStr::from_ptr(ptr) }
+                .to_string_lossy()
+                .into_owned(),
+        )
     }
 }
 

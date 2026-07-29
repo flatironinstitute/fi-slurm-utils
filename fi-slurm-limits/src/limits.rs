@@ -11,20 +11,11 @@ use std::collections::{HashMap, HashSet};
 
 const ALWAYS_SHOW: [&str; 2] = ["preempt", "gpupreempt"];
 
-/// Slurm spells an unset scalar limit INFINITE (0xffffffff) or NO_VAL (0xfffffffe);
-/// `AccountJobUsage` spells it 0.
-fn unlimited_to_zero(limit: u32) -> u32 {
-    if limit >= u32::MAX - 1 { 0 } else { limit }
-}
-
-pub fn print_limits(name: &str) {
-    let (user_acct, accounts_to_process) =
-        get_tres_info(Some(name.to_string())).unwrap_or_else(|e| {
-            eprintln!("{e}");
-            std::process::exit(1);
-        });
-
-    let accounts = accounts_to_process.first().unwrap().clone();
+pub fn print_limits(name: &str, show_all: bool) {
+    let (user_acct, partitions) = get_tres_info(Some(name.to_string())).unwrap_or_else(|e| {
+        eprintln!("{e}");
+        std::process::exit(1);
+    });
 
     let mut jobs_collection = get_jobs().unwrap();
 
@@ -36,8 +27,8 @@ pub fn print_limits(name: &str) {
     let mut center_usage: Vec<AccountJobUsage> = Vec::new();
 
     //CENTER LIMITS ({acct})
-    accounts.iter().for_each(|a| {
-        let group = a.clone().name;
+    partitions.iter().for_each(|a| {
+        let group = a.partition.clone();
 
         let center_jobs = jobs_collection
             .clone()
@@ -62,7 +53,7 @@ pub fn print_limits(name: &str) {
         let user_max_nodes = user_tres_max.max_nodes.unwrap_or(0);
         let user_max_cores = user_tres_max.max_cores.unwrap_or(0);
         let user_max_gres = user_tres_max.max_gpus.unwrap_or(0);
-        let user_max_jobs = unlimited_to_zero(a.max_jobs_per_user);
+        let user_max_jobs = a.max_jobs_per_user;
 
         let center_tres_max = TresMax::new(a.max_tres_per_group.clone().unwrap_or("".to_string()));
         let center_max_nodes = center_tres_max.max_nodes.unwrap_or(0);
@@ -94,88 +85,32 @@ pub fn print_limits(name: &str) {
         });
     });
 
-    // a special edge case to deal with the fact that we need to get the QOS limits for the gen
-    // partition from the inter QOS
-    let mut gen_acc: Option<AccountJobUsage> = None;
-    let mut inter_acc: Option<AccountJobUsage> = None;
+    if !show_all {
+        // only retain those lines for which there are some non-zero quantities,
+        // or that we specify should never be hidden
+        user_usage.retain(|user| {
+            ALWAYS_SHOW.contains(&user.account.as_str())
+                || ![
+                    user.cores,
+                    user.nodes,
+                    user.gpus,
+                    user.jobs,
+                    user.max_cores,
+                    user.max_nodes,
+                    user.max_gpus,
+                    user.max_jobs,
+                ]
+                .iter()
+                .all(|i| *i == 0)
+        });
 
-    // retain the elements other than gen and inter, and
-    // store those elements above before removing them
-    user_usage.retain(|job_usage| {
-        match job_usage.account.as_str() {
-            "gen" => {
-                // We found "gen". Clone it to take ownership, then return `false` to remove it.
-                gen_acc = Some(job_usage.clone());
-                false
-            }
-            "inter" => {
-                // We found "inter". Clone it, then return `false` to remove it.
-                inter_acc = Some(job_usage.clone());
-                false
-            }
-            _ => {
-                // This is not "gen" or "inter", so keep it in the vector.
-                true
-            }
-        }
-    });
-
-    // check if both items were extracted
-    // handle the case where we failed to get both with a warning?
-    if let (Some(gen_bla), Some(inter)) = (&gen_acc, &inter_acc) {
-        // create composite element from their combination
-        let gen_inter = AccountJobUsage {
-            account: "gen".to_string(),
-            cores: gen_bla.cores,
-            nodes: gen_bla.nodes,
-            gpus: gen_bla.gpus,
-            jobs: gen_bla.jobs,
-            max_cores: inter.max_cores,
-            max_nodes: inter.max_nodes,
-            max_gpus: inter.max_gpus,
-            max_jobs: inter.max_jobs,
-        };
-
-        user_usage.insert(0, gen_inter);
-    } else {
-        // if we only found one, add it back in
-        if let Some(gen_bla) = gen_acc {
-            user_usage.insert(0, gen_bla);
-        } else if let Some(inter) = inter_acc {
-            user_usage.push(inter); // doesn't need to be at the top
-        } else {
-            // the case where neither were present, we just pass a user warning
-            println!(
-                "WARNING: Could not find both 'gen' and 'inter' accounts. No composite account was created."
-            );
-        };
+        // only retain those lines for which there are some non-zero LIMITS
+        center_usage.retain(|center| {
+            ![center.max_nodes, center.max_cores, center.max_gpus]
+                .iter()
+                .all(|i| *i == 0)
+        });
     }
-
-    // only retain those lines for which there are some non-zero quantities,
-    // or that we specify should never be hidden.
-    // This naturally hides cca limits for ccb users, etc.
-    user_usage.retain(|user| {
-        ALWAYS_SHOW.contains(&user.account.as_str())
-            || ![
-                user.cores,
-                user.nodes,
-                user.gpus,
-                user.jobs,
-                user.max_cores,
-                user.max_nodes,
-                user.max_gpus,
-                user.max_jobs,
-            ]
-            .iter()
-            .all(|i| *i == 0)
-    });
-
-    // only retain those lines for which there are some non-zero LIMITS
-    center_usage.retain(|center| {
-        ![center.max_nodes, center.max_cores, center.max_gpus]
-            .iter()
-            .all(|i| *i == 0)
-    });
 
     // Sort both by account name
     user_usage.sort_by(|a, b| a.account.cmp(&b.account));
