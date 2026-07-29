@@ -1,4 +1,7 @@
+use colored::Colorize;
+use fi_slurm::assoc_mgr::{QosLimits, load as load_assoc_mgr};
 use fi_slurm::parser::parse_slurm_hostlist;
+use fi_slurm::partitions::get_partitions;
 use fi_slurm::{
     jobs::{
         AccountJobUsage, AcctUsageWidths, FilterMethod, JobState, SlurmJobs, build_node_to_job_map,
@@ -6,178 +9,163 @@ use fi_slurm::{
     },
     nodes::get_nodes,
 };
-use fi_slurm_db::acct::{TresMax, get_tres_info};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 const ALWAYS_SHOW: [&str; 2] = ["preempt", "gpupreempt"];
 
-/// Slurm spells an unset scalar limit INFINITE (0xffffffff) or NO_VAL (0xfffffffe);
-/// `AccountJobUsage` spells it 0.
-fn unlimited_to_zero(limit: u32) -> u32 {
-    if limit >= u32::MAX - 1 { 0 } else { limit }
-}
+pub fn print_limits(name: &str, show_all: bool) {
+    let all_partitions = get_partitions().unwrap_or_else(|e| {
+        eprintln!("{e}");
+        std::process::exit(1);
+    });
 
-pub fn print_limits(name: &str) {
-    let (user_acct, accounts_to_process) =
-        get_tres_info(Some(name.to_string())).unwrap_or_else(|e| {
-            eprintln!("{e}");
-            std::process::exit(1);
-        });
+    // Naming the QOS keeps the reply to a fraction of its size: it otherwise carries every
+    // QOS's per-user counters for every user on the cluster. Which partitions this user can
+    // submit to is not known until the reply names their account, so ask about the QOS of
+    // all of them rather than pay for a second round trip to narrow it further.
+    let mut wanted: Vec<String> = all_partitions
+        .iter()
+        .filter_map(|partition| partition.effective_qos().map(str::to_string))
+        .collect();
+    wanted.sort();
+    wanted.dedup();
 
-    let accounts = accounts_to_process.first().unwrap().clone();
+    let assoc_mgr = load_assoc_mgr(vec![name.to_string()], Some(wanted)).unwrap_or_else(|e| {
+        eprintln!("{e}");
+        std::process::exit(1);
+    });
 
-    let mut jobs_collection = get_jobs().unwrap();
+    // the counters are keyed by uid, and the account decides which partitions are on offer
+    let user = assoc_mgr.users.get(name).unwrap_or_else(|| {
+        eprintln!("Slurm has no user named \"{name}\"");
+        std::process::exit(1);
+    });
+    let uid = user.uid;
+    let user_acct = user.default_account.clone().unwrap_or_else(|| {
+        eprintln!("\"{name}\" has no default account, so there is no center to report on");
+        std::process::exit(1);
+    });
+    let usage = &assoc_mgr.qos;
 
-    jobs_collection
-        .jobs
-        .retain(|&_, job| job.job_state == JobState::Running);
+    let partitions: Vec<_> = all_partitions
+        .into_iter()
+        .filter(|partition| partition.allows_account(&user_acct))
+        .collect();
+
+    // Partitions that share a QOS share one set of limits and one set of counters, so they
+    // belong on one line: reported separately, each line would show the whole limit against
+    // a fraction of the usage counted against it. Partitions with no QOS share nothing.
+    let mut groups: BTreeMap<String, Group> = BTreeMap::new();
+
+    for partition in &partitions {
+        let qos = partition.effective_qos();
+        let key = match qos {
+            Some(qos) => format!("qos\u{1}{qos}"),
+            None => format!("partition\u{1}{}", partition.name),
+        };
+        groups
+            .entry(key)
+            .or_insert_with(|| Group::new(qos.map(str::to_string)))
+            .partitions
+            .push(partition.name.clone());
+    }
 
     let mut user_usage: Vec<AccountJobUsage> = Vec::new();
     let mut center_usage: Vec<AccountJobUsage> = Vec::new();
 
-    //CENTER LIMITS ({acct})
-    accounts.iter().for_each(|a| {
-        let group = a.clone().name;
+    for group in groups.values() {
+        let label = group.label();
+        // under -v the QOS the limits actually come from gets a column, since it is not
+        // always named after the partitions drawing on it
+        let qos_column = show_all.then(|| group.qos.clone().unwrap_or_else(|| "-".to_string()));
 
-        let center_jobs = jobs_collection
-            .clone()
-            .filter_by(FilterMethod::Partition(group.clone()))
-            .filter_by(FilterMethod::Account(user_acct.clone()));
+        // a partition with no QOS has no limits, and nothing counting against them
+        let counted = group.qos.as_deref().and_then(|qos| usage.get(qos));
+        let mine = counted.map(|qos| qos.user(uid)).unwrap_or_default();
+        // the center table is about one account, not everyone sharing the QOS
+        let ours = counted
+            .map(|qos| qos.account(&user_acct))
+            .unwrap_or_default();
+        let limits: QosLimits = counted.map(|qos| qos.limits.clone()).unwrap_or_default();
 
-        let center_gres_count = center_jobs.get_gres_total();
+        // A limit of zero jobs, cores or nodes admits nothing at all, so the partition is
+        // closed and saying so on every report is noise. Anything already running against it
+        // is worth seeing, though, since the limit cannot be why it got there.
+        let closed = [
+            limits.max_jobs_per_user,
+            limits.group_jobs,
+            tres_limit(&limits.max_tres_per_user, "cpu"),
+            tres_limit(&limits.max_tres_per_user, "node"),
+            tres_limit(&limits.group_tres, "cpu"),
+            tres_limit(&limits.group_tres, "node"),
+        ]
+        .contains(&Some(0));
+        let idle = [
+            mine.jobs,
+            mine.cores(),
+            mine.nodes(),
+            mine.gpus(),
+            ours.jobs,
+            ours.cores(),
+            ours.nodes(),
+            ours.gpus(),
+        ]
+        .iter()
+        .all(|&used| used == 0);
 
-        let (center_nodes, center_cores) = center_jobs.get_resource_use();
-        let center_job_count = center_jobs.jobs.len() as u32;
-
-        let user_jobs = jobs_collection
-            .clone()
-            .filter_by(FilterMethod::Partition(group.clone()))
-            .filter_by(FilterMethod::UserName(name.to_string()));
-
-        let (user_nodes, user_cores) = user_jobs.get_resource_use();
-        let user_gres_count = user_jobs.get_gres_total();
-        let user_job_count = user_jobs.jobs.len() as u32;
-
-        let user_tres_max = TresMax::new(a.max_tres_per_user.clone().unwrap_or("".to_string()));
-        let user_max_nodes = user_tres_max.max_nodes.unwrap_or(0);
-        let user_max_cores = user_tres_max.max_cores.unwrap_or(0);
-        let user_max_gres = user_tres_max.max_gpus.unwrap_or(0);
-        let user_max_jobs = unlimited_to_zero(a.max_jobs_per_user);
-
-        let center_tres_max = TresMax::new(a.max_tres_per_group.clone().unwrap_or("".to_string()));
-        let center_max_nodes = center_tres_max.max_nodes.unwrap_or(0);
-        let center_max_cores = center_tres_max.max_cores.unwrap_or(0);
-        let center_max_gres = center_tres_max.max_gpus.unwrap_or(0);
+        if closed && idle && !show_all {
+            continue;
+        }
 
         user_usage.push(AccountJobUsage {
-            account: group.clone(),
-            cores: user_cores,
-            nodes: user_nodes,
-            gpus: user_gres_count,
-            jobs: user_job_count,
-            max_cores: user_max_cores,
-            max_nodes: user_max_nodes,
-            max_gpus: user_max_gres,
-            max_jobs: user_max_jobs,
+            account: label.clone(),
+            qos: qos_column.clone(),
+            cores: mine.cores(),
+            nodes: mine.nodes(),
+            gpus: mine.gpus(),
+            jobs: mine.jobs,
+            max_cores: tres_limit(&limits.max_tres_per_user, "cpu"),
+            max_nodes: tres_limit(&limits.max_tres_per_user, "node"),
+            max_gpus: tres_limit(&limits.max_tres_per_user, "gres/gpu"),
+            max_jobs: limits.max_jobs_per_user,
         });
         center_usage.push(AccountJobUsage {
-            account: group.clone(),
-            cores: center_cores,
-            nodes: center_nodes,
-            gpus: center_gres_count,
-            jobs: center_job_count,
-            max_cores: center_max_cores,
-            max_nodes: center_max_nodes,
-            max_gpus: center_max_gres,
+            account: label,
+            qos: qos_column,
+            cores: ours.cores(),
+            nodes: ours.nodes(),
+            gpus: ours.gpus(),
+            jobs: ours.jobs,
+            max_cores: tres_limit(&limits.group_tres, "cpu"),
+            max_nodes: tres_limit(&limits.group_tres, "node"),
+            max_gpus: tres_limit(&limits.group_tres, "gres/gpu"),
             // MaxJobsPU is a per-user limit, so the center has no counterpart to show
-            max_jobs: 0,
+            max_jobs: None,
         });
-    });
-
-    // a special edge case to deal with the fact that we need to get the QOS limits for the gen
-    // partition from the inter QOS
-    let mut gen_acc: Option<AccountJobUsage> = None;
-    let mut inter_acc: Option<AccountJobUsage> = None;
-
-    // retain the elements other than gen and inter, and
-    // store those elements above before removing them
-    user_usage.retain(|job_usage| {
-        match job_usage.account.as_str() {
-            "gen" => {
-                // We found "gen". Clone it to take ownership, then return `false` to remove it.
-                gen_acc = Some(job_usage.clone());
-                false
-            }
-            "inter" => {
-                // We found "inter". Clone it, then return `false` to remove it.
-                inter_acc = Some(job_usage.clone());
-                false
-            }
-            _ => {
-                // This is not "gen" or "inter", so keep it in the vector.
-                true
-            }
-        }
-    });
-
-    // check if both items were extracted
-    // handle the case where we failed to get both with a warning?
-    if let (Some(gen_bla), Some(inter)) = (&gen_acc, &inter_acc) {
-        // create composite element from their combination
-        let gen_inter = AccountJobUsage {
-            account: "gen".to_string(),
-            cores: gen_bla.cores,
-            nodes: gen_bla.nodes,
-            gpus: gen_bla.gpus,
-            jobs: gen_bla.jobs,
-            max_cores: inter.max_cores,
-            max_nodes: inter.max_nodes,
-            max_gpus: inter.max_gpus,
-            max_jobs: inter.max_jobs,
-        };
-
-        user_usage.insert(0, gen_inter);
-    } else {
-        // if we only found one, add it back in
-        if let Some(gen_bla) = gen_acc {
-            user_usage.insert(0, gen_bla);
-        } else if let Some(inter) = inter_acc {
-            user_usage.push(inter); // doesn't need to be at the top
-        } else {
-            // the case where neither were present, we just pass a user warning
-            println!(
-                "WARNING: Could not find both 'gen' and 'inter' accounts. No composite account was created."
-            );
-        };
     }
 
-    // only retain those lines for which there are some non-zero quantities,
-    // or that we specify should never be hidden.
-    // This naturally hides cca limits for ccb users, etc.
-    user_usage.retain(|user| {
-        ALWAYS_SHOW.contains(&user.account.as_str())
-            || ![
-                user.cores,
-                user.nodes,
-                user.gpus,
-                user.jobs,
-                user.max_cores,
-                user.max_nodes,
-                user.max_gpus,
-                user.max_jobs,
-            ]
-            .iter()
-            .all(|i| *i == 0)
-    });
+    if !show_all {
+        // keep the lines that have either usage or a limit to report, plus the ones we
+        // specify should never be hidden
+        user_usage.retain(|user| {
+            let has_usage = [user.cores, user.nodes, user.gpus, user.jobs]
+                .iter()
+                .any(|&n| n != 0);
+            let has_limit = [user.max_cores, user.max_nodes, user.max_gpus, user.max_jobs]
+                .iter()
+                .any(Option::is_some);
 
-    // only retain those lines for which there are some non-zero LIMITS
-    center_usage.retain(|center| {
-        ![center.max_nodes, center.max_cores, center.max_gpus]
-            .iter()
-            .all(|i| *i == 0)
-    });
+            ALWAYS_SHOW.contains(&user.account.as_str()) || has_usage || has_limit
+        });
 
-    // Sort both by account name
+        // only retain those lines that have a group limit to report
+        center_usage.retain(|center| {
+            [center.max_nodes, center.max_cores, center.max_gpus]
+                .iter()
+                .any(Option::is_some)
+        });
+    }
+
     user_usage.sort_by(|a, b| a.account.cmp(&b.account));
     center_usage.sort_by(|a, b| a.account.cmp(&b.account));
 
@@ -186,11 +174,60 @@ pub fn print_limits(name: &str) {
         .measure(&user_usage)
         .measure(&center_usage);
 
-    println!("\nUser Limits ({})", name);
-    print_accounts(&user_usage, &widths);
+    // the bare partition names need no heading; the annotated table does
+    let label_title = if show_all { "PARTITION" } else { "" };
+    let table_width = widths.table_width(label_title);
 
-    println!("\nCenter Limits ({})", user_acct);
-    print_accounts(&center_usage, &widths);
+    print_heading(&format!("User Limits ({name})"), table_width);
+    print_accounts(&user_usage, &widths, label_title);
+
+    print_heading(&format!("Center Limits ({user_acct})"), table_width);
+    print_accounts(&center_usage, &widths, label_title);
+}
+
+/// One TRES limit, narrowed to the width the report prints. Absent is no limit.
+fn tres_limit(limits: &HashMap<String, u64>, tres: &str) -> Option<u32> {
+    limits
+        .get(tres)
+        .map(|&limit| limit.try_into().unwrap_or(u32::MAX))
+}
+
+/// The partitions drawing on one QOS, which therefore share its limits and its counters
+struct Group {
+    partitions: Vec<String>,
+    qos: Option<String>,
+}
+
+impl Group {
+    fn new(qos: Option<String>) -> Self {
+        Self {
+            partitions: Vec::new(),
+            qos,
+        }
+    }
+
+    /// Every partition sharing the limits, so that one line can stand for all of them
+    fn label(&self) -> String {
+        let mut names = self.partitions.clone();
+        names.sort();
+        names.join(",")
+    }
+}
+
+/// Centres a section heading in a rule spanning `table_width`, both so it does not sit off to
+/// the left of right-aligned column headers, and to match the full-width `═` rules fi-nodes
+/// divides its reports with
+fn print_heading(heading: &str, table_width: usize) {
+    let heading = format!(" {heading} ");
+    let rule = table_width.saturating_sub(heading.len());
+    let left = rule / 2;
+
+    println!(
+        "\n{}{}{}",
+        "═".repeat(left),
+        heading.as_str().bold(),
+        "═".repeat(rule - left)
+    );
 }
 
 pub fn leaderboard(top_n: usize) {

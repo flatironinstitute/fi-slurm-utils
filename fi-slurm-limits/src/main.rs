@@ -1,7 +1,7 @@
 pub mod limits;
 
 use clap::Parser;
-use fi_slurm::utils::{SlurmConfig, initialize_slurm};
+use fi_slurm::utils::{finalize_slurm, initialize_slurm};
 
 use crate::limits::{leaderboard, leaderboard_feature, print_limits};
 
@@ -12,10 +12,19 @@ use users::get_current_username;
 fn main() -> Result<(), String> {
     let args = Args::parse();
 
+    // slurm_init is the only initialisation libslurm asks for; the controller's own config
+    // is a separate RPC that this report never reads
     initialize_slurm();
-    let _slurm_config = SlurmConfig::load()?;
-    // not clear we need to load config, but let's test that later
 
+    // run() so that every way out of it, including the leaderboards' early returns, is
+    // followed by the teardown slurm.h asks for
+    let result = run(args);
+
+    finalize_slurm();
+    result
+}
+
+fn run(args: Args) -> Result<(), String> {
     match args.leaderboard {
         None => {} // do nothing
         Some(num) => {
@@ -40,11 +49,12 @@ fn main() -> Result<(), String> {
             .into_owned()
     });
 
-    print_limits(&user_name);
+    print_limits(&user_name, args.verbose);
     Ok(())
 }
 
 const HELP: &str = "Displays current Slurm resource usage compared to limits. A value of \"-\" indicates no limit.\n\
+    Partitions named together, as in \"llm,scc\", draw their limits from one shared QOS, so that line totals the usage across all of them.\n\
     JOBS counts running jobs against MaxJobsPU. The limit on submitted jobs is separate and is not shown here.";
 
 #[derive(Parser, Debug)]
@@ -71,4 +81,10 @@ struct Args {
         help = "For the leaderboard: select feature(s) to filter by. \"icelake\" would only show information for icelake nodes."
     )]
     filter: Vec<String>,
+
+    #[arg(short, long)]
+    #[arg(
+        help = "Show every partition, including those with no limits to report and those closed by a limit of zero, and name the QOS each partition draws its limits from."
+    )]
+    verbose: bool,
 }

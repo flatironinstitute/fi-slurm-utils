@@ -1,4 +1,5 @@
 use crate::parser::parse_tres_str;
+use crate::states::{JobStateFlags, ShowFlags};
 use crate::utils::{c_str_to_string, time_t_to_datetime};
 use chrono::{DateTime, Utc};
 use colored::Colorize;
@@ -34,10 +35,11 @@ impl RawSlurmJobInfo {
     pub fn load(update_time: time_t) -> Result<Self, String> {
         let mut job_info_msg_ptr: *mut job_info_msg_t = std::ptr::null_mut();
 
-        let show_flags = 2; // just using the SHOW_DETAIL flag
+        // ALL so that jobs in hidden partitions are still counted
+        let show_flags = ShowFlags::ALL | ShowFlags::DETAIL;
 
         let return_code =
-            unsafe { slurm_load_jobs(update_time, &mut job_info_msg_ptr, show_flags) };
+            unsafe { slurm_load_jobs(update_time, &mut job_info_msg_ptr, show_flags.bits()) };
 
         if return_code == 0 && !job_info_msg_ptr.is_null() {
             // Success: wrap the raw pointer in our safe struct and return it.
@@ -66,38 +68,17 @@ impl RawSlurmJobInfo {
         }
     }
 
-    //pub fn into_message(self) -> JobInfoMsg {
-    //    if self.ptr.is_null() {
-    //        return 0 // create a more expressive return type, or error handling
-    //
-    //    }
-    //
-    //    unsafe {
-    //        let msg = &*self.ptr;
-    //        let last_backfill = msg.last_backfill;
-    //        let last_update = msg.last_update;
-    //        let record_count = msg.record_count;
-    //        let job_array = msg.job_array;
-    //
-    //        JobInfoMsg {
-    //            last_backfill,
-    //            last_update,
-    //            record_count,
-    //            job_array
-    //        }
-    //    }
-    //}
     /// Consumes the wrapper to transform the raw C data into a safe, owned `SlurmJobs` collection
     pub fn into_slurm_jobs(self) -> Result<SlurmJobs, String> {
         let raw_jobs_slice = self.as_slice();
 
-        let jobs_map = raw_jobs_slice
+        let jobs_map: HashMap<JobId, Job> = raw_jobs_slice
             .iter()
-            .try_fold(HashMap::new(), |mut map, raw_job| {
-                let safe_job = Job::from_raw_binding(raw_job)?;
-                map.insert(safe_job.job_id, safe_job);
-                Ok::<HashMap<u32, Job>, String>(map)
-            })?;
+            .map(|raw_job| {
+                let job = Job::from_raw_binding(raw_job);
+                (job.job_id, job)
+            })
+            .collect();
 
         let (last_update, last_backfill) = unsafe {
             let msg = &*self.ptr;
@@ -127,13 +108,6 @@ pub fn get_jobs() -> Result<SlurmJobs, String> {
     RawSlurmJobInfo::load(0)?.into_slurm_jobs()
 }
 
-struct _JobInfoMsg {
-    last_backfill: time_t,
-    last_update: time_t,
-    record_count: u32,
-    job_array: *mut job_info,
-}
-
 /// Represents the state of a Slurm job in a type-safe way
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum JobState {
@@ -150,41 +124,31 @@ pub enum JobState {
     Deadline,
     OutOfMemory,
     End,
-    /// A catch-all for any state we don't explicitly handle.
-    Unknown(String),
+    /// A base state this build does not know, carrying the value Slurm reported
+    Unknown(u32),
 }
 
 impl From<u32> for JobState {
+    /// Slurm packs state flags above the base state, so the flag bits have to come off
+    /// before the state can be recognized at all
     fn from(state_num: u32) -> Self {
-        const JOB_PENDING: u32 = 0;
-        const JOB_RUNNING: u32 = 1;
-        const JOB_SUSPENDED: u32 = 2;
-        const JOB_COMPLETE: u32 = 3; // Or COMPLETING
-        const JOB_CANCELLED: u32 = 4;
-        const JOB_FAILED: u32 = 5;
-        const JOB_TIMEOUT: u32 = 6;
-        const JOB_NODE_FAIL: u32 = 7;
-        const JOB_PREEMPTED: u32 = 8;
-        const JOB_BOOT_FAIL: u32 = 9;
-        const JOB_DEADLINE: u32 = 10;
-        const JOB_OUTOFMEMORY: u32 = 11;
-        const JOB_END: u32 = 12;
+        use fi_slurm_sys::*;
 
-        match state_num {
-            JOB_PENDING => JobState::Pending,
-            JOB_RUNNING => JobState::Running,
-            JOB_SUSPENDED => JobState::Suspended,
-            JOB_COMPLETE => JobState::Complete,
-            JOB_CANCELLED => JobState::Cancelled,
-            JOB_FAILED => JobState::Failed,
-            JOB_TIMEOUT => JobState::Timeout,
-            JOB_NODE_FAIL => JobState::NodeFail,
-            JOB_PREEMPTED => JobState::Preempted,
-            JOB_BOOT_FAIL => JobState::BootFail,
-            JOB_DEADLINE => JobState::Deadline,
-            JOB_OUTOFMEMORY => JobState::OutOfMemory,
-            JOB_END => JobState::End,
-            _ => JobState::Unknown(format!("State code {}", state_num)),
+        match state_num & JOB_STATE_BASE {
+            job_states_JOB_PENDING => JobState::Pending,
+            job_states_JOB_RUNNING => JobState::Running,
+            job_states_JOB_SUSPENDED => JobState::Suspended,
+            job_states_JOB_COMPLETE => JobState::Complete,
+            job_states_JOB_CANCELLED => JobState::Cancelled,
+            job_states_JOB_FAILED => JobState::Failed,
+            job_states_JOB_TIMEOUT => JobState::Timeout,
+            job_states_JOB_NODE_FAIL => JobState::NodeFail,
+            job_states_JOB_PREEMPTED => JobState::Preempted,
+            job_states_JOB_BOOT_FAIL => JobState::BootFail,
+            job_states_JOB_DEADLINE => JobState::Deadline,
+            job_states_JOB_OOM => JobState::OutOfMemory,
+            job_states_JOB_END => JobState::End,
+            base => JobState::Unknown(base),
         }
     }
 }
@@ -211,6 +175,8 @@ pub struct Job {
 
     // State and Time
     pub job_state: JobState,
+    /// The flags carried alongside `job_state`, e.g. a running job whose epilog has started
+    pub state_flags: JobStateFlags,
     pub state_description: String,
     pub submit_time: DateTime<Utc>,
     pub start_time: DateTime<Utc>,
@@ -235,8 +201,8 @@ pub struct Job {
 
 impl Job {
     /// Creates a safe, owned Rust `Job` from a raw C `job_info` struct
-    pub fn from_raw_binding(raw_job: &job_info) -> Result<Self, String> {
-        Ok(Job {
+    pub fn from_raw_binding(raw_job: &job_info) -> Self {
+        Job {
             job_id: raw_job.job_id,
             array_job_id: raw_job.array_job_id,
             array_task_id: raw_job.array_task_id,
@@ -247,6 +213,7 @@ impl Job {
             partition: unsafe { c_str_to_string(raw_job.partition) },
             account: unsafe { c_str_to_string(raw_job.account) },
             job_state: JobState::from(raw_job.job_state),
+            state_flags: JobStateFlags::from_bits_truncate(raw_job.job_state),
             state_description: unsafe { c_str_to_string(raw_job.state_desc) },
             submit_time: time_t_to_datetime(raw_job.submit_time),
             start_time: time_t_to_datetime(raw_job.start_time),
@@ -272,7 +239,7 @@ impl Job {
             work_dir: unsafe { c_str_to_string(raw_job.work_dir) },
             command: unsafe { c_str_to_string(raw_job.command) },
             exit_code: raw_job.exit_code,
-        })
+        }
     }
 }
 
@@ -342,15 +309,6 @@ impl SlurmJobs {
 
         gres_totals.iter().flatten().sum()
     }
-    pub fn get_gres_strings(&self) -> Vec<String> {
-        let gres: Vec<String> = self
-            .jobs
-            .values()
-            .map(|job| job.gres_total.clone().unwrap_or("".to_string()))
-            .collect();
-
-        gres
-    }
 }
 
 /// Iterates through all loaded jobs and populates their `node_ids` vector.
@@ -384,18 +342,21 @@ pub fn enrich_jobs_with_node_ids(
 }
 
 /// Usage of one account, alongside the limits it counts against.
-/// A limit of zero means unlimited.
+/// `None` is no limit, which is not the same as a limit of zero: Slurm reads a zero limit
+/// as permission to run nothing at all.
 #[derive(Clone)]
 pub struct AccountJobUsage {
     pub account: String,
+    /// Where these limits come from, shown in its own column when any row supplies it
+    pub qos: Option<String>,
     pub cores: u32,
     pub nodes: u32,
     pub gpus: u32,
     pub jobs: u32,
-    pub max_cores: u32,
-    pub max_nodes: u32,
-    pub max_gpus: u32,
-    pub max_jobs: u32,
+    pub max_cores: Option<u32>,
+    pub max_nodes: Option<u32>,
+    pub max_gpus: Option<u32>,
+    pub max_jobs: Option<u32>,
 }
 
 // to print a vector of account job usage in a sensible way
@@ -405,6 +366,7 @@ pub struct AccountJobUsage {
 #[derive(Clone, Copy, Default)]
 pub struct AcctUsageWidths {
     name_length: usize,
+    qos_length: usize,
     core_length: usize,
     max_core_length: usize,
     node_length: usize,
@@ -419,24 +381,26 @@ impl AcctUsageWidths {
     pub fn measure<'a>(mut self, accounts: impl IntoIterator<Item = &'a AccountJobUsage>) -> Self {
         for acc in accounts {
             self.name_length = self.name_length.max(acc.account.len());
+            self.qos_length = self
+                .qos_length
+                .max(acc.qos.as_deref().map_or(0, |qos| qos.len()));
             self.core_length = self.core_length.max(acc.cores.to_string().len());
-            self.max_core_length = self.max_core_length.max(zero_to_dash(acc.max_cores).len());
+            self.max_core_length = self.max_core_length.max(limit_str(acc.max_cores).len());
             self.node_length = self.node_length.max(acc.nodes.to_string().len());
-            self.max_node_length = self.max_node_length.max(zero_to_dash(acc.max_nodes).len());
+            self.max_node_length = self.max_node_length.max(limit_str(acc.max_nodes).len());
             self.gpu_length = self.gpu_length.max(acc.gpus.to_string().len());
-            self.max_gpu_length = self.max_gpu_length.max(zero_to_dash(acc.max_gpus).len());
+            self.max_gpu_length = self.max_gpu_length.max(limit_str(acc.max_gpus).len());
             self.job_length = self.job_length.max(acc.jobs.to_string().len());
-            self.max_job_length = self.max_job_length.max(zero_to_dash(acc.max_jobs).len());
+            self.max_job_length = self.max_job_length.max(limit_str(acc.max_jobs).len());
         }
         self
     }
 }
 
-fn zero_to_dash(x: u32) -> String {
-    if x == 0 {
-        "-".to_string()
-    } else {
-        x.to_string()
+fn limit_str(limit: Option<u32>) -> String {
+    match limit {
+        Some(n) => n.to_string(),
+        None => "-".to_string(),
     }
 }
 
@@ -449,120 +413,158 @@ const ORANGE_PERCENT: u64 = 75;
 const ORANGE: (u8, u8, u8) = (255, 165, 0);
 
 /// Renders one "used/limit" cell, padded to `col_width` and colored by how much of the
-/// limit is consumed. A limit of zero means unlimited, so it is never flagged.
+/// limit is consumed. An absent limit is never flagged; a limit of zero permits nothing,
+/// so any usage against it is over.
 fn usage_cell(
     used: u32,
-    limit: u32,
+    limit: Option<u32>,
     used_width: usize,
     limit_width: usize,
     col_width: usize,
 ) -> String {
-    let plain = format!("{used:>used_width$}/{:>limit_width$}", zero_to_dash(limit));
+    let plain = format!("{used:>used_width$}/{:>limit_width$}", limit_str(limit));
     // pad by the visible length, which the color escapes would otherwise inflate
     let pad = " ".repeat(col_width.saturating_sub(plain.len()));
 
-    let colored = if limit == 0 {
-        plain
-    } else {
-        match u64::from(used) * 100 / u64::from(limit) {
-            p if p >= 100 => plain.red().to_string(),
-            p if p >= ORANGE_PERCENT => plain.truecolor(ORANGE.0, ORANGE.1, ORANGE.2).to_string(),
-            p if p >= YELLOW_PERCENT => plain.yellow().to_string(),
-            _ => plain,
-        }
+    let over_percent = match limit {
+        None => None,
+        Some(0) if used == 0 => None,
+        Some(0) => Some(100),
+        Some(limit) => Some(u64::from(used) * 100 / u64::from(limit)),
+    };
+
+    let colored = match over_percent {
+        Some(p) if p >= 100 => plain.red().to_string(),
+        Some(p) if p >= ORANGE_PERCENT => plain.truecolor(ORANGE.0, ORANGE.1, ORANGE.2).to_string(),
+        Some(p) if p >= YELLOW_PERCENT => plain.yellow().to_string(),
+        _ => plain,
     };
 
     format!("{colored}{pad}")
 }
 
-pub fn print_accounts(accounts: &[AccountJobUsage], widths: &AcctUsageWidths) {
-    let max_name_length = widths.name_length;
-    let max_core_length = widths.core_length;
-    let max_max_core_length = widths.max_core_length;
-    let max_node_length = widths.node_length;
-    let max_max_node_length = widths.max_node_length;
-    let max_gpu_length = widths.gpu_length;
-    let max_max_gpu_length = widths.max_gpu_length;
-    let max_job_length = widths.job_length;
-    let max_max_job_length = widths.max_job_length;
+/// One "used/limit" column: the widths of each half, and of the column as a whole
+struct Column {
+    used: usize,
+    limit: usize,
+    width: usize,
+}
 
-    let padding = " ".repeat(4);
+impl Column {
+    fn new(used: usize, limit: usize, header: &str) -> Self {
+        // the slash sits between the halves, and the header has to fit as well
+        let width = (used + 1 + limit).max(header.len());
+        Self { used, limit, width }
+    }
+}
 
-    let header_cores = "CORES";
-    let header_nodes = "NODES";
-    let header_gpus = "GPUS";
-    let header_jobs = "JOBS";
+/// A report's columns, laid out once so that printing it and measuring it cannot disagree
+struct Layout {
+    name: usize,
+    /// `None` when no row carries a QOS, in which case the column is left out entirely
+    qos: Option<usize>,
+    cores: Column,
+    nodes: Column,
+    gpus: Column,
+    jobs: Column,
+}
 
-    let cores_data_width = max_core_length + 1 + max_max_core_length;
-    let nodes_data_width = max_node_length + 1 + max_max_node_length;
-    let gpus_data_width = max_gpu_length + 1 + max_max_gpu_length;
-    let jobs_data_width = max_job_length + 1 + max_max_job_length;
+const GAP: usize = 4;
+const HEADER_QOS: &str = "QOS";
+const HEADER_CORES: &str = "CORES";
+const HEADER_NODES: &str = "NODES";
+const HEADER_GPUS: &str = "GPUS";
+const HEADER_JOBS: &str = "JOBS";
 
-    let final_cores_width = cores_data_width.max(header_cores.len());
-    let final_nodes_width = nodes_data_width.max(header_nodes.len());
-    let final_gpus_width = gpus_data_width.max(header_gpus.len());
-    let final_jobs_width = jobs_data_width.max(header_jobs.len());
+impl Layout {
+    fn new(widths: &AcctUsageWidths, label_title: &str) -> Self {
+        Self {
+            // the title has to fit too, and every report sharing these widths is given the
+            // same one, so they stay aligned
+            name: widths.name_length.max(label_title.len()),
+            qos: (widths.qos_length > 0).then(|| widths.qos_length.max(HEADER_QOS.len())),
+            cores: Column::new(widths.core_length, widths.max_core_length, HEADER_CORES),
+            nodes: Column::new(widths.node_length, widths.max_node_length, HEADER_NODES),
+            gpus: Column::new(widths.gpu_length, widths.max_gpu_length, HEADER_GPUS),
+            jobs: Column::new(widths.job_length, widths.max_job_length, HEADER_JOBS),
+        }
+    }
 
-    // We left-align (`:<`) the header text within the final calculated column width.
-    let header_line = format!(
-        "{:<max_name_length$}{}{:>final_cores_width$}{}{:>final_nodes_width$}{}{:>final_gpus_width$}{}{:>final_jobs_width$}",
-        "", // Placeholder for the account name column
-        padding,
-        header_cores,
-        padding,
-        header_nodes,
-        padding,
-        header_gpus,
-        padding,
-        header_jobs
-    );
+    /// The printed width of a line, which callers use to lay out headings over the report
+    fn width(&self) -> usize {
+        [
+            Some(self.name),
+            self.qos,
+            Some(self.cores.width),
+            Some(self.nodes.width),
+            Some(self.gpus.width),
+            Some(self.jobs.width),
+        ]
+        .into_iter()
+        .flatten()
+        .map(|column| column + GAP)
+        .sum::<usize>()
+            - GAP
+    }
 
-    println!("{}", header_line);
+    fn header(&self, label_title: &str) -> String {
+        let gap = " ".repeat(GAP);
+        let name = self.name;
+        let mut line = format!("{label_title:<name$}");
+        if let Some(qos) = self.qos {
+            line.push_str(&format!("{gap}{HEADER_QOS:<qos$}"));
+        }
+        let (cores, nodes, gpus, jobs) = (
+            self.cores.width,
+            self.nodes.width,
+            self.gpus.width,
+            self.jobs.width,
+        );
+        // the numeric headers are right-aligned over their columns
+        line.push_str(&format!(
+            "{gap}{HEADER_CORES:>cores$}{gap}{HEADER_NODES:>nodes$}{gap}{HEADER_GPUS:>gpus$}{gap}{HEADER_JOBS:>jobs$}"
+        ));
+        line
+    }
+}
+
+impl AcctUsageWidths {
+    /// The printed width of a report with these widths, for laying out a heading over it
+    pub fn table_width(&self, label_title: &str) -> usize {
+        Layout::new(self, label_title).width()
+    }
+}
+
+/// `label_title` heads the first column, and must be the same for every report sharing
+/// `widths` or they will not line up
+pub fn print_accounts(accounts: &[AccountJobUsage], widths: &AcctUsageWidths, label_title: &str) {
+    let layout = Layout::new(widths, label_title);
+    let gap = " ".repeat(GAP);
+
+    println!("{}", layout.header(label_title));
 
     for acc in accounts {
         // Each cell is padded to its column width, so the data lines up under its header
-        let cores_str = usage_cell(
-            acc.cores,
-            acc.max_cores,
-            max_core_length,
-            max_max_core_length,
-            final_cores_width,
-        );
-        let nodes_str = usage_cell(
-            acc.nodes,
-            acc.max_nodes,
-            max_node_length,
-            max_max_node_length,
-            final_nodes_width,
-        );
-        let gpus_str = usage_cell(
-            acc.gpus,
-            acc.max_gpus,
-            max_gpu_length,
-            max_max_gpu_length,
-            final_gpus_width,
-        );
-        let jobs_str = usage_cell(
-            acc.jobs,
-            acc.max_jobs,
-            max_job_length,
-            max_max_job_length,
-            final_jobs_width,
-        );
+        let cells = [
+            (acc.cores, acc.max_cores, &layout.cores),
+            (acc.nodes, acc.max_nodes, &layout.nodes),
+            (acc.gpus, acc.max_gpus, &layout.gpus),
+            (acc.jobs, acc.max_jobs, &layout.jobs),
+        ]
+        .map(|(used, limit, column)| {
+            usage_cell(used, limit, column.used, column.limit, column.width)
+        });
 
-        let data_line = format!(
-            "{:<max_name_length$}{}{}{}{}{}{}{}{}",
-            acc.account,
-            padding,
-            cores_str,
-            padding,
-            nodes_str,
-            padding,
-            gpus_str,
-            padding,
-            jobs_str,
-        );
-        println!("{}", data_line);
+        let name = layout.name;
+        let mut line = format!("{:<name$}", acc.account);
+        if let Some(width) = layout.qos {
+            let qos = acc.qos.as_deref().unwrap_or("-");
+            line.push_str(&format!("{gap}{qos:<width$}"));
+        }
+        for cell in &cells {
+            line.push_str(&format!("{gap}{cell}"));
+        }
+        println!("{}", line);
     }
 }
 

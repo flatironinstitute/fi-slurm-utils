@@ -13,7 +13,7 @@ use fi_slurm::filter::filter_nodes_by_feature;
 use fi_slurm::jobs::{SlurmJobs, build_node_to_job_map, enrich_jobs_with_node_ids, get_jobs};
 use fi_slurm::nodes::get_nodes;
 use fi_slurm::nodes::{NodeState, SlurmNodes};
-use fi_slurm::utils::{SlurmConfig, initialize_slurm};
+use fi_slurm::utils::{finalize_slurm, initialize_slurm};
 use std::collections::{HashMap, HashSet};
 use tree_report::{GpuFilter, build_tree_report, print_tree_report};
 
@@ -28,9 +28,26 @@ use std::time::Instant;
 /// 3. Aggregate all data into a structured report format
 /// 4. Print the final, formatted report to the console
 fn main() -> Result<(), String> {
+    // run() so that every way out of it is followed by the teardown slurm.h asks for, and
+    // so that whatever it holds of Slurm's is dropped first
+    let result = run();
+
+    finalize_slurm();
+    result
+}
+
+fn run() -> Result<(), String> {
     let start = Instant::now();
 
     let args = Args::parse();
+
+    if args.debug {
+        println!("Started initializing Slurm: {:?}", start.elapsed());
+    }
+
+    // has no output, only passes a null pointer to Slurm directly in order to initialize
+    // non-trivial functions of the Slurm API
+    initialize_slurm();
 
     // entry point for the prometheus TUI utility
     #[cfg(feature = "tui")]
@@ -42,28 +59,7 @@ fn main() -> Result<(), String> {
     }
 
     if args.debug {
-        println!("Started initializing Slurm: {:?}", start.elapsed());
-    }
-
-    // has no output, only passes a null pointer to Slurm directly in order to initialize
-    // non-trivial functions of the Slurm API
-    initialize_slurm();
-
-    if args.debug {
         println!("Finished initializing Slurm: {:?}", start.elapsed());
-    }
-
-    // After initializing, we load the conf to get a handle that we can
-    // manage for proper cleanup
-    if args.debug {
-        println!("Started loading Slurm config: {:?}", start.elapsed());
-    }
-
-    // We don't need to actually use this variable, but we store it anyway in order to
-    // automatically invoke its Drop implementation when it goes out of scope at the end of main()
-    let _slurm_config = SlurmConfig::load()?;
-    if args.debug {
-        println!("Finished loading Slurm config: {:?}", start.elapsed());
     }
 
     // Load Data

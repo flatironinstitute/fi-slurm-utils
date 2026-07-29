@@ -2,7 +2,6 @@
 name = "fi-slurm"
 version = { workspace = true }
 edition = { workspace = true }
-build = "build.rs"
 license = { workspace = true }
 
 [dependencies]

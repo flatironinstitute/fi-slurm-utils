@@ -65,6 +65,14 @@ pub fn initialize_slurm() {
     }
 }
 
+/// Releases what `initialize_slurm` set up. slurm.h asks for this at process termination,
+/// and wants it after everything holding Slurm-allocated data has been dropped.
+pub fn finalize_slurm() {
+    unsafe {
+        fi_slurm_sys::slurm_fini();
+    }
+}
+
 pub fn count_blocks(max_blocks: usize, percentage: f64) -> (usize, usize, Option<String>) {
     // Use floating point numbers for precision and round at the end
     // to get the closest visual representation
