@@ -593,11 +593,6 @@ name = "fi-slurm-sys"
 version = "0.2.1"
 dependencies = [
  "bindgen",
- "chrono",
- "clap",
- "libc",
- "once_cell",
- "regex",
 ]
 
 [[package]]
