@@ -14,7 +14,23 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 const ALWAYS_SHOW: [&str; 2] = ["preempt", "gpupreempt"];
 
 pub fn print_limits(name: &str, show_all: bool) {
-    let assoc_mgr = load_assoc_mgr(vec![name.to_string()]).unwrap_or_else(|e| {
+    let all_partitions = get_partitions().unwrap_or_else(|e| {
+        eprintln!("{e}");
+        std::process::exit(1);
+    });
+
+    // Naming the QOS keeps the reply to a fraction of its size: it otherwise carries every
+    // QOS's per-user counters for every user on the cluster. Which partitions this user can
+    // submit to is not known until the reply names their account, so ask about the QOS of
+    // all of them rather than pay for a second round trip to narrow it further.
+    let mut wanted: Vec<String> = all_partitions
+        .iter()
+        .filter_map(|partition| partition.effective_qos().map(str::to_string))
+        .collect();
+    wanted.sort();
+    wanted.dedup();
+
+    let assoc_mgr = load_assoc_mgr(vec![name.to_string()], Some(wanted)).unwrap_or_else(|e| {
         eprintln!("{e}");
         std::process::exit(1);
     });
@@ -31,11 +47,7 @@ pub fn print_limits(name: &str, show_all: bool) {
     });
     let usage = &assoc_mgr.qos;
 
-    let partitions: Vec<_> = get_partitions()
-        .unwrap_or_else(|e| {
-            eprintln!("{e}");
-            std::process::exit(1);
-        })
+    let partitions: Vec<_> = all_partitions
         .into_iter()
         .filter(|partition| partition.allows_account(&user_acct))
         .collect();

@@ -20,12 +20,14 @@ struct AssocMgrRequest {
 }
 
 impl AssocMgrRequest {
-    /// Asks for the QOS records, and for the given users, whose per-user sections are all
-    /// the QOS records then carry
-    fn new(users: Vec<String>) -> Self {
+    /// Asks for the given users and the given QOS. Naming the QOS matters: the reply carries
+    /// every QOS's per-user counters for every user regardless of `users`, so asking for all
+    /// of them is far more than a report needs.
+    fn new(users: Vec<String>, qos: Option<Vec<String>>) -> Self {
         let mut req: assoc_mgr_info_request_msg_t = unsafe { std::mem::zeroed() };
         req.flags = ASSOC_MGR_INFO_FLAG_QOS | ASSOC_MGR_INFO_FLAG_USERS;
         req.user_list = unsafe { vec_to_slurm_list(Some(users)) };
+        req.qos_list = unsafe { vec_to_slurm_list(qos) };
 
         Self {
             ptr: Box::into_raw(Box::new(req)),
@@ -196,9 +198,10 @@ pub struct AssocMgrInfo {
     pub users: HashMap<String, UserRecord>,
 }
 
-/// Reads the QOS limits and counters, and the given users, from the controller
-pub fn load(users: Vec<String>) -> Result<AssocMgrInfo, String> {
-    let request = AssocMgrRequest::new(users);
+/// Reads the QOS limits and counters, and the given users, from the controller. `qos` names
+/// which QOS to ask about; `None` fetches every one the cluster has.
+pub fn load(users: Vec<String>, qos: Option<Vec<String>>) -> Result<AssocMgrInfo, String> {
+    let request = AssocMgrRequest::new(users, qos);
     let mut resp_ptr: *mut assoc_mgr_info_msg_t = std::ptr::null_mut();
 
     let rc = unsafe { slurm_load_assoc_mgr_info(request.ptr, &mut resp_ptr) };
