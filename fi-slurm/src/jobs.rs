@@ -480,93 +480,128 @@ fn usage_cell(
     format!("{colored}{pad}")
 }
 
+/// One "used/limit" column: the widths of each half, and of the column as a whole
+struct Column {
+    used: usize,
+    limit: usize,
+    width: usize,
+}
+
+impl Column {
+    fn new(used: usize, limit: usize, header: &str) -> Self {
+        // the slash sits between the halves, and the header has to fit as well
+        let width = (used + 1 + limit).max(header.len());
+        Self { used, limit, width }
+    }
+}
+
+/// A report's columns, laid out once so that printing it and measuring it cannot disagree
+struct Layout {
+    name: usize,
+    /// `None` when no row carries a QOS, in which case the column is left out entirely
+    qos: Option<usize>,
+    cores: Column,
+    nodes: Column,
+    gpus: Column,
+    jobs: Column,
+}
+
+const GAP: usize = 4;
+const HEADER_QOS: &str = "QOS";
+const HEADER_CORES: &str = "CORES";
+const HEADER_NODES: &str = "NODES";
+const HEADER_GPUS: &str = "GPUS";
+const HEADER_JOBS: &str = "JOBS";
+
+impl Layout {
+    fn new(widths: &AcctUsageWidths, label_title: &str) -> Self {
+        Self {
+            // the title has to fit too, and every report sharing these widths is given the
+            // same one, so they stay aligned
+            name: widths.name_length.max(label_title.len()),
+            qos: (widths.qos_length > 0).then(|| widths.qos_length.max(HEADER_QOS.len())),
+            cores: Column::new(widths.core_length, widths.max_core_length, HEADER_CORES),
+            nodes: Column::new(widths.node_length, widths.max_node_length, HEADER_NODES),
+            gpus: Column::new(widths.gpu_length, widths.max_gpu_length, HEADER_GPUS),
+            jobs: Column::new(widths.job_length, widths.max_job_length, HEADER_JOBS),
+        }
+    }
+
+    /// The printed width of a line, which callers use to lay out headings over the report
+    fn width(&self) -> usize {
+        [
+            Some(self.name),
+            self.qos,
+            Some(self.cores.width),
+            Some(self.nodes.width),
+            Some(self.gpus.width),
+            Some(self.jobs.width),
+        ]
+        .into_iter()
+        .flatten()
+        .map(|column| column + GAP)
+        .sum::<usize>()
+            - GAP
+    }
+
+    fn header(&self, label_title: &str) -> String {
+        let gap = " ".repeat(GAP);
+        let name = self.name;
+        let mut line = format!("{label_title:<name$}");
+        if let Some(qos) = self.qos {
+            line.push_str(&format!("{gap}{HEADER_QOS:<qos$}"));
+        }
+        let (cores, nodes, gpus, jobs) = (
+            self.cores.width,
+            self.nodes.width,
+            self.gpus.width,
+            self.jobs.width,
+        );
+        // the numeric headers are right-aligned over their columns
+        line.push_str(&format!(
+            "{gap}{HEADER_CORES:>cores$}{gap}{HEADER_NODES:>nodes$}{gap}{HEADER_GPUS:>gpus$}{gap}{HEADER_JOBS:>jobs$}"
+        ));
+        line
+    }
+}
+
+impl AcctUsageWidths {
+    /// The printed width of a report with these widths, for laying out a heading over it
+    pub fn table_width(&self, label_title: &str) -> usize {
+        Layout::new(self, label_title).width()
+    }
+}
+
 /// `label_title` heads the first column, and must be the same for every report sharing
 /// `widths` or they will not line up
 pub fn print_accounts(accounts: &[AccountJobUsage], widths: &AcctUsageWidths, label_title: &str) {
-    // the title has to fit too, and both reports are given the same one so they stay aligned
-    let max_name_length = widths.name_length.max(label_title.len());
-    let max_core_length = widths.core_length;
-    let max_max_core_length = widths.max_core_length;
-    let max_node_length = widths.node_length;
-    let max_max_node_length = widths.max_node_length;
-    let max_gpu_length = widths.gpu_length;
-    let max_max_gpu_length = widths.max_gpu_length;
-    let max_job_length = widths.job_length;
-    let max_max_job_length = widths.max_job_length;
+    let layout = Layout::new(widths, label_title);
+    let gap = " ".repeat(GAP);
 
-    let padding = " ".repeat(4);
-
-    let header_cores = "CORES";
-    let header_nodes = "NODES";
-    let header_gpus = "GPUS";
-    let header_jobs = "JOBS";
-
-    let cores_data_width = max_core_length + 1 + max_max_core_length;
-    let nodes_data_width = max_node_length + 1 + max_max_node_length;
-    let gpus_data_width = max_gpu_length + 1 + max_max_gpu_length;
-    let jobs_data_width = max_job_length + 1 + max_max_job_length;
-
-    let final_cores_width = cores_data_width.max(header_cores.len());
-    let final_nodes_width = nodes_data_width.max(header_nodes.len());
-    let final_gpus_width = gpus_data_width.max(header_gpus.len());
-    let final_jobs_width = jobs_data_width.max(header_jobs.len());
-
-    // the QOS column earns its place only when the rows carry one
-    let header_qos = "QOS";
-    let qos_width = widths.qos_length.max(header_qos.len());
-    let show_qos = widths.qos_length > 0;
-
-    // We left-align (`:<`) the header text within the final calculated column width.
-    let mut header_line = format!("{label_title:<max_name_length$}");
-    if show_qos {
-        header_line.push_str(&format!("{padding}{header_qos:<qos_width$}"));
-    }
-    header_line.push_str(&format!(
-        "{padding}{header_cores:>final_cores_width$}{padding}{header_nodes:>final_nodes_width$}{padding}{header_gpus:>final_gpus_width$}{padding}{header_jobs:>final_jobs_width$}"
-    ));
-
-    println!("{}", header_line);
+    println!("{}", layout.header(label_title));
 
     for acc in accounts {
         // Each cell is padded to its column width, so the data lines up under its header
-        let cores_str = usage_cell(
-            acc.cores,
-            acc.max_cores,
-            max_core_length,
-            max_max_core_length,
-            final_cores_width,
-        );
-        let nodes_str = usage_cell(
-            acc.nodes,
-            acc.max_nodes,
-            max_node_length,
-            max_max_node_length,
-            final_nodes_width,
-        );
-        let gpus_str = usage_cell(
-            acc.gpus,
-            acc.max_gpus,
-            max_gpu_length,
-            max_max_gpu_length,
-            final_gpus_width,
-        );
-        let jobs_str = usage_cell(
-            acc.jobs,
-            acc.max_jobs,
-            max_job_length,
-            max_max_job_length,
-            final_jobs_width,
-        );
+        let cells = [
+            (acc.cores, acc.max_cores, &layout.cores),
+            (acc.nodes, acc.max_nodes, &layout.nodes),
+            (acc.gpus, acc.max_gpus, &layout.gpus),
+            (acc.jobs, acc.max_jobs, &layout.jobs),
+        ]
+        .map(|(used, limit, column)| {
+            usage_cell(used, limit, column.used, column.limit, column.width)
+        });
 
-        let mut data_line = format!("{:<max_name_length$}", acc.account);
-        if show_qos {
+        let name = layout.name;
+        let mut line = format!("{:<name$}", acc.account);
+        if let Some(width) = layout.qos {
             let qos = acc.qos.as_deref().unwrap_or("-");
-            data_line.push_str(&format!("{padding}{qos:<qos_width$}"));
+            line.push_str(&format!("{gap}{qos:<width$}"));
         }
-        data_line.push_str(&format!(
-            "{padding}{cores_str}{padding}{nodes_str}{padding}{gpus_str}{padding}{jobs_str}"
-        ));
-        println!("{}", data_line);
+        for cell in &cells {
+            line.push_str(&format!("{gap}{cell}"));
+        }
+        println!("{}", line);
     }
 }
 

@@ -1,3 +1,4 @@
+use colored::Colorize;
 use fi_slurm::parser::parse_slurm_hostlist;
 use fi_slurm::{
     jobs::{
@@ -121,11 +122,29 @@ pub fn print_limits(name: &str, show_all: bool) {
     // the bare partition names need no heading; the annotated table does
     let label_title = if show_all { "PARTITION" } else { "" };
 
-    println!("\nUser Limits ({})", name);
+    let table_width = widths.table_width(label_title);
+
+    print_heading(&format!("User Limits ({name})"), table_width);
     print_accounts(&user_usage, &widths, label_title);
 
-    println!("\nCenter Limits ({})", user_acct);
+    print_heading(&format!("Center Limits ({user_acct})"), table_width);
     print_accounts(&center_usage, &widths, label_title);
+}
+
+/// Centres a section heading in a rule spanning `table_width`, both so it does not sit off to
+/// the left of right-aligned column headers, and to match the full-width `═` rules fi-nodes
+/// divides its reports with
+fn print_heading(heading: &str, table_width: usize) {
+    let heading = format!(" {heading} ");
+    let rule = table_width.saturating_sub(heading.len());
+    let left = rule / 2;
+
+    println!(
+        "\n{}{}{}",
+        "═".repeat(left),
+        heading.as_str().bold(),
+        "═".repeat(rule - left)
+    );
 }
 
 pub fn leaderboard(top_n: usize) {
