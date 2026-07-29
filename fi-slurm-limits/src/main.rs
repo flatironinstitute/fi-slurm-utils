@@ -1,7 +1,7 @@
 pub mod limits;
 
 use clap::Parser;
-use fi_slurm::utils::initialize_slurm;
+use fi_slurm::utils::{finalize_slurm, initialize_slurm};
 
 use crate::limits::{leaderboard, leaderboard_feature, print_limits};
 
@@ -16,6 +16,15 @@ fn main() -> Result<(), String> {
     // is a separate RPC that this report never reads
     initialize_slurm();
 
+    // run() so that every way out of it, including the leaderboards' early returns, is
+    // followed by the teardown slurm.h asks for
+    let result = run(args);
+
+    finalize_slurm();
+    result
+}
+
+fn run(args: Args) -> Result<(), String> {
     match args.leaderboard {
         None => {} // do nothing
         Some(num) => {
