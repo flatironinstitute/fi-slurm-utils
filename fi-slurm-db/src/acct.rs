@@ -18,16 +18,17 @@ use crate::db::{DbConn, slurmdb_connect};
 use fi_slurm::list::{SlurmIterator, vec_to_slurm_list};
 use thiserror::Error;
 
+/// What can go wrong looking up a user's account and the partitions it may use
 #[derive(Error, Debug)]
-pub enum QosError {
+pub enum AcctError {
     #[error("Assoc vector was empty")]
     EmptyAssocError,
     #[error("No users found")]
     SlurmUserError,
     #[error("Pointer to assoc_list is null")]
     AssocListNull,
-    #[error("Pointer to qos_list is null")]
-    QosListNull,
+    #[error("Pointer to an association's qos_list is null")]
+    AssocQosListNull,
     #[error("Pointer to user_list is null")]
     UserListNull,
     #[error(
@@ -243,7 +244,7 @@ struct SlurmAssoc {
 }
 
 impl SlurmAssoc {
-    fn from_c_rec(rec: *const slurmdb_assoc_rec_t) -> Result<Self, QosError> {
+    fn from_c_rec(rec: *const slurmdb_assoc_rec_t) -> Result<Self, AcctError> {
         unsafe {
             let acct = if (*rec).acct.is_null() {
                 String::new()
@@ -273,7 +274,7 @@ impl SlurmAssoc {
                     .collect();
                 Ok(qos)
             } else {
-                Err(QosError::QosListNull)
+                Err(AcctError::AssocQosListNull)
             }?;
 
             let comment = if (*rec).comment.is_null() {
@@ -306,7 +307,7 @@ struct SlurmUser {
 }
 
 impl SlurmUser {
-    fn from_c_rec(rec: *const slurmdb_user_rec_t) -> Result<Self, QosError> {
+    fn from_c_rec(rec: *const slurmdb_user_rec_t) -> Result<Self, AcctError> {
         unsafe {
             let _name = if (*rec).name.is_null() {
                 String::new()
@@ -335,7 +336,7 @@ impl SlurmUser {
 
                 Ok(associations)
             } else {
-                Err(QosError::AssocListNull)
+                Err(AcctError::AssocListNull)
             }?;
 
             Ok(Self {
@@ -350,9 +351,9 @@ impl SlurmUser {
     }
 }
 
-fn process_user_list(user_list: SlurmUserList) -> Result<Vec<SlurmUser>, QosError> {
+fn process_user_list(user_list: SlurmUserList) -> Result<Vec<SlurmUser>, AcctError> {
     if user_list.ptr.is_null() {
-        return Err(QosError::UserListNull);
+        return Err(AcctError::UserListNull);
     }
 
     let results: Vec<SlurmUser> = user_list
@@ -366,12 +367,12 @@ fn process_user_list(user_list: SlurmUserList) -> Result<Vec<SlurmUser>, QosErro
     Ok(results)
 }
 
-fn handle_connection(persist_flags: &mut u16) -> Result<DbConn, QosError> {
+fn handle_connection(persist_flags: &mut u16) -> Result<DbConn, AcctError> {
     let db_conn_result = slurmdb_connect(persist_flags);
 
     let db_conn = match db_conn_result {
         Ok(conn) => Ok(conn),
-        Err(_) => Err(QosError::DbConnError),
+        Err(_) => Err(AcctError::DbConnError),
     }?;
 
     Ok(db_conn)
@@ -384,7 +385,7 @@ fn handle_connection(persist_flags: &mut u16) -> Result<DbConn, QosError> {
 pub fn get_user_info(
     user_query: &mut UserQueryInfo,
     persist_flags: &mut u16,
-) -> Result<(String, Vec<Partition>), QosError> {
+) -> Result<(String, Vec<Partition>), AcctError> {
     // will automatically drop when it drops out of scope
     let mut db_conn = handle_connection(persist_flags)?;
 
@@ -395,17 +396,17 @@ pub fn get_user_info(
 
     // assuming we only get one user back
     let Some(user) = users.first() else {
-        return Err(QosError::SlurmUserError);
+        return Err(AcctError::SlurmUserError);
     };
 
     let acct = &user
         .associations
         .first()
-        .ok_or(QosError::EmptyAssocError)?
+        .ok_or(AcctError::EmptyAssocError)?
         .acct;
 
     let partitions: Vec<Partition> = get_partitions()
-        .map_err(QosError::PartitionLoadError)?
+        .map_err(AcctError::PartitionLoadError)?
         .into_iter()
         .filter(|p| p.allows_account(acct))
         .collect();
