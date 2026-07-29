@@ -3,7 +3,7 @@ use crate::states::{NodeStateFlags, ShowFlags};
 use crate::utils::{c_str_to_string, time_t_to_datetime};
 use chrono::{DateTime, Utc};
 use fi_slurm_sys::{
-    node_info, node_info_msg_t, node_info_t, slurm_free_node_info_msg, slurm_load_node, time_t,
+    node_info_msg_t, node_info_t, slurm_free_node_info_msg, slurm_load_node, time_t,
 };
 use std::{collections::HashMap, ffi::CStr, fmt};
 
@@ -54,34 +54,6 @@ impl RawSlurmNodeInfo {
         }
     }
 
-    //pub fn into_message(self) -> NodeInfoMsg {
-    //    if self.ptr.is_null() {
-    //        return 0 // create a more expressive return type, or error handling
-    //
-    //    }
-    //
-    //    unsafe {
-    //        let msg = &*self.ptr;
-    //        let last_update = msg.last_update;
-    //        let record_count = msg.record_count;
-    //        let node_array = msg.node_array;
-    //
-    //        NodeInfoMsg {
-    //            last_update,
-    //            record_count,
-    //            node_array
-    //        }
-    //    }
-    //    // typedef struct node_info_msg {
-    //    //   time_t last_update;		/* time of latest info */
-    //    //   uint32_t record_count;		/* number of records */
-    //    //   node_info_t *node_array;	/* the node records */
-    //    // } node_info_msg_t;
-    //
-    //}
-
-    // In your slurm_data.rs or equivalent file
-
     pub fn into_slurm_nodes(self) -> Result<SlurmNodes, String> {
         let raw_nodes_slice = self.as_slice();
 
@@ -114,12 +86,6 @@ impl RawSlurmNodeInfo {
             skip_count,
         })
     }
-}
-
-struct _NodeInfoMsg {
-    last_update: time_t,
-    record_count: u32,
-    node_array: *mut node_info,
 }
 
 pub fn get_nodes() -> Result<SlurmNodes, String> {

@@ -68,38 +68,17 @@ impl RawSlurmJobInfo {
         }
     }
 
-    //pub fn into_message(self) -> JobInfoMsg {
-    //    if self.ptr.is_null() {
-    //        return 0 // create a more expressive return type, or error handling
-    //
-    //    }
-    //
-    //    unsafe {
-    //        let msg = &*self.ptr;
-    //        let last_backfill = msg.last_backfill;
-    //        let last_update = msg.last_update;
-    //        let record_count = msg.record_count;
-    //        let job_array = msg.job_array;
-    //
-    //        JobInfoMsg {
-    //            last_backfill,
-    //            last_update,
-    //            record_count,
-    //            job_array
-    //        }
-    //    }
-    //}
     /// Consumes the wrapper to transform the raw C data into a safe, owned `SlurmJobs` collection
     pub fn into_slurm_jobs(self) -> Result<SlurmJobs, String> {
         let raw_jobs_slice = self.as_slice();
 
-        let jobs_map = raw_jobs_slice
+        let jobs_map: HashMap<JobId, Job> = raw_jobs_slice
             .iter()
-            .try_fold(HashMap::new(), |mut map, raw_job| {
-                let safe_job = Job::from_raw_binding(raw_job)?;
-                map.insert(safe_job.job_id, safe_job);
-                Ok::<HashMap<u32, Job>, String>(map)
-            })?;
+            .map(|raw_job| {
+                let job = Job::from_raw_binding(raw_job);
+                (job.job_id, job)
+            })
+            .collect();
 
         let (last_update, last_backfill) = unsafe {
             let msg = &*self.ptr;
@@ -129,13 +108,6 @@ pub fn get_jobs() -> Result<SlurmJobs, String> {
     RawSlurmJobInfo::load(0)?.into_slurm_jobs()
 }
 
-struct _JobInfoMsg {
-    last_backfill: time_t,
-    last_update: time_t,
-    record_count: u32,
-    job_array: *mut job_info,
-}
-
 /// Represents the state of a Slurm job in a type-safe way
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum JobState {
@@ -152,8 +124,8 @@ pub enum JobState {
     Deadline,
     OutOfMemory,
     End,
-    /// A catch-all for any state we don't explicitly handle.
-    Unknown(String),
+    /// A base state this build does not know, carrying the value Slurm reported
+    Unknown(u32),
 }
 
 impl From<u32> for JobState {
@@ -176,7 +148,7 @@ impl From<u32> for JobState {
             job_states_JOB_DEADLINE => JobState::Deadline,
             job_states_JOB_OOM => JobState::OutOfMemory,
             job_states_JOB_END => JobState::End,
-            base => JobState::Unknown(format!("State code {}", base)),
+            base => JobState::Unknown(base),
         }
     }
 }
@@ -229,8 +201,8 @@ pub struct Job {
 
 impl Job {
     /// Creates a safe, owned Rust `Job` from a raw C `job_info` struct
-    pub fn from_raw_binding(raw_job: &job_info) -> Result<Self, String> {
-        Ok(Job {
+    pub fn from_raw_binding(raw_job: &job_info) -> Self {
+        Job {
             job_id: raw_job.job_id,
             array_job_id: raw_job.array_job_id,
             array_task_id: raw_job.array_task_id,
@@ -267,7 +239,7 @@ impl Job {
             work_dir: unsafe { c_str_to_string(raw_job.work_dir) },
             command: unsafe { c_str_to_string(raw_job.command) },
             exit_code: raw_job.exit_code,
-        })
+        }
     }
 }
 
@@ -336,15 +308,6 @@ impl SlurmJobs {
         // have to parse them out, to get the number after the last :
 
         gres_totals.iter().flatten().sum()
-    }
-    pub fn get_gres_strings(&self) -> Vec<String> {
-        let gres: Vec<String> = self
-            .jobs
-            .values()
-            .map(|job| job.gres_total.clone().unwrap_or("".to_string()))
-            .collect();
-
-        gres
     }
 }
 
