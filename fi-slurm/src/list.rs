@@ -48,11 +48,6 @@ pub unsafe fn vec_to_slurm_list(data: Option<Vec<String>>) -> *mut xlist {
     slurm_list
 }
 
-/// Helper function for quickly converting between ints and bools
-pub fn bool_to_int(b: bool) -> u16 {
-    if b { 1 } else { 0 }
-}
-
 /// A container struct for a pointer to a C list iterator.
 /// `'a` is the lifetime of the list being walked: Slurm invalidates the iterator when the
 /// list is destroyed, so the borrow checker is made to keep the list alive for as long.

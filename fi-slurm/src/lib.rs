@@ -8,6 +8,7 @@ pub mod cluster_state;
 pub mod energy;
 pub mod filter;
 pub mod jobs;
+pub mod list;
 pub mod nodes;
 pub mod parser;
 pub mod partitions;

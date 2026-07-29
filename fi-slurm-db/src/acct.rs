@@ -17,7 +17,7 @@ use users::get_current_username;
 
 use crate::db::{DbConn, slurmdb_connect};
 use crate::qos::{QosConfig, QosError, QosQueryInfo, SlurmQos, SlurmQosList, process_qos_list};
-use crate::utils::{SlurmIterator, bool_to_int, vec_to_slurm_list};
+use fi_slurm::list::{SlurmIterator, vec_to_slurm_list};
 
 struct AssocConfig {
     acct_list: Option<Vec<String>>,
@@ -82,10 +82,10 @@ impl UserQueryInfo {
         c_user.admin_level = 0;
         c_user.def_acct_list = unsafe { vec_to_slurm_list(def_acct_list) };
         c_user.def_wckey_list = unsafe { vec_to_slurm_list(def_wckey_list) };
-        c_user.with_assocs = bool_to_int(with_assocs);
-        c_user.with_coords = bool_to_int(with_coords);
-        c_user.with_deleted = bool_to_int(with_deleted);
-        c_user.with_wckeys = bool_to_int(with_wckey);
+        c_user.with_assocs = u16::from(with_assocs);
+        c_user.with_coords = u16::from(with_coords);
+        c_user.with_deleted = u16::from(with_deleted);
+        c_user.with_wckeys = u16::from(with_wckey);
         c_user.without_defaults = without_defaults;
         // heap allocate the user cond struct
         let boxed = Box::new(c_user);

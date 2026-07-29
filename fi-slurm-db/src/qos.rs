@@ -5,7 +5,7 @@ use std::{ffi::CStr, ops::Deref};
 use thiserror::Error;
 
 use crate::db::DbConn;
-use crate::utils::{SlurmIterator, vec_to_slurm_list};
+use fi_slurm::list::{SlurmIterator, vec_to_slurm_list};
 
 #[derive(Error, Debug)]
 pub enum QosError {
