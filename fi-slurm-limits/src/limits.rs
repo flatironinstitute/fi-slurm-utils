@@ -30,6 +30,14 @@ pub fn print_limits(name: &str, show_all: bool) {
     partitions.iter().for_each(|a| {
         let group = a.partition.clone();
 
+        // the partition is what a user submits to, so it labels the row; under -v the QOS
+        // the limits actually come from gets a column, since it is not always the same name
+        let qos = if show_all {
+            Some(a.qos.clone().unwrap_or_else(|| "-".to_string()))
+        } else {
+            None
+        };
+
         let center_jobs = jobs_collection
             .clone()
             .filter_by(FilterMethod::Partition(group.clone()))
@@ -54,6 +62,7 @@ pub fn print_limits(name: &str, show_all: bool) {
 
         user_usage.push(AccountJobUsage {
             account: group.clone(),
+            qos: qos.clone(),
             cores: user_cores,
             nodes: user_nodes,
             gpus: user_gres_count,
@@ -65,6 +74,7 @@ pub fn print_limits(name: &str, show_all: bool) {
         });
         center_usage.push(AccountJobUsage {
             account: group.clone(),
+            qos: qos.clone(),
             cores: center_cores,
             nodes: center_nodes,
             gpus: center_gres_count,
@@ -108,11 +118,14 @@ pub fn print_limits(name: &str, show_all: bool) {
         .measure(&user_usage)
         .measure(&center_usage);
 
+    // the bare partition names need no heading; the annotated table does
+    let label_title = if show_all { "PARTITION" } else { "" };
+
     println!("\nUser Limits ({})", name);
-    print_accounts(&user_usage, &widths);
+    print_accounts(&user_usage, &widths, label_title);
 
     println!("\nCenter Limits ({})", user_acct);
-    print_accounts(&center_usage, &widths);
+    print_accounts(&center_usage, &widths, label_title);
 }
 
 pub fn leaderboard(top_n: usize) {

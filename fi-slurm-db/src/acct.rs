@@ -452,8 +452,8 @@ pub fn get_tres_info(name: Option<String>) -> Result<(String, Vec<PartitionLimit
     let limits = partitions
         .iter()
         .map(|p| {
-            let qos = p.qos.as_deref().and_then(|name| by_name.get(name).copied());
-            PartitionLimits::new(&p.name, qos)
+            let record = p.qos.as_deref().and_then(|name| by_name.get(name).copied());
+            PartitionLimits::new(&p.name, p.qos.clone(), record)
         })
         .collect();
 
@@ -466,24 +466,30 @@ pub fn get_tres_info(name: Option<String>) -> Result<(String, Vec<PartitionLimit
 #[derive(Clone, Default)]
 pub struct PartitionLimits {
     pub partition: String,
+    /// The QOS these limits came from, which is not always named after the partition
+    pub qos: Option<String>,
     pub max_jobs_per_user: Option<u32>,
     pub max_tres_per_user: Option<String>,
     pub max_tres_per_group: Option<String>,
 }
 
 impl PartitionLimits {
-    fn new(partition: &str, qos: Option<&SlurmQos>) -> Self {
+    /// `qos` is the name the partition declares, `record` the QOS itself where slurmdbd
+    /// had one to return
+    fn new(partition: &str, qos: Option<String>, record: Option<&SlurmQos>) -> Self {
         let partition = partition.to_string();
 
-        match qos {
-            Some(qos) => Self {
+        match record {
+            Some(record) => Self {
                 partition,
-                max_jobs_per_user: unlimited_to_none(qos.max_jobs_per_user),
-                max_tres_per_user: qos.max_tres_per_user.clone(),
-                max_tres_per_group: qos.max_tres_per_group.clone(),
+                qos,
+                max_jobs_per_user: unlimited_to_none(record.max_jobs_per_user),
+                max_tres_per_user: record.max_tres_per_user.clone(),
+                max_tres_per_group: record.max_tres_per_group.clone(),
             },
             None => Self {
                 partition,
+                qos,
                 ..Default::default()
             },
         }

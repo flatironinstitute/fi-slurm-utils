@@ -73,6 +73,8 @@ struct Args {
     filter: Vec<String>,
 
     #[arg(short, long)]
-    #[arg(help = "Show every partition, including those with no limits to report.")]
+    #[arg(
+        help = "Show every partition, including those with no limits to report, and name the QOS each partition draws its limits from."
+    )]
     verbose: bool,
 }

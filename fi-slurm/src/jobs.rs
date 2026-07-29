@@ -384,6 +384,8 @@ pub fn enrich_jobs_with_node_ids(
 #[derive(Clone)]
 pub struct AccountJobUsage {
     pub account: String,
+    /// Where these limits come from, shown in its own column when any row supplies it
+    pub qos: Option<String>,
     pub cores: u32,
     pub nodes: u32,
     pub gpus: u32,
@@ -401,6 +403,7 @@ pub struct AccountJobUsage {
 #[derive(Clone, Copy, Default)]
 pub struct AcctUsageWidths {
     name_length: usize,
+    qos_length: usize,
     core_length: usize,
     max_core_length: usize,
     node_length: usize,
@@ -415,6 +418,9 @@ impl AcctUsageWidths {
     pub fn measure<'a>(mut self, accounts: impl IntoIterator<Item = &'a AccountJobUsage>) -> Self {
         for acc in accounts {
             self.name_length = self.name_length.max(acc.account.len());
+            self.qos_length = self
+                .qos_length
+                .max(acc.qos.as_deref().map_or(0, |qos| qos.len()));
             self.core_length = self.core_length.max(acc.cores.to_string().len());
             self.max_core_length = self.max_core_length.max(limit_str(acc.max_cores).len());
             self.node_length = self.node_length.max(acc.nodes.to_string().len());
@@ -474,8 +480,11 @@ fn usage_cell(
     format!("{colored}{pad}")
 }
 
-pub fn print_accounts(accounts: &[AccountJobUsage], widths: &AcctUsageWidths) {
-    let max_name_length = widths.name_length;
+/// `label_title` heads the first column, and must be the same for every report sharing
+/// `widths` or they will not line up
+pub fn print_accounts(accounts: &[AccountJobUsage], widths: &AcctUsageWidths, label_title: &str) {
+    // the title has to fit too, and both reports are given the same one so they stay aligned
+    let max_name_length = widths.name_length.max(label_title.len());
     let max_core_length = widths.core_length;
     let max_max_core_length = widths.max_core_length;
     let max_node_length = widths.node_length;
@@ -502,19 +511,19 @@ pub fn print_accounts(accounts: &[AccountJobUsage], widths: &AcctUsageWidths) {
     let final_gpus_width = gpus_data_width.max(header_gpus.len());
     let final_jobs_width = jobs_data_width.max(header_jobs.len());
 
+    // the QOS column earns its place only when the rows carry one
+    let header_qos = "QOS";
+    let qos_width = widths.qos_length.max(header_qos.len());
+    let show_qos = widths.qos_length > 0;
+
     // We left-align (`:<`) the header text within the final calculated column width.
-    let header_line = format!(
-        "{:<max_name_length$}{}{:>final_cores_width$}{}{:>final_nodes_width$}{}{:>final_gpus_width$}{}{:>final_jobs_width$}",
-        "", // Placeholder for the account name column
-        padding,
-        header_cores,
-        padding,
-        header_nodes,
-        padding,
-        header_gpus,
-        padding,
-        header_jobs
-    );
+    let mut header_line = format!("{label_title:<max_name_length$}");
+    if show_qos {
+        header_line.push_str(&format!("{padding}{header_qos:<qos_width$}"));
+    }
+    header_line.push_str(&format!(
+        "{padding}{header_cores:>final_cores_width$}{padding}{header_nodes:>final_nodes_width$}{padding}{header_gpus:>final_gpus_width$}{padding}{header_jobs:>final_jobs_width$}"
+    ));
 
     println!("{}", header_line);
 
@@ -549,18 +558,14 @@ pub fn print_accounts(accounts: &[AccountJobUsage], widths: &AcctUsageWidths) {
             final_jobs_width,
         );
 
-        let data_line = format!(
-            "{:<max_name_length$}{}{}{}{}{}{}{}{}",
-            acc.account,
-            padding,
-            cores_str,
-            padding,
-            nodes_str,
-            padding,
-            gpus_str,
-            padding,
-            jobs_str,
-        );
+        let mut data_line = format!("{:<max_name_length$}", acc.account);
+        if show_qos {
+            let qos = acc.qos.as_deref().unwrap_or("-");
+            data_line.push_str(&format!("{padding}{qos:<qos_width$}"));
+        }
+        data_line.push_str(&format!(
+            "{padding}{cores_str}{padding}{nodes_str}{padding}{gpus_str}{padding}{jobs_str}"
+        ));
         println!("{}", data_line);
     }
 }
