@@ -45,6 +45,7 @@ fn main() -> Result<(), String> {
 }
 
 const HELP: &str = "Displays current Slurm resource usage compared to limits. A value of \"-\" indicates no limit.\n\
+    Partitions named together, as in \"llm,scc\", draw their limits from one shared QOS, so that line totals the usage across all of them.\n\
     JOBS counts running jobs against MaxJobsPU. The limit on submitted jobs is separate and is not shown here.";
 
 #[derive(Parser, Debug)]
