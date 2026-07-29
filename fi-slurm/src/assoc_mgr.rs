@@ -117,6 +117,8 @@ pub struct UserRecord {
 pub struct QosLimits {
     pub max_jobs_per_user: Option<u32>,
     pub max_submit_jobs_per_user: Option<u32>,
+    /// GrpJobs, the limit over everyone in the QOS
+    pub group_jobs: Option<u32>,
     /// MaxTRESPU, keyed by TRES name
     pub max_tres_per_user: HashMap<String, u64>,
     /// GrpTRES, the limit over everyone in the QOS
@@ -256,6 +258,7 @@ unsafe fn read_qos(rec: *const slurmdb_qos_rec_t, tres_names: &[String]) -> QosU
     let limits = QosLimits {
         max_jobs_per_user: unlimited_to_none(unsafe { (*rec).max_jobs_pu }),
         max_submit_jobs_per_user: unlimited_to_none(unsafe { (*rec).max_submit_jobs_pu }),
+        group_jobs: unlimited_to_none(unsafe { (*rec).grp_jobs }),
         max_tres_per_user: unsafe { tres_limit_map((*rec).max_tres_pu_ctld, tres_names) },
         group_tres: unsafe { tres_limit_map((*rec).grp_tres_ctld, tres_names) },
     };
