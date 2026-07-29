@@ -379,7 +379,8 @@ pub fn enrich_jobs_with_node_ids(
 }
 
 /// Usage of one account, alongside the limits it counts against.
-/// A limit of zero means unlimited.
+/// `None` is no limit, which is not the same as a limit of zero: Slurm reads a zero limit
+/// as permission to run nothing at all.
 #[derive(Clone)]
 pub struct AccountJobUsage {
     pub account: String,
@@ -387,10 +388,10 @@ pub struct AccountJobUsage {
     pub nodes: u32,
     pub gpus: u32,
     pub jobs: u32,
-    pub max_cores: u32,
-    pub max_nodes: u32,
-    pub max_gpus: u32,
-    pub max_jobs: u32,
+    pub max_cores: Option<u32>,
+    pub max_nodes: Option<u32>,
+    pub max_gpus: Option<u32>,
+    pub max_jobs: Option<u32>,
 }
 
 // to print a vector of account job usage in a sensible way
@@ -415,23 +416,22 @@ impl AcctUsageWidths {
         for acc in accounts {
             self.name_length = self.name_length.max(acc.account.len());
             self.core_length = self.core_length.max(acc.cores.to_string().len());
-            self.max_core_length = self.max_core_length.max(zero_to_dash(acc.max_cores).len());
+            self.max_core_length = self.max_core_length.max(limit_str(acc.max_cores).len());
             self.node_length = self.node_length.max(acc.nodes.to_string().len());
-            self.max_node_length = self.max_node_length.max(zero_to_dash(acc.max_nodes).len());
+            self.max_node_length = self.max_node_length.max(limit_str(acc.max_nodes).len());
             self.gpu_length = self.gpu_length.max(acc.gpus.to_string().len());
-            self.max_gpu_length = self.max_gpu_length.max(zero_to_dash(acc.max_gpus).len());
+            self.max_gpu_length = self.max_gpu_length.max(limit_str(acc.max_gpus).len());
             self.job_length = self.job_length.max(acc.jobs.to_string().len());
-            self.max_job_length = self.max_job_length.max(zero_to_dash(acc.max_jobs).len());
+            self.max_job_length = self.max_job_length.max(limit_str(acc.max_jobs).len());
         }
         self
     }
 }
 
-fn zero_to_dash(x: u32) -> String {
-    if x == 0 {
-        "-".to_string()
-    } else {
-        x.to_string()
+fn limit_str(limit: Option<u32>) -> String {
+    match limit {
+        Some(n) => n.to_string(),
+        None => "-".to_string(),
     }
 }
 
@@ -444,27 +444,31 @@ const ORANGE_PERCENT: u64 = 75;
 const ORANGE: (u8, u8, u8) = (255, 165, 0);
 
 /// Renders one "used/limit" cell, padded to `col_width` and colored by how much of the
-/// limit is consumed. A limit of zero means unlimited, so it is never flagged.
+/// limit is consumed. An absent limit is never flagged; a limit of zero permits nothing,
+/// so any usage against it is over.
 fn usage_cell(
     used: u32,
-    limit: u32,
+    limit: Option<u32>,
     used_width: usize,
     limit_width: usize,
     col_width: usize,
 ) -> String {
-    let plain = format!("{used:>used_width$}/{:>limit_width$}", zero_to_dash(limit));
+    let plain = format!("{used:>used_width$}/{:>limit_width$}", limit_str(limit));
     // pad by the visible length, which the color escapes would otherwise inflate
     let pad = " ".repeat(col_width.saturating_sub(plain.len()));
 
-    let colored = if limit == 0 {
-        plain
-    } else {
-        match u64::from(used) * 100 / u64::from(limit) {
-            p if p >= 100 => plain.red().to_string(),
-            p if p >= ORANGE_PERCENT => plain.truecolor(ORANGE.0, ORANGE.1, ORANGE.2).to_string(),
-            p if p >= YELLOW_PERCENT => plain.yellow().to_string(),
-            _ => plain,
-        }
+    let over_percent = match limit {
+        None => None,
+        Some(0) if used == 0 => None,
+        Some(0) => Some(100),
+        Some(limit) => Some(u64::from(used) * 100 / u64::from(limit)),
+    };
+
+    let colored = match over_percent {
+        Some(p) if p >= 100 => plain.red().to_string(),
+        Some(p) if p >= ORANGE_PERCENT => plain.truecolor(ORANGE.0, ORANGE.1, ORANGE.2).to_string(),
+        Some(p) if p >= YELLOW_PERCENT => plain.yellow().to_string(),
+        _ => plain,
     };
 
     format!("{colored}{pad}")

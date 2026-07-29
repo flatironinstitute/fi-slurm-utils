@@ -461,11 +461,12 @@ pub fn get_tres_info(name: Option<String>) -> Result<(String, Vec<PartitionLimit
 }
 
 /// The limits that apply to a user's jobs in one partition, taken from that partition's QOS.
-/// Zero, or `None`, means unlimited — as does a partition having no QOS of its own.
+/// `None` is no limit, as is a partition having no QOS of its own; a `Some(0)` limit permits
+/// nothing and is not the same thing.
 #[derive(Clone, Default)]
 pub struct PartitionLimits {
     pub partition: String,
-    pub max_jobs_per_user: u32,
+    pub max_jobs_per_user: Option<u32>,
     pub max_tres_per_user: Option<String>,
     pub max_tres_per_group: Option<String>,
 }
@@ -477,7 +478,7 @@ impl PartitionLimits {
         match qos {
             Some(qos) => Self {
                 partition,
-                max_jobs_per_user: unlimited_to_zero(qos.max_jobs_per_user),
+                max_jobs_per_user: unlimited_to_none(qos.max_jobs_per_user),
                 max_tres_per_user: qos.max_tres_per_user.clone(),
                 max_tres_per_group: qos.max_tres_per_group.clone(),
             },
@@ -490,8 +491,12 @@ impl PartitionLimits {
 }
 
 /// Slurm spells an unset scalar limit INFINITE (0xffffffff) or NO_VAL (0xfffffffe)
-fn unlimited_to_zero(limit: u32) -> u32 {
-    if limit >= u32::MAX - 1 { 0 } else { limit }
+fn unlimited_to_none(limit: u32) -> Option<u32> {
+    if limit >= u32::MAX - 1 {
+        None
+    } else {
+        Some(limit)
+    }
 }
 
 pub struct TresMax {

@@ -50,15 +50,7 @@ pub fn print_limits(name: &str, show_all: bool) {
         let user_job_count = user_jobs.jobs.len() as u32;
 
         let user_tres_max = TresMax::new(a.max_tres_per_user.clone().unwrap_or("".to_string()));
-        let user_max_nodes = user_tres_max.max_nodes.unwrap_or(0);
-        let user_max_cores = user_tres_max.max_cores.unwrap_or(0);
-        let user_max_gres = user_tres_max.max_gpus.unwrap_or(0);
-        let user_max_jobs = a.max_jobs_per_user;
-
         let center_tres_max = TresMax::new(a.max_tres_per_group.clone().unwrap_or("".to_string()));
-        let center_max_nodes = center_tres_max.max_nodes.unwrap_or(0);
-        let center_max_cores = center_tres_max.max_cores.unwrap_or(0);
-        let center_max_gres = center_tres_max.max_gpus.unwrap_or(0);
 
         user_usage.push(AccountJobUsage {
             account: group.clone(),
@@ -66,10 +58,10 @@ pub fn print_limits(name: &str, show_all: bool) {
             nodes: user_nodes,
             gpus: user_gres_count,
             jobs: user_job_count,
-            max_cores: user_max_cores,
-            max_nodes: user_max_nodes,
-            max_gpus: user_max_gres,
-            max_jobs: user_max_jobs,
+            max_cores: user_tres_max.max_cores,
+            max_nodes: user_tres_max.max_nodes,
+            max_gpus: user_tres_max.max_gpus,
+            max_jobs: a.max_jobs_per_user,
         });
         center_usage.push(AccountJobUsage {
             account: group.clone(),
@@ -77,38 +69,33 @@ pub fn print_limits(name: &str, show_all: bool) {
             nodes: center_nodes,
             gpus: center_gres_count,
             jobs: center_job_count,
-            max_cores: center_max_cores,
-            max_nodes: center_max_nodes,
-            max_gpus: center_max_gres,
+            max_cores: center_tres_max.max_cores,
+            max_nodes: center_tres_max.max_nodes,
+            max_gpus: center_tres_max.max_gpus,
             // MaxJobsPU is a per-user limit, so the center has no counterpart to show
-            max_jobs: 0,
+            max_jobs: None,
         });
     });
 
     if !show_all {
-        // only retain those lines for which there are some non-zero quantities,
-        // or that we specify should never be hidden
+        // keep the lines that have either usage or a limit to report, plus the ones we
+        // specify should never be hidden
         user_usage.retain(|user| {
-            ALWAYS_SHOW.contains(&user.account.as_str())
-                || ![
-                    user.cores,
-                    user.nodes,
-                    user.gpus,
-                    user.jobs,
-                    user.max_cores,
-                    user.max_nodes,
-                    user.max_gpus,
-                    user.max_jobs,
-                ]
+            let has_usage = [user.cores, user.nodes, user.gpus, user.jobs]
                 .iter()
-                .all(|i| *i == 0)
+                .any(|&n| n != 0);
+            let has_limit = [user.max_cores, user.max_nodes, user.max_gpus, user.max_jobs]
+                .iter()
+                .any(Option::is_some);
+
+            ALWAYS_SHOW.contains(&user.account.as_str()) || has_usage || has_limit
         });
 
-        // only retain those lines for which there are some non-zero LIMITS
+        // only retain those lines that have a group limit to report
         center_usage.retain(|center| {
-            ![center.max_nodes, center.max_cores, center.max_gpus]
+            [center.max_nodes, center.max_cores, center.max_gpus]
                 .iter()
-                .all(|i| *i == 0)
+                .any(Option::is_some)
         });
     }
 
