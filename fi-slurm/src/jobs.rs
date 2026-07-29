@@ -404,17 +404,33 @@ fn limit_str(limit: Option<u32>) -> String {
     }
 }
 
-/// Percent of a limit at which usage turns yellow, then orange; 100% turns red
-const YELLOW_PERCENT: u64 = 50;
-const ORANGE_PERCENT: u64 = 75;
+/// The ends of the scale usage under its limit is drawn on: the first core, node or job
+/// counted against the limit, and the approach to the limit itself. Usage that has reached
+/// its limit leaves the scale for `OVER`.
+///
+/// Orange is not an ANSI color, so the scale comes from the truecolor range. `colored`
+/// substitutes the nearest basic color where the terminal lacks truecolor support, which
+/// flattens the scale to yellow but leaves `OVER` distinct from it.
+const SCALE_LOW: (u8, u8, u8) = (255, 255, 0);
+const SCALE_HIGH: (u8, u8, u8) = (255, 165, 0);
+const OVER: (u8, u8, u8) = (255, 0, 0);
 
-/// No ANSI color is orange, so it comes from the truecolor range. `colored` substitutes
-/// the nearest basic color where the terminal lacks truecolor support.
-const ORANGE: (u8, u8, u8) = (255, 165, 0);
+/// The color for usage `fraction` of the way to its limit, which the caller keeps under 1
+fn usage_color(fraction: f64) -> (u8, u8, u8) {
+    let fraction = fraction.clamp(0.0, 1.0);
+    let mix = |low: u8, high: u8| {
+        (f64::from(low) + fraction * (f64::from(high) - f64::from(low))).round() as u8
+    };
+
+    (
+        mix(SCALE_LOW.0, SCALE_HIGH.0),
+        mix(SCALE_LOW.1, SCALE_HIGH.1),
+        mix(SCALE_LOW.2, SCALE_HIGH.2),
+    )
+}
 
 /// Renders one "used/limit" cell, padded to `col_width` and colored by how much of the
-/// limit is consumed. An absent limit is never flagged; a limit of zero permits nothing,
-/// so any usage against it is over.
+/// limit is consumed. Only an idle cell is left uncolored.
 fn usage_cell(
     used: u32,
     limit: Option<u32>,
@@ -426,18 +442,18 @@ fn usage_cell(
     // pad by the visible length, which the color escapes would otherwise inflate
     let pad = " ".repeat(col_width.saturating_sub(plain.len()));
 
-    let over_percent = match limit {
-        None => None,
-        Some(0) if used == 0 => None,
-        Some(0) => Some(100),
-        Some(limit) => Some(u64::from(used) * 100 / u64::from(limit)),
+    let color = match (used, limit) {
+        (0, _) => None,
+        // usage under no limit has nothing to be a fraction of, but is still worth seeing
+        (_, None) => Some(SCALE_LOW),
+        // a limit of zero permits nothing, which this arm also spares the division
+        (used, Some(limit)) if used >= limit => Some(OVER),
+        (used, Some(limit)) => Some(usage_color(f64::from(used) / f64::from(limit))),
     };
 
-    let colored = match over_percent {
-        Some(p) if p >= 100 => plain.red().to_string(),
-        Some(p) if p >= ORANGE_PERCENT => plain.truecolor(ORANGE.0, ORANGE.1, ORANGE.2).to_string(),
-        Some(p) if p >= YELLOW_PERCENT => plain.yellow().to_string(),
-        _ => plain,
+    let colored = match color {
+        Some((r, g, b)) => plain.truecolor(r, g, b).to_string(),
+        None => plain,
     };
 
     format!("{colored}{pad}")
