@@ -463,6 +463,9 @@ pub fn get_tres_info(name: Option<String>) -> Result<(String, Vec<PartitionLimit
 /// The limits that apply to a user's jobs in one partition, taken from that partition's QOS.
 /// `None` is no limit, as is a partition having no QOS of its own; a `Some(0)` limit permits
 /// nothing and is not the same thing.
+///
+/// A job also counts against the QOS it requests, which is not reported: the QOS users may
+/// request at this site carry no limits, so only the partition's QOS can bind them.
 #[derive(Clone, Default)]
 pub struct PartitionLimits {
     pub partition: String,
