@@ -1,6 +1,7 @@
 use colored::Colorize;
-use fi_slurm::assoc_mgr::{QosLimits, QosUsage, get_qos_usage};
+use fi_slurm::assoc_mgr::{QosLimits, load as load_assoc_mgr};
 use fi_slurm::parser::parse_slurm_hostlist;
+use fi_slurm::partitions::get_partitions;
 use fi_slurm::{
     jobs::{
         AccountJobUsage, AcctUsageWidths, FilterMethod, JobState, SlurmJobs, build_node_to_job_map,
@@ -8,33 +9,35 @@ use fi_slurm::{
     },
     nodes::get_nodes,
 };
-use fi_slurm_db::acct::get_user_partitions;
 use std::collections::{BTreeMap, HashMap, HashSet};
-use users::get_user_by_name;
 
 const ALWAYS_SHOW: [&str; 2] = ["preempt", "gpupreempt"];
 
 pub fn print_limits(name: &str, show_all: bool) {
-    let (user_acct, partitions) = get_user_partitions(Some(name.to_string())).unwrap_or_else(|e| {
+    let assoc_mgr = load_assoc_mgr(vec![name.to_string()]).unwrap_or_else(|e| {
         eprintln!("{e}");
         std::process::exit(1);
     });
 
-    // the controller counts usage per uid, so reporting on a user needs theirs
-    let uid = get_user_by_name(name)
-        .map(|user| user.uid())
-        .unwrap_or_else(|| {
-            eprintln!("Could not find a uid for \"{name}\", which the usage counters are keyed by");
-            std::process::exit(1);
-        });
+    // the counters are keyed by uid, and the account decides which partitions are on offer
+    let user = assoc_mgr.users.get(name).unwrap_or_else(|| {
+        eprintln!("Slurm has no user named \"{name}\"");
+        std::process::exit(1);
+    });
+    let uid = user.uid;
+    let user_acct = user.default_account.clone().unwrap_or_else(|| {
+        eprintln!("\"{name}\" has no default account, so there is no center to report on");
+        std::process::exit(1);
+    });
+    let usage = &assoc_mgr.qos;
 
-    let usage: HashMap<String, QosUsage> = get_qos_usage(vec![name.to_string()])
+    let partitions: Vec<_> = get_partitions()
         .unwrap_or_else(|e| {
             eprintln!("{e}");
             std::process::exit(1);
         })
         .into_iter()
-        .map(|qos| (qos.name.clone(), qos))
+        .filter(|partition| partition.allows_account(&user_acct))
         .collect();
 
     // Partitions that share a QOS share one set of limits and one set of counters, so they

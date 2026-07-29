@@ -8,9 +8,9 @@
 use crate::list::{SlurmIterator, vec_to_slurm_list};
 use crate::utils::c_str_to_string;
 use fi_slurm_sys::{
-    ASSOC_MGR_INFO_FLAG_QOS, assoc_mgr_info_msg_t, assoc_mgr_info_request_msg_t,
-    slurm_free_assoc_mgr_info_msg, slurm_list_destroy, slurm_load_assoc_mgr_info,
-    slurmdb_qos_rec_t, slurmdb_used_limits_t,
+    ASSOC_MGR_INFO_FLAG_QOS, ASSOC_MGR_INFO_FLAG_USERS, assoc_mgr_info_msg_t,
+    assoc_mgr_info_request_msg_t, slurm_free_assoc_mgr_info_msg, slurm_list_destroy,
+    slurm_load_assoc_mgr_info, slurmdb_qos_rec_t, slurmdb_used_limits_t, slurmdb_user_rec_t,
 };
 use std::collections::HashMap;
 
@@ -20,10 +20,11 @@ struct AssocMgrRequest {
 }
 
 impl AssocMgrRequest {
-    /// Asks only for QOS records, and only those the given users appear in
+    /// Asks for the QOS records, and for the given users, whose per-user sections are all
+    /// the QOS records then carry
     fn new(users: Vec<String>) -> Self {
         let mut req: assoc_mgr_info_request_msg_t = unsafe { std::mem::zeroed() };
-        req.flags = ASSOC_MGR_INFO_FLAG_QOS;
+        req.flags = ASSOC_MGR_INFO_FLAG_QOS | ASSOC_MGR_INFO_FLAG_USERS;
         req.user_list = unsafe { vec_to_slurm_list(Some(users)) };
 
         Self {
@@ -97,6 +98,15 @@ impl Usage {
     pub fn gpus(&self) -> u32 {
         self.tres_count("gres/gpu")
     }
+}
+
+/// A user as the controller knows them
+#[derive(Debug, Clone)]
+pub struct UserRecord {
+    pub name: String,
+    pub uid: u32,
+    /// The account a job lands in when it does not name one
+    pub default_account: Option<String>,
 }
 
 /// A QOS's limits. An absent entry is no limit; a zero is a limit of zero, which permits
@@ -177,8 +187,17 @@ unsafe fn tres_map(counts: *mut u64, names: &[String]) -> HashMap<String, u64> {
         .collect()
 }
 
-/// Fetches the QOS usage counters for `users` from the controller
-pub fn get_qos_usage(users: Vec<String>) -> Result<Vec<QosUsage>, String> {
+/// What the association manager holds: every QOS with its limits and counters, and the
+/// users asked after
+pub struct AssocMgrInfo {
+    /// By QOS name
+    pub qos: HashMap<String, QosUsage>,
+    /// By user name
+    pub users: HashMap<String, UserRecord>,
+}
+
+/// Reads the QOS limits and counters, and the given users, from the controller
+pub fn load(users: Vec<String>) -> Result<AssocMgrInfo, String> {
     let request = AssocMgrRequest::new(users);
     let mut resp_ptr: *mut assoc_mgr_info_msg_t = std::ptr::null_mut();
 
@@ -203,11 +222,28 @@ pub fn get_qos_usage(users: Vec<String>) -> Result<Vec<QosUsage>, String> {
     let qos = unsafe { SlurmIterator::new(msg.qos_list) }
         .map(|rec| {
             let rec = rec as *const slurmdb_qos_rec_t;
-            unsafe { read_qos(rec, &tres_names) }
+            let qos = unsafe { read_qos(rec, &tres_names) };
+            (qos.name.clone(), qos)
         })
         .collect();
 
-    Ok(qos)
+    let users = unsafe { SlurmIterator::new(msg.user_list) }
+        .map(|rec| {
+            let rec = rec as *const slurmdb_user_rec_t;
+            let user = UserRecord {
+                name: unsafe { c_str_to_string((*rec).name) },
+                uid: unsafe { (*rec).uid },
+                default_account: unsafe { non_empty(c_str_to_string((*rec).default_acct)) },
+            };
+            (user.name.clone(), user)
+        })
+        .collect();
+
+    Ok(AssocMgrInfo { qos, users })
+}
+
+fn non_empty(s: String) -> Option<String> {
+    if s.is_empty() { None } else { Some(s) }
 }
 
 /// # Safety
