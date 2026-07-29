@@ -7,8 +7,8 @@ use fi_slurm::{
     },
     nodes::get_nodes,
 };
-use fi_slurm_db::acct::{TresMax, get_tres_info};
-use std::collections::{HashMap, HashSet};
+use fi_slurm_db::acct::{PartitionLimits, TresMax, get_tres_info};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 const ALWAYS_SHOW: [&str; 2] = ["preempt", "gpupreempt"];
 
@@ -24,69 +24,75 @@ pub fn print_limits(name: &str, show_all: bool) {
         .jobs
         .retain(|&_, job| job.job_state == JobState::Running);
 
-    let mut user_usage: Vec<AccountJobUsage> = Vec::new();
-    let mut center_usage: Vec<AccountJobUsage> = Vec::new();
+    // Partitions that share a QOS share one set of limits, so they belong on one line:
+    // reported separately, each line would show the whole limit against a fraction of the
+    // usage counted against it. Partitions with no QOS share nothing and stay apart.
+    let mut groups: BTreeMap<String, Group> = BTreeMap::new();
 
-    //CENTER LIMITS ({acct})
-    partitions.iter().for_each(|a| {
-        let group = a.partition.clone();
-
-        // the partition is what a user submits to, so it labels the row; under -v the QOS
-        // the limits actually come from gets a column, since it is not always the same name
-        let qos = if show_all {
-            Some(a.qos.clone().unwrap_or_else(|| "-".to_string()))
-        } else {
-            None
-        };
+    for limits in &partitions {
+        let partition = limits.partition.clone();
 
         let center_jobs = jobs_collection
             .clone()
-            .filter_by(FilterMethod::Partition(group.clone()))
+            .filter_by(FilterMethod::Partition(partition.clone()))
             .filter_by(FilterMethod::Account(user_acct.clone()));
-
-        let center_gres_count = center_jobs.get_gres_total();
-
-        let (center_nodes, center_cores) = center_jobs.get_resource_use();
-        let center_job_count = center_jobs.jobs.len() as u32;
 
         let user_jobs = jobs_collection
             .clone()
-            .filter_by(FilterMethod::Partition(group.clone()))
+            .filter_by(FilterMethod::Partition(partition.clone()))
             .filter_by(FilterMethod::UserName(name.to_string()));
 
-        let (user_nodes, user_cores) = user_jobs.get_resource_use();
-        let user_gres_count = user_jobs.get_gres_total();
-        let user_job_count = user_jobs.jobs.len() as u32;
+        let key = match &limits.qos {
+            Some(qos) => format!("qos\u{1}{qos}"),
+            None => format!("partition\u{1}{partition}"),
+        };
+        let group = groups
+            .entry(key)
+            .or_insert_with(|| Group::new(limits.clone()));
 
-        let user_tres_max = TresMax::new(a.max_tres_per_user.clone().unwrap_or("".to_string()));
-        let center_tres_max = TresMax::new(a.max_tres_per_group.clone().unwrap_or("".to_string()));
+        group.partitions.push(partition);
+        group.user.add(&user_jobs);
+        group.center.add(&center_jobs);
+    }
+
+    let mut user_usage: Vec<AccountJobUsage> = Vec::new();
+    let mut center_usage: Vec<AccountJobUsage> = Vec::new();
+
+    for group in groups.values() {
+        let label = group.label();
+        // under -v the QOS the limits actually come from gets a column, since it is not
+        // always named after the partitions drawing on it
+        let qos = show_all.then(|| group.limits.qos.clone().unwrap_or_else(|| "-".to_string()));
+
+        let user_max = TresMax::new(group.limits.max_tres_per_user.clone().unwrap_or_default());
+        let center_max = TresMax::new(group.limits.max_tres_per_group.clone().unwrap_or_default());
 
         user_usage.push(AccountJobUsage {
-            account: group.clone(),
+            account: label.clone(),
             qos: qos.clone(),
-            cores: user_cores,
-            nodes: user_nodes,
-            gpus: user_gres_count,
-            jobs: user_job_count,
-            max_cores: user_tres_max.max_cores,
-            max_nodes: user_tres_max.max_nodes,
-            max_gpus: user_tres_max.max_gpus,
-            max_jobs: a.max_jobs_per_user,
+            cores: group.user.cores,
+            nodes: group.user.nodes,
+            gpus: group.user.gpus,
+            jobs: group.user.jobs,
+            max_cores: user_max.max_cores,
+            max_nodes: user_max.max_nodes,
+            max_gpus: user_max.max_gpus,
+            max_jobs: group.limits.max_jobs_per_user,
         });
         center_usage.push(AccountJobUsage {
-            account: group.clone(),
-            qos: qos.clone(),
-            cores: center_cores,
-            nodes: center_nodes,
-            gpus: center_gres_count,
-            jobs: center_job_count,
-            max_cores: center_tres_max.max_cores,
-            max_nodes: center_tres_max.max_nodes,
-            max_gpus: center_tres_max.max_gpus,
+            account: label,
+            qos,
+            cores: group.center.cores,
+            nodes: group.center.nodes,
+            gpus: group.center.gpus,
+            jobs: group.center.jobs,
+            max_cores: center_max.max_cores,
+            max_nodes: center_max.max_nodes,
+            max_gpus: center_max.max_gpus,
             // MaxJobsPU is a per-user limit, so the center has no counterpart to show
             max_jobs: None,
         });
-    });
+    }
 
     if !show_all {
         // keep the lines that have either usage or a limit to report, plus the ones we
@@ -110,7 +116,6 @@ pub fn print_limits(name: &str, show_all: bool) {
         });
     }
 
-    // Sort both by account name
     user_usage.sort_by(|a, b| a.account.cmp(&b.account));
     center_usage.sort_by(|a, b| a.account.cmp(&b.account));
 
@@ -121,7 +126,6 @@ pub fn print_limits(name: &str, show_all: bool) {
 
     // the bare partition names need no heading; the annotated table does
     let label_title = if show_all { "PARTITION" } else { "" };
-
     let table_width = widths.table_width(label_title);
 
     print_heading(&format!("User Limits ({name})"), table_width);
@@ -129,6 +133,51 @@ pub fn print_limits(name: &str, show_all: bool) {
 
     print_heading(&format!("Center Limits ({user_acct})"), table_width);
     print_accounts(&center_usage, &widths, label_title);
+}
+
+/// Running totals over the jobs in one partition
+#[derive(Default)]
+struct Usage {
+    cores: u32,
+    nodes: u32,
+    gpus: u32,
+    jobs: u32,
+}
+
+impl Usage {
+    fn add(&mut self, jobs: &SlurmJobs) {
+        let (nodes, cores) = jobs.get_resource_use();
+        self.cores += cores;
+        self.nodes += nodes;
+        self.gpus += jobs.get_gres_total();
+        self.jobs += jobs.jobs.len() as u32;
+    }
+}
+
+/// The partitions drawing on one QOS, and the usage counted against it
+struct Group {
+    partitions: Vec<String>,
+    limits: PartitionLimits,
+    user: Usage,
+    center: Usage,
+}
+
+impl Group {
+    fn new(limits: PartitionLimits) -> Self {
+        Self {
+            partitions: Vec::new(),
+            limits,
+            user: Usage::default(),
+            center: Usage::default(),
+        }
+    }
+
+    /// Every partition sharing the limits, so that one line can stand for all of them
+    fn label(&self) -> String {
+        let mut names = self.partitions.clone();
+        names.sort();
+        names.join(",")
+    }
 }
 
 /// Centres a section heading in a rule spanning `table_width`, both so it does not sit off to
