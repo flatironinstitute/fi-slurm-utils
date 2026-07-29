@@ -1,4 +1,5 @@
 use crate::parser::parse_tres_str;
+use crate::states::{JobStateFlags, ShowFlags};
 use crate::utils::{c_str_to_string, time_t_to_datetime};
 use chrono::{DateTime, Utc};
 use colored::Colorize;
@@ -34,10 +35,11 @@ impl RawSlurmJobInfo {
     pub fn load(update_time: time_t) -> Result<Self, String> {
         let mut job_info_msg_ptr: *mut job_info_msg_t = std::ptr::null_mut();
 
-        let show_flags = 2; // just using the SHOW_DETAIL flag
+        // ALL so that jobs in hidden partitions are still counted
+        let show_flags = ShowFlags::ALL | ShowFlags::DETAIL;
 
         let return_code =
-            unsafe { slurm_load_jobs(update_time, &mut job_info_msg_ptr, show_flags) };
+            unsafe { slurm_load_jobs(update_time, &mut job_info_msg_ptr, show_flags.bits()) };
 
         if return_code == 0 && !job_info_msg_ptr.is_null() {
             // Success: wrap the raw pointer in our safe struct and return it.
@@ -155,36 +157,26 @@ pub enum JobState {
 }
 
 impl From<u32> for JobState {
+    /// Slurm packs state flags above the base state, so the flag bits have to come off
+    /// before the state can be recognized at all
     fn from(state_num: u32) -> Self {
-        const JOB_PENDING: u32 = 0;
-        const JOB_RUNNING: u32 = 1;
-        const JOB_SUSPENDED: u32 = 2;
-        const JOB_COMPLETE: u32 = 3; // Or COMPLETING
-        const JOB_CANCELLED: u32 = 4;
-        const JOB_FAILED: u32 = 5;
-        const JOB_TIMEOUT: u32 = 6;
-        const JOB_NODE_FAIL: u32 = 7;
-        const JOB_PREEMPTED: u32 = 8;
-        const JOB_BOOT_FAIL: u32 = 9;
-        const JOB_DEADLINE: u32 = 10;
-        const JOB_OUTOFMEMORY: u32 = 11;
-        const JOB_END: u32 = 12;
+        use fi_slurm_sys::*;
 
-        match state_num {
-            JOB_PENDING => JobState::Pending,
-            JOB_RUNNING => JobState::Running,
-            JOB_SUSPENDED => JobState::Suspended,
-            JOB_COMPLETE => JobState::Complete,
-            JOB_CANCELLED => JobState::Cancelled,
-            JOB_FAILED => JobState::Failed,
-            JOB_TIMEOUT => JobState::Timeout,
-            JOB_NODE_FAIL => JobState::NodeFail,
-            JOB_PREEMPTED => JobState::Preempted,
-            JOB_BOOT_FAIL => JobState::BootFail,
-            JOB_DEADLINE => JobState::Deadline,
-            JOB_OUTOFMEMORY => JobState::OutOfMemory,
-            JOB_END => JobState::End,
-            _ => JobState::Unknown(format!("State code {}", state_num)),
+        match state_num & JOB_STATE_BASE {
+            job_states_JOB_PENDING => JobState::Pending,
+            job_states_JOB_RUNNING => JobState::Running,
+            job_states_JOB_SUSPENDED => JobState::Suspended,
+            job_states_JOB_COMPLETE => JobState::Complete,
+            job_states_JOB_CANCELLED => JobState::Cancelled,
+            job_states_JOB_FAILED => JobState::Failed,
+            job_states_JOB_TIMEOUT => JobState::Timeout,
+            job_states_JOB_NODE_FAIL => JobState::NodeFail,
+            job_states_JOB_PREEMPTED => JobState::Preempted,
+            job_states_JOB_BOOT_FAIL => JobState::BootFail,
+            job_states_JOB_DEADLINE => JobState::Deadline,
+            job_states_JOB_OOM => JobState::OutOfMemory,
+            job_states_JOB_END => JobState::End,
+            base => JobState::Unknown(format!("State code {}", base)),
         }
     }
 }
@@ -211,6 +203,8 @@ pub struct Job {
 
     // State and Time
     pub job_state: JobState,
+    /// The flags carried alongside `job_state`, e.g. a running job whose epilog has started
+    pub state_flags: JobStateFlags,
     pub state_description: String,
     pub submit_time: DateTime<Utc>,
     pub start_time: DateTime<Utc>,
@@ -247,6 +241,7 @@ impl Job {
             partition: unsafe { c_str_to_string(raw_job.partition) },
             account: unsafe { c_str_to_string(raw_job.account) },
             job_state: JobState::from(raw_job.job_state),
+            state_flags: JobStateFlags::from_bits_truncate(raw_job.job_state),
             state_description: unsafe { c_str_to_string(raw_job.state_desc) },
             submit_time: time_t_to_datetime(raw_job.submit_time),
             start_time: time_t_to_datetime(raw_job.start_time),

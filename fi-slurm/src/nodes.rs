@@ -147,25 +147,17 @@ pub enum NodeState {
 
 impl From<u32> for NodeState {
     fn from(state_num: u32) -> Self {
-        // TODO: these should be the bindgen constants
-        const NODE_STATE_DOWN: u32 = 1;
-        const NODE_STATE_IDLE: u32 = 2;
-        const NODE_STATE_ALLOCATED: u32 = 3;
-        const NODE_STATE_ERROR: u32 = 4;
-        const NODE_STATE_MIXED: u32 = 5;
-        const NODE_STATE_FUTURE: u32 = 6;
-        const NODE_STATE_END: u32 = 7;
-        const BASE_STATE_MASK: u32 = 0xF;
+        use fi_slurm_sys::*;
 
-        let base_state_num = state_num & BASE_STATE_MASK;
+        let base_state_num = state_num & NODE_STATE_BASE;
         let base_state = match base_state_num {
-            NODE_STATE_DOWN => NodeState::Down,
-            NODE_STATE_IDLE => NodeState::Idle,
-            NODE_STATE_ALLOCATED => NodeState::Allocated,
-            NODE_STATE_ERROR => NodeState::Error,
-            NODE_STATE_MIXED => NodeState::Mixed,
-            NODE_STATE_FUTURE => NodeState::Future,
-            NODE_STATE_END => NodeState::End,
+            node_states_NODE_STATE_DOWN => NodeState::Down,
+            node_states_NODE_STATE_IDLE => NodeState::Idle,
+            node_states_NODE_STATE_ALLOCATED => NodeState::Allocated,
+            node_states_NODE_STATE_ERROR => NodeState::Error,
+            node_states_NODE_STATE_MIXED => NodeState::Mixed,
+            node_states_NODE_STATE_FUTURE => NodeState::Future,
+            node_states_NODE_STATE_END => NodeState::End,
             _ => NodeState::Unknown(format!("BASE({})", base_state_num)),
         };
 

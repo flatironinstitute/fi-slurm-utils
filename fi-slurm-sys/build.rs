@@ -44,6 +44,9 @@ fn main() {
     let mut builder = bindgen::Builder::default()
         .header("wrapper.h")
         .wrap_unsafe_ops(true)
+        // Slurm spells its state flags SLURM_BIT(n), a function-like macro bindgen cannot
+        // expand on its own; the fallback has clang evaluate them so the flag values exist
+        .clang_macro_fallback()
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()));
 
     for pattern in ALLOWED_FUNCTIONS {
