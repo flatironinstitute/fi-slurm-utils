@@ -336,7 +336,25 @@ pub fn build_tree_report(
         }
     }
 
+    // the line the report leads with always carries a preempt count under -p, so that a "(-0)"
+    // says preempt mode is on rather than leaving it indistinguishable from a plain report
+    if preempt_jobs.is_some() {
+        seed_preempt_counts(&mut root.stats);
+        // `print_tree_report` promotes the only child to the top line when filtering on one thing
+        if root.single_filter
+            && let Some(child) = root.children.values_mut().next()
+        {
+            seed_preempt_counts(&mut child.stats);
+        }
+    }
+
     root
+}
+
+/// Makes a line report a preempt count even when nothing on it is preemptable
+fn seed_preempt_counts(stats: &mut ReportLine) {
+    stats.preempt_nodes.get_or_insert(0);
+    stats.preempt_cpus.get_or_insert(0);
 }
 
 // Display Logic
