@@ -65,13 +65,38 @@ impl Drop for RawAssocMgrInfo {
     }
 }
 
-/// What one user has running against one QOS, as the controller counts it
+/// What one user, one account, or a whole QOS has running, as the controller counts it
 #[derive(Debug, Clone, Default)]
-pub struct UserUsage {
+pub struct Usage {
     pub jobs: u32,
     pub submitted_jobs: u32,
     /// Keyed by TRES name as the controller names it, e.g. "cpu", "node", "gres/gpu"
     pub tres: HashMap<String, u64>,
+}
+
+impl Usage {
+    /// A TRES count by Slurm's name for it. Typed GRES are separate entries, so asking for
+    /// "gres/gpu" gives the total rather than double counting per-model counts alongside it.
+    pub fn tres_count(&self, name: &str) -> u32 {
+        self.tres
+            .get(name)
+            .copied()
+            .unwrap_or(0)
+            .try_into()
+            .unwrap_or(u32::MAX)
+    }
+
+    pub fn cores(&self) -> u32 {
+        self.tres_count("cpu")
+    }
+
+    pub fn nodes(&self) -> u32 {
+        self.tres_count("node")
+    }
+
+    pub fn gpus(&self) -> u32 {
+        self.tres_count("gres/gpu")
+    }
 }
 
 /// One QOS, with the usage counted against it
@@ -79,9 +104,23 @@ pub struct UserUsage {
 pub struct QosUsage {
     pub name: String,
     /// Usage by everyone in the QOS, which is what GrpTRES limits are measured against
-    pub group: UserUsage,
+    pub group: Usage,
     /// Usage per user, which is what MaxTRESPU and MaxJobsPU are measured against
-    pub per_user: HashMap<u32, UserUsage>,
+    pub per_user: HashMap<u32, Usage>,
+    /// Usage per account, keyed by account name
+    pub per_account: HashMap<String, Usage>,
+}
+
+impl QosUsage {
+    /// What `uid` has running against this QOS; absent means nothing at all
+    pub fn user(&self, uid: u32) -> Usage {
+        self.per_user.get(&uid).cloned().unwrap_or_default()
+    }
+
+    /// What `account` has running against this QOS; absent means nothing at all
+    pub fn account(&self, account: &str) -> Usage {
+        self.per_account.get(account).cloned().unwrap_or_default()
+    }
 }
 
 /// Reads the TRES counter array, which is indexed by the position of each name in
@@ -142,12 +181,13 @@ unsafe fn read_qos(rec: *const slurmdb_qos_rec_t, tres_names: &[String]) -> QosU
     if usage.is_null() {
         return QosUsage {
             name,
-            group: UserUsage::default(),
+            group: Usage::default(),
             per_user: HashMap::new(),
+            per_account: HashMap::new(),
         };
     }
 
-    let group = UserUsage {
+    let group = Usage {
         jobs: unsafe { (*usage).grp_used_jobs },
         submitted_jobs: unsafe { (*usage).grp_used_submit_jobs },
         tres: unsafe { tres_map((*usage).grp_used_tres, tres_names) },
@@ -156,12 +196,18 @@ unsafe fn read_qos(rec: *const slurmdb_qos_rec_t, tres_names: &[String]) -> QosU
     let per_user = unsafe { SlurmIterator::new((*usage).user_limit_list) }
         .map(|entry| {
             let limits = entry as *const slurmdb_used_limits_t;
-            let usage = UserUsage {
-                jobs: unsafe { (*limits).jobs },
-                submitted_jobs: unsafe { (*limits).submit_jobs },
-                tres: unsafe { tres_map((*limits).tres, tres_names) },
-            };
-            (unsafe { (*limits).uid }, usage)
+            (unsafe { (*limits).uid }, unsafe {
+                read_used_limits(limits, tres_names)
+            })
+        })
+        .collect();
+
+    let per_account = unsafe { SlurmIterator::new((*usage).acct_limit_list) }
+        .map(|entry| {
+            let limits = entry as *const slurmdb_used_limits_t;
+            (unsafe { c_str_to_string((*limits).acct) }, unsafe {
+                read_used_limits(limits, tres_names)
+            })
         })
         .collect();
 
@@ -169,5 +215,16 @@ unsafe fn read_qos(rec: *const slurmdb_qos_rec_t, tres_names: &[String]) -> QosU
         name,
         group,
         per_user,
+        per_account,
+    }
+}
+
+/// # Safety
+/// `limits` must point to a valid used-limits record from an association manager reply.
+unsafe fn read_used_limits(limits: *const slurmdb_used_limits_t, tres_names: &[String]) -> Usage {
+    Usage {
+        jobs: unsafe { (*limits).jobs },
+        submitted_jobs: unsafe { (*limits).submit_jobs },
+        tres: unsafe { tres_map((*limits).tres, tres_names) },
     }
 }

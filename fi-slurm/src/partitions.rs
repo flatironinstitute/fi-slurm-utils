@@ -79,23 +79,34 @@ pub struct Partition {
     pub qos: Option<String>,
     allow_accounts: Option<Vec<String>>,
     deny_accounts: Option<Vec<String>>,
+    allow_qos: Option<Vec<String>>,
 }
 
 impl Partition {
     fn from_raw(raw: &partition_info_t) -> Self {
         // Slurm rejects setting both lists on one partition, so at most one is populated
-        let (allow_accounts, deny_accounts) = unsafe {
-            (
-                account_list(raw.allow_accounts),
-                account_list(raw.deny_accounts),
-            )
-        };
+        let (allow_accounts, deny_accounts) =
+            unsafe { (name_list(raw.allow_accounts), name_list(raw.deny_accounts)) };
 
         Self {
             name: unsafe { c_str_to_string(raw.name) },
             qos: unsafe { non_empty(c_str_to_string(raw.qos_char)) },
             allow_accounts,
             deny_accounts,
+            allow_qos: unsafe { name_list(raw.allow_qos) },
+        }
+    }
+
+    /// The QOS a job here is accounted against: the partition's own if it has one, otherwise
+    /// the only one it permits, which leaves it no choice. `None` when neither pins it down.
+    pub fn effective_qos(&self) -> Option<&str> {
+        if let Some(qos) = &self.qos {
+            return Some(qos);
+        }
+
+        match self.allow_qos.as_deref() {
+            Some([only]) => Some(only),
+            _ => None,
         }
     }
 
@@ -114,8 +125,8 @@ impl Partition {
     }
 }
 
-/// Parses a Slurm comma-separated account list, mapping "unrestricted" onto `None`
-unsafe fn account_list(ptr: *const i8) -> Option<Vec<String>> {
+/// Parses one of Slurm's comma-separated name lists, mapping "unrestricted" onto `None`
+unsafe fn name_list(ptr: *const i8) -> Option<Vec<String>> {
     let raw = unsafe { non_empty(c_str_to_string(ptr))? };
     if raw == UNRESTRICTED {
         return None;

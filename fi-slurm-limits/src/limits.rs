@@ -1,4 +1,5 @@
 use colored::Colorize;
+use fi_slurm::assoc_mgr::{QosUsage, get_qos_usage};
 use fi_slurm::parser::parse_slurm_hostlist;
 use fi_slurm::{
     jobs::{
@@ -9,6 +10,7 @@ use fi_slurm::{
 };
 use fi_slurm_db::acct::{PartitionLimits, TresMax, get_tres_info};
 use std::collections::{BTreeMap, HashMap, HashSet};
+use users::get_user_by_name;
 
 const ALWAYS_SHOW: [&str; 2] = ["preempt", "gpupreempt"];
 
@@ -18,41 +20,38 @@ pub fn print_limits(name: &str, show_all: bool) {
         std::process::exit(1);
     });
 
-    let mut jobs_collection = get_jobs().unwrap();
+    // the controller counts usage per uid, so reporting on a user needs theirs
+    let uid = get_user_by_name(name)
+        .map(|user| user.uid())
+        .unwrap_or_else(|| {
+            eprintln!("Could not find a uid for \"{name}\", which the usage counters are keyed by");
+            std::process::exit(1);
+        });
 
-    jobs_collection
-        .jobs
-        .retain(|&_, job| job.job_state == JobState::Running);
+    let usage: HashMap<String, QosUsage> = get_qos_usage(vec![name.to_string()])
+        .unwrap_or_else(|e| {
+            eprintln!("{e}");
+            std::process::exit(1);
+        })
+        .into_iter()
+        .map(|qos| (qos.name.clone(), qos))
+        .collect();
 
-    // Partitions that share a QOS share one set of limits, so they belong on one line:
-    // reported separately, each line would show the whole limit against a fraction of the
-    // usage counted against it. Partitions with no QOS share nothing and stay apart.
+    // Partitions that share a QOS share one set of limits and one set of counters, so they
+    // belong on one line: reported separately, each line would show the whole limit against
+    // a fraction of the usage counted against it. Partitions with no QOS share nothing.
     let mut groups: BTreeMap<String, Group> = BTreeMap::new();
 
     for limits in &partitions {
-        let partition = limits.partition.clone();
-
-        let center_jobs = jobs_collection
-            .clone()
-            .filter_by(FilterMethod::Partition(partition.clone()))
-            .filter_by(FilterMethod::Account(user_acct.clone()));
-
-        let user_jobs = jobs_collection
-            .clone()
-            .filter_by(FilterMethod::Partition(partition.clone()))
-            .filter_by(FilterMethod::UserName(name.to_string()));
-
         let key = match &limits.qos {
             Some(qos) => format!("qos\u{1}{qos}"),
-            None => format!("partition\u{1}{partition}"),
+            None => format!("partition\u{1}{}", limits.partition),
         };
-        let group = groups
+        groups
             .entry(key)
-            .or_insert_with(|| Group::new(limits.clone()));
-
-        group.partitions.push(partition);
-        group.user.add(&user_jobs);
-        group.center.add(&center_jobs);
+            .or_insert_with(|| Group::new(limits.clone()))
+            .partitions
+            .push(limits.partition.clone());
     }
 
     let mut user_usage: Vec<AccountJobUsage> = Vec::new();
@@ -62,18 +61,27 @@ pub fn print_limits(name: &str, show_all: bool) {
         let label = group.label();
         // under -v the QOS the limits actually come from gets a column, since it is not
         // always named after the partitions drawing on it
-        let qos = show_all.then(|| group.limits.qos.clone().unwrap_or_else(|| "-".to_string()));
+        let qos_column =
+            show_all.then(|| group.limits.qos.clone().unwrap_or_else(|| "-".to_string()));
+
+        // a partition with no QOS has nothing counting against it
+        let counted = group.limits.qos.as_deref().and_then(|qos| usage.get(qos));
+        let mine = counted.map(|qos| qos.user(uid)).unwrap_or_default();
+        // the center table is about one account, not everyone sharing the QOS
+        let ours = counted
+            .map(|qos| qos.account(&user_acct))
+            .unwrap_or_default();
 
         let user_max = TresMax::new(group.limits.max_tres_per_user.clone().unwrap_or_default());
         let center_max = TresMax::new(group.limits.max_tres_per_group.clone().unwrap_or_default());
 
         user_usage.push(AccountJobUsage {
             account: label.clone(),
-            qos: qos.clone(),
-            cores: group.user.cores,
-            nodes: group.user.nodes,
-            gpus: group.user.gpus,
-            jobs: group.user.jobs,
+            qos: qos_column.clone(),
+            cores: mine.cores(),
+            nodes: mine.nodes(),
+            gpus: mine.gpus(),
+            jobs: mine.jobs,
             max_cores: user_max.max_cores,
             max_nodes: user_max.max_nodes,
             max_gpus: user_max.max_gpus,
@@ -81,11 +89,11 @@ pub fn print_limits(name: &str, show_all: bool) {
         });
         center_usage.push(AccountJobUsage {
             account: label,
-            qos,
-            cores: group.center.cores,
-            nodes: group.center.nodes,
-            gpus: group.center.gpus,
-            jobs: group.center.jobs,
+            qos: qos_column,
+            cores: ours.cores(),
+            nodes: ours.nodes(),
+            gpus: ours.gpus(),
+            jobs: ours.jobs,
             max_cores: center_max.max_cores,
             max_nodes: center_max.max_nodes,
             max_gpus: center_max.max_gpus,
@@ -135,31 +143,10 @@ pub fn print_limits(name: &str, show_all: bool) {
     print_accounts(&center_usage, &widths, label_title);
 }
 
-/// Running totals over the jobs in one partition
-#[derive(Default)]
-struct Usage {
-    cores: u32,
-    nodes: u32,
-    gpus: u32,
-    jobs: u32,
-}
-
-impl Usage {
-    fn add(&mut self, jobs: &SlurmJobs) {
-        let (nodes, cores) = jobs.get_resource_use();
-        self.cores += cores;
-        self.nodes += nodes;
-        self.gpus += jobs.get_gres_total();
-        self.jobs += jobs.jobs.len() as u32;
-    }
-}
-
-/// The partitions drawing on one QOS, and the usage counted against it
+/// The partitions drawing on one QOS, which therefore share its limits and its counters
 struct Group {
     partitions: Vec<String>,
     limits: PartitionLimits,
-    user: Usage,
-    center: Usage,
 }
 
 impl Group {
@@ -167,8 +154,6 @@ impl Group {
         Self {
             partitions: Vec::new(),
             limits,
-            user: Usage::default(),
-            center: Usage::default(),
         }
     }
 

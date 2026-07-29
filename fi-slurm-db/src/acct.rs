@@ -416,7 +416,10 @@ pub fn get_user_info(
         .collect();
 
     // several partitions can share a QOS, so ask for each name once
-    let mut qos_names: Vec<String> = partitions.iter().filter_map(|p| p.qos.clone()).collect();
+    let mut qos_names: Vec<String> = partitions
+        .iter()
+        .filter_map(|p| p.effective_qos().map(str::to_string))
+        .collect();
     qos_names.sort();
     qos_names.dedup();
 
@@ -452,8 +455,9 @@ pub fn get_tres_info(name: Option<String>) -> Result<(String, Vec<PartitionLimit
     let limits = partitions
         .iter()
         .map(|p| {
-            let record = p.qos.as_deref().and_then(|name| by_name.get(name).copied());
-            PartitionLimits::new(&p.name, p.qos.clone(), record)
+            let qos = p.effective_qos().map(str::to_string);
+            let record = qos.as_deref().and_then(|name| by_name.get(name).copied());
+            PartitionLimits::new(&p.name, qos, record)
         })
         .collect();
 
