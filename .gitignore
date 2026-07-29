@@ -2,3 +2,6 @@
 .DS_Store
 project.md
 .opencode
+
+# Slurm devel headers copied in for bindgen, per-machine rather than vendored
+/fi-slurm-sys/include/
