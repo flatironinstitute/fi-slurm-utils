@@ -17,7 +17,7 @@ RUN dnf install -y dnf-plugins-core && \
     dnf clean all
 
 # Build and install Slurm
-ARG SLURM_VERSION=24.11-latest
+ARG SLURM_VERSION=26.05-latest
 RUN cd /tmp && \
     curl -O https://download.schedmd.com/slurm/slurm-${SLURM_VERSION}.tar.bz2 && \
     tar -xjf slurm-${SLURM_VERSION}.tar.bz2 && \
