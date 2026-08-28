@@ -53,7 +53,7 @@ impl Drop for SlurmConfig {
         // This is guaranteed to be called when the SlurmConfig instance
         // goes out of scope, preventing memory leaks
         unsafe {
-            fi_slurm_sys::slurm_free_ctl_conf(self._ptr);
+            fi_slurm_sys::slurm_free_conf(self._ptr);
         }
         //println!("\nCleaned up Slurm configuration.");
     }
