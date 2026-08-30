@@ -521,14 +521,14 @@ checksum = "37909eebbb50d72f9059c3b6d82c0463f2ff062c9e95845c43a6c9c0355411be"
 
 [[package]]
 name = "fi-job-top"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "fi-slurm",
 ]
 
 [[package]]
 name = "fi-nodes"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "chrono",
  "clap",
@@ -547,7 +547,7 @@ dependencies = [
 
 [[package]]
 name = "fi-prometheus"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "chrono",
  "reqwest",
@@ -557,7 +557,7 @@ dependencies = [
 
 [[package]]
 name = "fi-slurm"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "bitflags",
  "chrono",
@@ -568,7 +568,7 @@ dependencies = [
 
 [[package]]
 name = "fi-slurm-db"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "bitflags",
  "chrono",
@@ -580,7 +580,7 @@ dependencies = [
 
 [[package]]
 name = "fi-slurm-limits"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "clap",
  "colored",
@@ -590,7 +590,7 @@ dependencies = [
 
 [[package]]
 name = "fi-slurm-sys"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "bindgen",
 ]
