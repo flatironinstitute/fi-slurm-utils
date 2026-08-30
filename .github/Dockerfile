@@ -1,8 +1,9 @@
-FROM rockylinux/rockylinux:9.8
+FROM rockylinux/rockylinux:8.10
 
 # Install dependencies for building Slurm and fi-slurm-utils
-RUN dnf install -y dnf-plugins-core && \
-    dnf config-manager --set-enabled crb && \
+RUN dnf update -y && \
+    dnf install -y dnf-plugins-core && \
+    dnf config-manager --set-enabled powertools && \
     dnf install -y \
         bzip2 \
         clang \
@@ -11,18 +12,12 @@ RUN dnf install -y dnf-plugins-core && \
         munge-devel \
         openssl-devel \
         perl \
-        python3.14 \
-        python3.14-pip \
+        python3.12 \
+        python3.12-pip \
         && \
     dnf clean all
 
-# dnf and other system tools are pinned to /usr/bin/python3.9, so expose the
-# newer interpreter as `python3`/`pip3` through a venv on PATH instead.
-ENV VIRTUAL_ENV=/opt/venv
-ENV PATH="${VIRTUAL_ENV}/bin:/root/.cargo/bin:${PATH}"
-RUN python3.14 -m venv ${VIRTUAL_ENV} && \
-    ${VIRTUAL_ENV}/bin/pip install --no-cache-dir --upgrade pip
-
+ENV PATH="/root/.cargo/bin:${PATH}"
 ENV RUSTUP_HOME="/root/.rustup"
 
 # Build and install Slurm
